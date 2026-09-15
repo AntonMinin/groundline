@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+  CREATE ROLE groundline_app LOGIN PASSWORD '${APP_DB_PASSWORD}' NOSUPERUSER NOBYPASSRLS;
+  GRANT CONNECT ON DATABASE ${POSTGRES_DB} TO groundline_app;
+  CREATE DATABASE groundline_test OWNER ${POSTGRES_USER};
+  GRANT CONNECT ON DATABASE groundline_test TO groundline_app;
+EOSQL

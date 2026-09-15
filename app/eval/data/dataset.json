@@ -1,0 +1,22 @@
+[
+  {
+    "question": "How many days per week can I work from home?",
+    "reference": "Employees may work remotely up to three days per week; fully remote work needs written approval from the department head."
+  },
+  {
+    "question": "Сколько дней отпуска можно перенести на следующий год и до какого числа их нужно использовать?",
+    "reference": "Можно перенести до 7 неиспользованных дней, они сгорают 31 марта."
+  },
+  {
+    "question": "When do I need a doctor's certificate?",
+    "reference": "A doctor's certificate is required from the third consecutive day of absence."
+  },
+  {
+    "question": "What is the annual learning budget and does it carry over?",
+    "reference": "The learning budget is 1,200 EUR per year and unused budget does not carry over."
+  },
+  {
+    "question": "How often are laptops replaced?",
+    "reference": "Laptops are replaced every three years."
+  }
+]

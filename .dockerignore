@@ -1,0 +1,9 @@
+.venv
+.venv-eval
+.git
+.env
+frontend
+tests
+**/__pycache__
+.pytest_cache
+eval_results.json

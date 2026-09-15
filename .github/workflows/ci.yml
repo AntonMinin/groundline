@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      migrate:
+        description: Apply Alembic migrations to the production database
+        type: boolean
+        default: false
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: groundline
+          POSTGRES_PASSWORD: groundline
+          POSTGRES_DB: groundline_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U groundline -d groundline_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Create application role
+        run: >-
+          psql postgresql://groundline:groundline@localhost:5433/groundline_test -c
+          "CREATE ROLE groundline_app LOGIN PASSWORD 'groundline_app' NOSUPERUSER NOBYPASSRLS;
+          GRANT CONNECT ON DATABASE groundline_test TO groundline_app;"
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  migrate:
+    if: github.event_name == 'workflow_dispatch' && inputs.migrate
+    needs: backend
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: alembic upgrade head
+        env:
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+          JWT_SECRET: migration-only-placeholder-secret-not-used-at-runtime
