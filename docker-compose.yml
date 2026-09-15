@@ -28,6 +28,7 @@ services:
       COOKIE_DOMAIN: ""
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-local}
       RERANK_PROVIDER: ${RERANK_PROVIDER:-local}
+      PRELOAD_MODELS: ${PRELOAD_MODELS:-true}
     volumes:
       - models:/models
     depends_on:
