@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import replace
 from functools import lru_cache
 
@@ -6,6 +5,7 @@ import httpx
 from langfuse import get_client
 
 from app.config import settings
+from app.inference import run_inference
 from app.retrieval.fusion import RetrievedChunk
 
 PINECONE_API_VERSION = "2025-04"
@@ -59,7 +59,8 @@ async def rerank(query: str, chunks: list[RetrievedChunk], top_k: int = settings
         if settings.rerank_provider == "api":
             scores = await _score_api(query, chunks)
         else:
-            scores = await asyncio.get_running_loop().run_in_executor(None, _score_local, query, chunks)
+            scores, waited_ms = await run_inference(_score_local, query, chunks)
+            observation.update(metadata={"provider": "local", "lock_wait_ms": round(waited_ms)})
         ranked = sorted(
             (replace(chunk, score=score) for chunk, score in zip(chunks, scores)), key=lambda c: c.score, reverse=True
         )[:top_k]

@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     events_queue_size: int = 200
     events_max_subscribers: int = 5
 
+    torch_num_threads: int = 0
+
     ingest_workers: int = 1
     ingest_queue_size: int = 100
 

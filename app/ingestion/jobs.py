@@ -29,6 +29,11 @@ class IngestTask:
 
 _queue: asyncio.Queue[IngestTask] = asyncio.Queue(maxsize=settings.ingest_queue_size)
 _workers: list[asyncio.Task] = []
+_running = 0
+
+
+def pending() -> int:
+    return _queue.qsize() + _running
 
 
 async def _update(job_id: UUID, user_id: UUID, **values) -> None:
@@ -53,6 +58,8 @@ async def _update(job_id: UUID, user_id: UUID, **values) -> None:
 
 
 async def _process(task: IngestTask) -> None:
+    global _running
+    _running += 1
     await _update(task.job_id, task.user_id, status="processing")
     try:
         document = await ingest_from_path(task.user_id, task.filename, task.path)
@@ -71,6 +78,7 @@ async def _process(task: IngestTask) -> None:
             task.job_id, task.user_id, status="error", error="Internal error", finished_at=datetime.now(UTC)
         )
     finally:
+        _running -= 1
         with contextlib.suppress(OSError):
             os.unlink(task.path)
 

@@ -242,6 +242,7 @@ The dataset is a JSON list of `{question, reference}`. The script bypasses the c
 | `RETRIEVAL_CANDIDATES` / `RERANK_TOP_K` / `MAX_REWRITES` | `20` / `5` / `2` | pipeline tuning |
 | `QUERIES_PER_DAY` / `MAX_DOCUMENTS` / `MAX_STORAGE_MB` / `MAX_UPLOAD_MB` | `50` / `100` / `200` / `20` | per-user quotas |
 | `INGEST_WORKERS` / `INGEST_QUEUE_SIZE` | `1` / `100` | background ingest concurrency; keep it low on small instances, embedding a large PDF is the memory peak |
+| `TORCH_NUM_THREADS` | `0` (torch default) | cap intra-op threads for the local models; set it below the core count when the instance also serves requests |
 | `EVENTS_HEARTBEAT_SECONDS` / `EVENTS_QUEUE_SIZE` / `EVENTS_MAX_SUBSCRIBERS` | `15` / `200` / `5` | `/events` keep-alive, per-subscriber buffer, streams per user |
 
 Local and hosted bge-m3 produce the same vectors (same weights), so switching `EMBEDDING_PROVIDER` does not require re-indexing.
@@ -313,6 +314,20 @@ No `vercel.json` is needed: the UI is a plain Vite SPA without client-side route
 2. Create an API key and set `RESEND_API_KEY` and `RESEND_FROM=Groundline <login@example.com>` on Render.
 
 Without a verified domain Resend only delivers to the account owner's address.
+
+## Local models and CPU contention
+
+With `EMBEDDING_PROVIDER=local` / `RERANK_PROVIDER=local`, both the query path and the background ingest worker run torch in the same process, and each call defaults to using every core. Two of them at once oversubscribe the CPU: a rerank that normally takes under a second was measured at 83 seconds while a document was being indexed.
+
+`app/inference.py` serializes local model calls behind one lock and one dedicated worker thread, so ingestion and a live query never run inference at the same time. Ingestion takes the lock one embedding batch at a time (`EMBEDDING_BATCH_SIZE`), so a query waits for a single batch rather than a whole document. `TORCH_NUM_THREADS` caps intra-op threads on top of that.
+
+Every query logs the queue state, so a slow answer can be attributed after the fact:
+
+```
+INFO app.graph.pipeline cache lookup … ingest_pending=1 inference_waiting=1 question=…
+```
+
+`ingest_pending` counts queued plus running ingest jobs; `inference_waiting` counts callers holding or waiting for the inference lock. A call that waits more than a second for the lock logs its own line, and the wait is attached to the LangFuse span as `lock_wait_ms`. Hosted providers (`api`) sidestep all of this, which is what the Render deployment uses.
 
 ## Security notes
 

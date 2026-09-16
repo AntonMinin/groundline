@@ -1,10 +1,10 @@
-import asyncio
 from functools import lru_cache
 
 from langfuse import get_client
 from openai import AsyncOpenAI
 
 from app.config import settings
+from app.inference import run_inference
 
 
 @lru_cache
@@ -25,8 +25,17 @@ def _api_client() -> AsyncOpenAI:
 
 
 def _encode_local(texts: list[str]) -> list[list[float]]:
-    vectors = get_model().encode(texts, batch_size=settings.embedding_batch_size, normalize_embeddings=True)
-    return vectors.tolist()
+    return get_model().encode(texts, batch_size=settings.embedding_batch_size, normalize_embeddings=True).tolist()
+
+
+async def _encode_local_batched(texts: list[str]) -> tuple[list[list[float]], float]:
+    vectors: list[list[float]] = []
+    waited_ms = 0.0
+    for start in range(0, len(texts), settings.embedding_batch_size):
+        batch, waited = await run_inference(_encode_local, texts[start : start + settings.embedding_batch_size])
+        vectors.extend(batch)
+        waited_ms = max(waited_ms, waited)
+    return vectors, waited_ms
 
 
 async def _encode_api(texts: list[str]) -> tuple[list[list[float]], int]:
@@ -55,6 +64,7 @@ async def embed(texts: list[str], name: str = "embed") -> list[list[float]]:
             vectors, tokens = await _encode_api(texts)
             observation.update(usage_details={"input": tokens})
         else:
-            vectors = await asyncio.get_running_loop().run_in_executor(None, _encode_local, texts)
+            vectors, waited_ms = await _encode_local_batched(texts)
+            observation.update(metadata={"provider": "local", "lock_wait_ms": round(waited_ms)})
         observation.update(output={"count": len(vectors), "dim": len(vectors[0]) if vectors else 0})
         return vectors

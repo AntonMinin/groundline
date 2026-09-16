@@ -11,6 +11,7 @@ from langfuse import get_client
 from sqlalchemy.exc import InterfaceError, OperationalError
 from sqlalchemy.exc import TimeoutError as PoolTimeout
 
+from app import inference
 from app.api.routes import router
 from app.auth.service import AuthError
 from app.config import settings
@@ -25,6 +26,7 @@ log = logging.getLogger("groundline")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    inference.configure_torch()
     if settings.preload_models:
         loaders = []
         if settings.embedding_provider == "local":
@@ -35,6 +37,7 @@ async def lifespan(app: FastAPI):
     await jobs.start_workers()
     yield
     await jobs.stop_workers()
+    inference.shutdown()
     get_client().shutdown()
 
 

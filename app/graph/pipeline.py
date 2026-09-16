@@ -11,10 +11,11 @@ from langfuse import get_client, propagate_attributes
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import StreamWriter
 
-from app import events, llm
+from app import events, inference, llm
 from app.config import settings
 from app.embeddings import embed
 from app.graph import prompts, store
+from app.ingestion import jobs
 from app.ingestion.chunking import count_tokens
 from app.retrieval.fusion import RetrievedChunk
 from app.retrieval.rerank import rerank
@@ -54,11 +55,14 @@ async def check_cache(state: QueryState, writer: StreamWriter) -> QueryState:
     cached = nearest if nearest and nearest.similarity >= threshold else None
 
     log.info(
-        "cache lookup user=%s hit=%s similarity=%s threshold=%.4f question=%r nearest=%r",
+        "cache lookup user=%s hit=%s similarity=%s threshold=%.4f ingest_pending=%d inference_waiting=%d "
+        "question=%r nearest=%r",
         state["user_id"],
         cached is not None,
         f"{similarity:.4f}" if similarity is not None else "no-entries",
         threshold,
+        jobs.pending(),
+        inference.waiting(),
         state["question"],
         nearest.question if nearest else None,
     )
