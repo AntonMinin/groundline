@@ -38,15 +38,16 @@ services:
       - "8000:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 15s
+      interval: 10s
       timeout: 5s
-      retries: 40
-      start_period: 120s
+      retries: 60
+      start_period: 300s
 
   frontend:
     build: ./frontend
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "5173:80"
 
