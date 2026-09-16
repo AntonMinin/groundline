@@ -2,6 +2,7 @@ import asyncio
 import functools
 import json
 import logging
+import time
 from collections.abc import AsyncIterator
 from typing import TypedDict
 from uuid import UUID
@@ -36,6 +37,7 @@ class QueryState(TypedDict, total=False):
     answer: str
     sources: list[dict]
     cache_hit: bool
+    cache_similarity: float | None
     tokens_used: int
     tokens_saved: int
 
@@ -46,7 +48,21 @@ def _source(chunk: RetrievedChunk) -> dict:
 
 async def check_cache(state: QueryState, writer: StreamWriter) -> QueryState:
     [embedding] = await embed([state["question"]], name="embed_question")
-    cached = await store.find_cached(state["user_id"], embedding) if state.get("use_cache", True) else None
+    nearest = await store.find_nearest(state["user_id"], embedding) if state.get("use_cache", True) else None
+    threshold = settings.cache_similarity_threshold
+    similarity = nearest.similarity if nearest else None
+    cached = nearest if nearest and nearest.similarity >= threshold else None
+
+    log.info(
+        "cache lookup user=%s hit=%s similarity=%s threshold=%.4f question=%r nearest=%r",
+        state["user_id"],
+        cached is not None,
+        f"{similarity:.4f}" if similarity is not None else "no-entries",
+        threshold,
+        state["question"],
+        nearest.question if nearest else None,
+    )
+
     langfuse = get_client()
     with langfuse.start_as_current_observation(name="check_cache", input={"question": state["question"]}) as span:
         span.update(
@@ -54,16 +70,25 @@ async def check_cache(state: QueryState, writer: StreamWriter) -> QueryState:
             metadata={
                 "cache_hit": cached is not None,
                 "tokens_saved": cached.tokens_used if cached else 0,
-                "similarity": round(cached.similarity, 4) if cached else None,
-                "threshold": settings.cache_similarity_threshold,
+                "similarity": round(similarity, 4) if similarity is not None else None,
+                "nearest_question": nearest.question if nearest else None,
+                "threshold": threshold,
             },
         )
     if cached is None:
-        return {"question_embedding": embedding, "cache_hit": False, "attempt": 0, "tokens_used": 0, "chunks": []}
+        return {
+            "question_embedding": embedding,
+            "cache_hit": False,
+            "cache_similarity": similarity,
+            "attempt": 0,
+            "tokens_used": 0,
+            "chunks": [],
+        }
     langfuse.score_current_trace(name="cache_hit", value=1, data_type="BOOLEAN")
     writer({"type": "token", "text": cached.answer})
     return {
         "cache_hit": True,
+        "cache_similarity": similarity,
         "answer": cached.answer,
         "sources": cached.sources,
         "tokens_used": 0,
@@ -157,6 +182,8 @@ async def record(state: QueryState, writer: StreamWriter) -> QueryState:
             "type": "done",
             "sources": state["sources"],
             "cache_hit": state["cache_hit"],
+            "cache_similarity": state.get("cache_similarity"),
+            "cache_threshold": settings.cache_similarity_threshold,
             "tokens_used": state["tokens_used"],
             "tokens_saved": state["tokens_saved"],
         }
@@ -170,6 +197,7 @@ def _instrumented(name: str, node):
         user_id = state["user_id"]
         events.publish(user_id, {"type": "node_started", "node": name})
         before = state.get("tokens_used", 0)
+        started = time.perf_counter()
         result = await node(state, **kwargs)
         cache_hit = result.get("cache_hit", state.get("cache_hit", False))
         events.publish(
@@ -180,6 +208,8 @@ def _instrumented(name: str, node):
                 "cache_hit": bool(cache_hit),
                 "tokens": max(result.get("tokens_used", before) - before, 0),
                 "tokens_saved": result.get("tokens_saved", 0) if name == "check_cache" else 0,
+                "similarity": result.get("cache_similarity") if name == "check_cache" else None,
+                "duration_ms": round((time.perf_counter() - started) * 1000),
             },
         )
         return result

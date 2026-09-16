@@ -46,8 +46,8 @@ async def test_query_cache_is_per_user(make_user):
         tokens_saved=0,
         cache_embedding=fake_embedding(3),
     )
-    assert (await store.find_cached(owner.id, fake_embedding(3))).answer == "owner answer"
-    assert await store.find_cached(stranger.id, fake_embedding(3)) is None
+    assert (await store.find_nearest(owner.id, fake_embedding(3))).answer == "owner answer"
+    assert await store.find_nearest(stranger.id, fake_embedding(3)) is None
     assert (await store.query_stats(stranger.id))["total_queries"] == 0
 
 

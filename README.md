@@ -6,6 +6,25 @@ RAG application whose answers are grounded in the user's own documents: hybrid s
 
 Before any LLM call, the question is embedded and compared with questions this user has already had answered (`query_cache`, cosine similarity ≥ `CACHE_SIMILARITY_THRESHOLD`, default 0.95). A hit returns the stored answer and sources immediately with **zero Groq calls**; LangFuse records `cache_hit=true` and `tokens_saved`. The cache is invalidated whenever the user's documents change.
 
+### Choosing the threshold with measurements
+
+Every query logs the cosine similarity to the nearest cached question, whether or not it cleared the threshold, so the value can be tuned against real paraphrases instead of guessed:
+
+```
+INFO app.graph.pipeline cache lookup user=… hit=False similarity=0.9126 threshold=0.9500
+     question='How many days can I work remotely?' nearest='How many days per week can I work from home?'
+```
+
+The same numbers reach the `done` event of `/query` (`cache_similarity`, `cache_threshold`), the `check_cache` node event, and the LangFuse span metadata. To collect a batch:
+
+```bash
+python app/eval/cache_probe.py questions.txt        # one question per line, or a JSON list
+```
+
+It prints HIT/MISS with the similarity for each question and the observed ranges, which bracket the threshold: set it above the highest similarity that produced a wrong hit and below the lowest that produced a miss you wanted to hit.
+
+### Live numbers
+
 The UI shows the live **cache hit rate** and **total tokens saved**; the same numbers are available from the API:
 
 ```bash
@@ -117,14 +136,15 @@ data: {"type": "node_started", "node": "retrieve", "timestamp": "2026-09-16T05:1
 
 event: node_finished
 data: {"type": "node_finished", "node": "generate_answer", "cache_hit": false, "tokens": 807,
-       "tokens_saved": 0, "timestamp": "2026-09-16T05:12:04.980Z"}
+       "tokens_saved": 0, "duration_ms": 1866, "similarity": null,
+       "timestamp": "2026-09-16T05:12:04.980Z"}
 
 event: ingest
 data: {"type": "ingest", "job_id": "…", "filename": "handbook.md", "status": "done",
        "error": null, "document_id": "…", "timestamp": "2026-09-16T05:11:40.002Z"}
 ```
 
-The UI subscribes once and drives two live visuals from this stream: a cumulative chart of tokens spent on the LLM against tokens saved by the cache, and a pipeline diagram that lights up the active step (red for steps that call the LLM, blue for the cache-hit path) and fades two seconds after the step finishes. There is no polling anywhere in the project: `/query` streams tokens, `/events` streams everything else.
+The UI subscribes once and drives two live visuals from this stream: a cumulative chart of tokens spent on the LLM against tokens saved by the cache, and a pipeline diagram that lights up the active step (red for steps that call the LLM, blue for the cache-hit path) and then keeps the finished run on screen — each node shows its own wall-clock time and token cost until the next question starts. There is no polling anywhere in the project: `/query` streams tokens, `/events` streams everything else.
 
 The channel is in-process: one instance serves both the SSE connection and the query, which fits the single-instance Render deployment. Scaling out horizontally requires a shared bus (Postgres `LISTEN`/`NOTIFY` fits without extra infrastructure) and changes only `app/events.py`.
 

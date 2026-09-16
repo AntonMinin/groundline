@@ -56,7 +56,8 @@ th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e5e5e5; }
 .tick { font-size: 11px; fill: #6b6b6b; font-variant-numeric: tabular-nums; }
 .end-label { font-size: 12px; fill: #1d1d1f; font-variant-numeric: tabular-nums; }
 .node-label { font-size: 13px; fill: #1d1d1f; }
-.node-box { transition: fill 0.4s ease, stroke 0.4s ease; }
+.node-metric { font-size: 11px; fill: #6b6b6b; font-variant-numeric: tabular-nums; }
+.run-summary { font-size: 0.85rem; margin: 0 0 8px; font-variant-numeric: tabular-nums; }
 .diagram-wrap { overflow-x: auto; }
 .diagram-wrap svg { min-width: 100%; }
 .chat { display: flex; flex-direction: column; min-height: 60vh; }

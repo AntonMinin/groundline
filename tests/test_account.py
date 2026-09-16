@@ -56,7 +56,7 @@ async def test_clear_cache_keeps_documents_and_history(client, make_user):
     await _record(user.id, cache_embedding=fake_embedding(51))
 
     assert (await client.delete("/cache", headers=auth_headers(user.id))).status_code == 204
-    assert await store.find_cached(user.id, fake_embedding(51)) is None
+    assert await store.find_nearest(user.id, fake_embedding(51)) is None
     assert len((await client.get("/documents", headers=auth_headers(user.id))).json()) == 1
     assert len((await client.get("/history", headers=auth_headers(user.id))).json()) == 1
 
@@ -67,7 +67,7 @@ async def test_clear_history_keeps_cache(client, make_user):
 
     assert (await client.delete("/history", headers=auth_headers(user.id))).status_code == 204
     assert (await client.get("/history", headers=auth_headers(user.id))).json() == []
-    assert (await store.find_cached(user.id, fake_embedding(52))).answer == "a"
+    assert (await store.find_nearest(user.id, fake_embedding(52))).answer == "a"
 
 
 async def test_delete_all_documents_also_invalidates_cache(client, make_user):
@@ -78,7 +78,7 @@ async def test_delete_all_documents_also_invalidates_cache(client, make_user):
 
     assert (await client.delete("/documents", headers=auth_headers(user.id))).status_code == 204
     assert (await client.get("/documents", headers=auth_headers(user.id))).json() == []
-    assert await store.find_cached(user.id, fake_embedding(53)) is None
+    assert await store.find_nearest(user.id, fake_embedding(53)) is None
     assert len((await client.get("/documents", headers=auth_headers(other.id))).json()) == 1
 
 

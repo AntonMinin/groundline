@@ -18,7 +18,7 @@ class CachedAnswer:
     similarity: float
 
 
-async def find_cached(user_id: UUID, embedding: list[float]) -> CachedAnswer | None:
+async def find_nearest(user_id: UUID, embedding: list[float]) -> CachedAnswer | None:
     distance = QueryCache.question_embedding.cosine_distance(embedding).label("distance")
     async with tenant_session(user_id) as session:
         row = (
@@ -28,11 +28,8 @@ async def find_cached(user_id: UUID, embedding: list[float]) -> CachedAnswer | N
         ).first()
     if row is None:
         return None
-    similarity = 1 - row.distance
-    if similarity < settings.cache_similarity_threshold:
-        return None
     cached = row.QueryCache
-    return CachedAnswer(cached.question_text, cached.answer_text, cached.sources, cached.tokens_used, similarity)
+    return CachedAnswer(cached.question_text, cached.answer_text, cached.sources, cached.tokens_used, 1 - row.distance)
 
 
 async def record_query(

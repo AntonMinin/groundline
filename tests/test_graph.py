@@ -39,7 +39,7 @@ def fakes(monkeypatch):
         for token in ["Paris ", "[1]"]:
             yield token
 
-    async def find_cached(user_id, embedding):
+    async def find_nearest(user_id, embedding):
         return state["cached"]
 
     async def record_query(**kwargs):
@@ -50,7 +50,7 @@ def fakes(monkeypatch):
     monkeypatch.setattr(pipeline, "rerank", rerank)
     monkeypatch.setattr(pipeline.llm, "complete", complete)
     monkeypatch.setattr(pipeline.llm, "stream", stream)
-    monkeypatch.setattr(pipeline.store, "find_cached", find_cached)
+    monkeypatch.setattr(pipeline.store, "find_nearest", find_nearest)
     monkeypatch.setattr(pipeline.store, "record_query", record_query)
     return calls, state
 
@@ -126,6 +126,7 @@ async def test_pipeline_publishes_node_events(fakes):
     assert finished["generate_answer"]["tokens"] > 0
     assert finished["retrieve"]["tokens"] == 0
     assert all("timestamp" in event for event in published)
+    assert all(event["duration_ms"] >= 0 for event in finished.values())
 
 
 async def test_cache_hit_publishes_saved_tokens(fakes):
@@ -145,6 +146,27 @@ async def test_cache_hit_publishes_saved_tokens(fakes):
     check_cache = next(e for e in published if e["type"] == "node_finished" and e["node"] == "check_cache")
     assert check_cache["cache_hit"] is True and check_cache["tokens_saved"] == 1234
     assert [e["node"] for e in published if e["type"] == "node_started"] == ["check_cache", "record"]
+
+
+async def test_similarity_below_threshold_is_a_miss_but_is_still_reported(fakes):
+    from app import events
+
+    calls, state = fakes
+    state["cached"] = CachedAnswer("q", "cached", [], 1234, 0.8123)
+    user_id = uuid.uuid4()
+    queue = events.subscribe(user_id)
+    try:
+        collected = [event async for event in pipeline.run_query(user_id, "What is the capital of France?")]
+        published = [queue.get_nowait() for _ in range(queue.qsize())]
+    finally:
+        events.unsubscribe(user_id, queue)
+
+    assert collected[-1]["cache_hit"] is False
+    assert collected[-1]["cache_similarity"] == 0.8123
+    assert collected[-1]["cache_threshold"] == 0.95
+    assert calls["stream"] == 1
+    check_cache = next(e for e in published if e["type"] == "node_finished" and e["node"] == "check_cache")
+    assert check_cache["similarity"] == 0.8123 and check_cache["cache_hit"] is False
 
 
 async def test_llm_errors_propagate(fakes, monkeypatch):
