@@ -65,7 +65,7 @@ export const api = {
   deleteAllDocuments: () => request('/documents', { method: 'DELETE' }),
   clearCache: () => request('/cache', { method: 'DELETE' }),
   clearHistory: () => request('/history', { method: 'DELETE' }),
-  history: () => request('/history?limit=20').then((r) => r.json()),
+  history: (limit = 20) => request(`/history?limit=${limit}`).then((r) => r.json()),
   async *query(question) {
     const response = await request('/query', { method: 'POST', json: { question } })
     yield* parseEvents(response)

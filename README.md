@@ -144,7 +144,9 @@ data: {"type": "ingest", "job_id": "…", "filename": "handbook.md", "status": "
        "error": null, "document_id": "…", "timestamp": "2026-09-16T05:11:40.002Z"}
 ```
 
-The UI subscribes once and drives two live visuals from this stream: a cumulative chart of tokens spent on the LLM against tokens saved by the cache, and a pipeline diagram that lights up the active step (red for steps that call the LLM, blue for the cache-hit path) and then keeps the finished run on screen — each node shows its own wall-clock time and token cost until the next question starts. There is no polling anywhere in the project: `/query` streams tokens, `/events` streams everything else.
+The UI subscribes once and drives two live visuals from this stream: a cumulative chart of tokens spent on the LLM against tokens saved by the cache, and a pipeline diagram that lights up the active step (red for steps that call the LLM, blue for the cache-hit path) and then keeps the finished run on screen — each node shows its own wall-clock time and token cost until the next question starts.
+
+Neither visual starts empty after a page reload. Per-node timings are stored with every query in `query_log.node_metrics`, so `GET /history` returns both the token totals and the per-step numbers: the chart replays the whole history as a cumulative series and then continues from live events, and the diagram restores the most recent run (labelled *Previous query*) until the next question replaces it. There is no polling anywhere in the project: `/query` streams tokens, `/events` streams everything else.
 
 The channel is in-process: one instance serves both the SSE connection and the query, which fits the single-instance Render deployment. Scaling out horizontally requires a shared bus (Postgres `LISTEN`/`NOTIFY` fits without extra infrastructure) and changes only `app/events.py`.
 

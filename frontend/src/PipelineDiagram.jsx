@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { api } from './api.js'
 import { onEvent } from './events.js'
 
 const LLM = '#c0392b'
@@ -23,15 +24,51 @@ function formatDuration(ms) {
 }
 
 export default function PipelineDiagram() {
-  const [run, setRun] = useState({ nodes: {}, cacheHit: false, similarity: null, started: false })
+  const [run, setRun] = useState({ nodes: {}, cacheHit: false, similarity: null, started: false, restored: false })
+
+  useEffect(() => {
+    api
+      .history(1)
+      .then(([last]) => {
+        if (!last?.node_metrics?.length) return
+        setRun((current) => {
+          if (current.started) return current
+          const nodes = {}
+          last.node_metrics.forEach((metric) => {
+            nodes[metric.node] = {
+              state: 'done',
+              durationMs: metric.duration_ms,
+              tokens: metric.tokens,
+              tokensSaved: metric.tokens_saved,
+              cacheHit: Boolean(metric.cache_hit),
+            }
+          })
+          const check = last.node_metrics.find((metric) => metric.node === 'check_cache')
+          return {
+            nodes,
+            cacheHit: Boolean(last.cache_hit),
+            similarity: check?.similarity ?? null,
+            started: true,
+            restored: true,
+          }
+        })
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(
     () =>
       onEvent((event) => {
         if (event.type === 'node_started') {
           setRun((current) => {
-            const fresh = event.node === 'check_cache' ? { nodes: {}, cacheHit: false, similarity: null } : current
-            return { ...fresh, started: true, nodes: { ...fresh.nodes, [event.node]: { state: 'running' } } }
+            const fresh =
+              event.node === 'check_cache' ? { nodes: {}, cacheHit: false, similarity: null } : current
+            return {
+              ...fresh,
+              started: true,
+              restored: false,
+              nodes: { ...fresh.nodes, [event.node]: { state: 'running' } },
+            }
           })
         }
         if (event.type === 'node_finished') {
@@ -80,7 +117,7 @@ export default function PipelineDiagram() {
       </ul>
       <p className="muted run-summary">
         {run.started
-          ? `Last query: ${formatDuration(totals.ms)} · ${totals.tokens.toLocaleString()} tokens spent` +
+          ? `${run.restored ? 'Previous query' : 'Last query'}: ${formatDuration(totals.ms)} · ${totals.tokens.toLocaleString()} tokens spent` +
             (run.cacheHit ? ` · ${totals.saved.toLocaleString()} saved by cache` : '') +
             (run.similarity !== null ? ` · nearest cached question ${run.similarity.toFixed(4)}` : '')
           : 'Ask a question to see per-step timings here.'}

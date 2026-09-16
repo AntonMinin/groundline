@@ -61,6 +61,29 @@ async def test_clear_cache_keeps_documents_and_history(client, make_user):
     assert len((await client.get("/history", headers=auth_headers(user.id))).json()) == 1
 
 
+async def test_history_carries_tokens_and_node_metrics(client, make_user):
+    user = await make_user()
+    metrics = [
+        {"node": "check_cache", "duration_ms": 110, "tokens": 0, "tokens_saved": 0, "cache_hit": False, "similarity": 0.81},
+        {"node": "rerank", "duration_ms": 780, "tokens": 0, "tokens_saved": 0, "cache_hit": False, "similarity": None},
+    ]
+    await store.record_query(
+        user_id=user.id,
+        question="q",
+        answer="a",
+        sources=[],
+        cache_hit=False,
+        tokens_used=807,
+        tokens_saved=0,
+        cache_embedding=None,
+        node_metrics=metrics,
+    )
+
+    [row] = (await client.get("/history", headers=auth_headers(user.id))).json()
+    assert row["tokens_used"] == 807
+    assert row["node_metrics"] == metrics
+
+
 async def test_clear_history_keeps_cache(client, make_user):
     user = await make_user()
     await _record(user.id, cache_embedding=fake_embedding(52))

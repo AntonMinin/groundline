@@ -70,6 +70,18 @@ async def test_happy_path_streams_tokens_and_caches(fakes):
     assert calls["recorded"][0]["cache_embedding"] is not None
     assert calls["recorded"][0]["tokens_used"] > 0
 
+    metrics = calls["recorded"][0]["node_metrics"]
+    assert [metric["node"] for metric in metrics] == [
+        "check_cache",
+        "rewrite_query",
+        "retrieve",
+        "rerank",
+        "check_sufficiency",
+        "generate_answer",
+    ]
+    assert all(metric["duration_ms"] >= 0 for metric in metrics)
+    assert next(metric for metric in metrics if metric["node"] == "generate_answer")["tokens"] > 0
+
 
 async def test_insufficient_context_retries_at_most_twice(fakes):
     calls, state = fakes

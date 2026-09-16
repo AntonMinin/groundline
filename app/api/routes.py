@@ -252,7 +252,9 @@ async def history(user: CurrentUser, limit: int = 50) -> list[dict]:
                 "answer": row.answer,
                 "sources": row.sources,
                 "cache_hit": row.cache_hit,
+                "tokens_used": row.tokens_used,
                 "tokens_saved": row.tokens_saved,
+                "node_metrics": row.node_metrics,
                 "created_at": row.created_at.isoformat(),
             }
             for row in rows

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { api } from './api.js'
 import { onEvent } from './events.js'
 
 const SPENT = '#c0392b'
@@ -20,6 +21,25 @@ function path(points, x, y, key) {
 export default function SavingsChart() {
   const [points, setPoints] = useState([])
   const [hover, setHover] = useState(null)
+
+  useEffect(() => {
+    api
+      .history(200)
+      .then((rows) => {
+        let spent = 0
+        let saved = 0
+        const restored = [...rows].reverse().map((row) => {
+          spent += row.tokens_used
+          saved += row.tokens_saved
+          return { spent, saved, node: row.cache_hit ? 'cache hit' : 'query' }
+        })
+        setPoints((live) => {
+          const offset = restored[restored.length - 1] ?? { spent: 0, saved: 0 }
+          return [...restored, ...live.map((p) => ({ ...p, spent: p.spent + offset.spent, saved: p.saved + offset.saved }))]
+        })
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(
     () =>

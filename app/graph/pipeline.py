@@ -2,9 +2,10 @@ import asyncio
 import functools
 import json
 import logging
+import operator
 import time
 from collections.abc import AsyncIterator
-from typing import TypedDict
+from typing import Annotated, TypedDict
 from uuid import UUID
 
 from langfuse import get_client, propagate_attributes
@@ -39,6 +40,7 @@ class QueryState(TypedDict, total=False):
     sources: list[dict]
     cache_hit: bool
     cache_similarity: float | None
+    node_metrics: Annotated[list[dict], operator.add]
     tokens_used: int
     tokens_saved: int
 
@@ -180,6 +182,7 @@ async def record(state: QueryState, writer: StreamWriter) -> QueryState:
         tokens_used=state["tokens_used"],
         tokens_saved=state["tokens_saved"],
         cache_embedding=state["question_embedding"] if cacheable else None,
+        node_metrics=state.get("node_metrics", []),
     )
     writer(
         {
@@ -204,19 +207,16 @@ def _instrumented(name: str, node):
         started = time.perf_counter()
         result = await node(state, **kwargs)
         cache_hit = result.get("cache_hit", state.get("cache_hit", False))
-        events.publish(
-            user_id,
-            {
-                "type": "node_finished",
-                "node": name,
-                "cache_hit": bool(cache_hit),
-                "tokens": max(result.get("tokens_used", before) - before, 0),
-                "tokens_saved": result.get("tokens_saved", 0) if name == "check_cache" else 0,
-                "similarity": result.get("cache_similarity") if name == "check_cache" else None,
-                "duration_ms": round((time.perf_counter() - started) * 1000),
-            },
-        )
-        return result
+        metric = {
+            "node": name,
+            "cache_hit": bool(cache_hit),
+            "tokens": max(result.get("tokens_used", before) - before, 0),
+            "tokens_saved": result.get("tokens_saved", 0) if name == "check_cache" else 0,
+            "similarity": result.get("cache_similarity") if name == "check_cache" else None,
+            "duration_ms": round((time.perf_counter() - started) * 1000),
+        }
+        events.publish(user_id, {"type": "node_finished", **metric})
+        return {**result, "node_metrics": [metric]}
 
     return wrapper
 

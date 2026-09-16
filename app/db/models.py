@@ -143,4 +143,5 @@ class QueryLog(Base):
     cache_hit: Mapped[bool] = mapped_column(Boolean, default=False)
     tokens_used: Mapped[int] = mapped_column(Integer, default=0)
     tokens_saved: Mapped[int] = mapped_column(Integer, default=0)
+    node_metrics: Mapped[list] = mapped_column(JSONB, default=list)
     created_at: Mapped[datetime] = _created_at()

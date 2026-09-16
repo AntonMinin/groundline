@@ -41,6 +41,7 @@ async def record_query(
     tokens_used: int,
     tokens_saved: int,
     cache_embedding: list[float] | None,
+    node_metrics: list[dict] | None = None,
 ) -> None:
     async with tenant_session(user_id) as session:
         session.add(
@@ -52,6 +53,7 @@ async def record_query(
                 cache_hit=cache_hit,
                 tokens_used=tokens_used,
                 tokens_saved=tokens_saved,
+                node_metrics=node_metrics or [],
             )
         )
         if cache_embedding is not None:

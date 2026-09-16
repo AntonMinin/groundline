@@ -51,8 +51,8 @@ export default function App() {
       </header>
       <StatsBar stats={stats} />
       <div className="visuals">
-        <SavingsChart />
-        <PipelineDiagram />
+        <SavingsChart key={`chart-${resetKey}`} />
+        <PipelineDiagram key={`diagram-${resetKey}`} />
       </div>
       <div hidden={tab !== 'chat'}>
         <Chat key={resetKey} onAnswered={refreshStats} />
