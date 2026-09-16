@@ -1,28 +1,35 @@
+import asyncio
+import contextlib
 import json
 import logging
+import os
+import tempfile
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
 import httpx
 import openai
-from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile, status
+from fastapi import APIRouter, File, Header, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import delete, select
 
+from app import events
 from app.auth import service as auth
 from app.auth.deps import CurrentUser, Session
 from app.config import settings
-from app.db.models import Document, OtpCode, QueryCache, QueryLog, User
+from app.db.models import Document, IngestJob, OtpCode, QueryCache, QueryLog, User
 from app.db.session import tenant_session
 from app.graph import store
 from app.graph.pipeline import run_query
-from app.ingestion.service import ingest_file
+from app.ingestion import jobs
+from app.ingestion.extract import check_extension
 from app.retrieval.search import user_has_chunks
 
 log = logging.getLogger(__name__)
 router = APIRouter()
+UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 
 class EmailIn(BaseModel):
@@ -45,6 +52,15 @@ class DocumentOut(BaseModel):
     filename: str
     chunk_count: int
     size_bytes: int
+    created_at: datetime
+
+
+class JobOut(BaseModel):
+    id: UUID
+    filename: str
+    status: str
+    error: str | None = None
+    document_id: UUID | None = None
     created_at: datetime
 
 
@@ -114,19 +130,67 @@ async def stats(user: CurrentUser) -> dict:
     }
 
 
-@router.post("/ingest", status_code=status.HTTP_201_CREATED)
-async def ingest(user: CurrentUser, file: Annotated[UploadFile, File()]) -> DocumentOut:
+async def _spool_upload(file: UploadFile, extension: str) -> tuple[str, int]:
     limit = settings.max_upload_mb * 1024 * 1024
-    data = await file.read(limit + 1)
-    if len(data) > limit:
-        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, f"File exceeds {settings.max_upload_mb} MB")
+    descriptor, path = tempfile.mkstemp(suffix=extension)
+    size = 0
+    try:
+        with os.fdopen(descriptor, "wb") as target:
+            while chunk := await file.read(UPLOAD_CHUNK_BYTES):
+                size += len(chunk)
+                if size > limit:
+                    raise HTTPException(
+                        status.HTTP_413_CONTENT_TOO_LARGE, f"File exceeds {settings.max_upload_mb} MB"
+                    )
+                target.write(chunk)
+        if size == 0:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "File is empty")
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(path)
+        raise
+    return path, size
+
+
+@router.post("/ingest", status_code=status.HTTP_202_ACCEPTED)
+async def ingest(
+    user: CurrentUser,
+    file: Annotated[UploadFile, File()],
+    response: Response,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> JobOut:
+    extension = check_extension(file.filename or "upload")
+    if idempotency_key:
+        existing = await jobs.find_by_key(user.id, idempotency_key)
+        if existing is not None:
+            response.status_code = status.HTTP_200_OK
+            return JobOut.model_validate(existing, from_attributes=True)
+
     usage = await store.usage(user.id)
     if usage["documents"] >= settings.max_documents:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Document limit of {settings.max_documents} reached")
-    if usage["storage_bytes"] + len(data) > settings.max_storage_mb * 1024 * 1024:
+
+    path, size = await _spool_upload(file, extension)
+    if usage["storage_bytes"] + size > settings.max_storage_mb * 1024 * 1024:
+        with contextlib.suppress(OSError):
+            os.unlink(path)
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Storage limit of {settings.max_storage_mb} MB reached")
-    document = await ingest_file(user.id, file.filename or "upload", data)
-    return DocumentOut.model_validate(document, from_attributes=True)
+
+    job, created = await jobs.enqueue(user.id, file.filename or "upload", path, idempotency_key)
+    if not created:
+        with contextlib.suppress(OSError):
+            os.unlink(path)
+        response.status_code = status.HTTP_200_OK
+    return JobOut.model_validate(job, from_attributes=True)
+
+
+@router.get("/jobs/{job_id}")
+async def get_job(job_id: UUID, user: CurrentUser) -> JobOut:
+    async with tenant_session(user.id) as session:
+        job = await session.get(IngestJob, job_id)
+        if job is None or job.user_id != user.id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Job not found")
+        return JobOut.model_validate(job, from_attributes=True)
 
 
 @router.get("/documents")
@@ -136,6 +200,28 @@ async def list_documents(user: CurrentUser) -> list[DocumentOut]:
             select(Document).where(Document.user_id == user.id).order_by(Document.created_at.desc())
         )
         return [DocumentOut.model_validate(document, from_attributes=True) for document in documents]
+
+
+@router.delete("/documents", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_all_documents(user: CurrentUser) -> None:
+    async with tenant_session(user.id) as session:
+        await session.execute(delete(Document).where(Document.user_id == user.id))
+        await session.execute(delete(QueryCache).where(QueryCache.user_id == user.id))
+        await session.commit()
+
+
+@router.delete("/cache", status_code=status.HTTP_204_NO_CONTENT)
+async def clear_cache(user: CurrentUser) -> None:
+    async with tenant_session(user.id) as session:
+        await session.execute(delete(QueryCache).where(QueryCache.user_id == user.id))
+        await session.commit()
+
+
+@router.delete("/history", status_code=status.HTTP_204_NO_CONTENT)
+async def clear_history(user: CurrentUser) -> None:
+    async with tenant_session(user.id) as session:
+        await session.execute(delete(QueryLog).where(QueryLog.user_id == user.id))
+        await session.commit()
 
 
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -184,6 +270,33 @@ def _stream_error(exc: Exception) -> dict:
         return {"type": "error", "status": 502, "detail": "Model provider unavailable"}
     log.exception("Query stream failed", exc_info=exc)
     return {"type": "error", "status": 500, "detail": "Internal error"}
+
+
+@router.get("/events")
+async def events_stream(user: CurrentUser) -> StreamingResponse:
+    try:
+        queue = events.subscribe(user.id)
+    except events.TooManySubscribers as exc:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(exc))
+
+    async def body_stream():
+        try:
+            yield _sse({"type": "connected"})
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=settings.events_heartbeat_seconds)
+                except TimeoutError:
+                    yield ": ping\n\n"
+                    continue
+                yield _sse(event)
+        finally:
+            events.unsubscribe(user.id, queue)
+
+    return StreamingResponse(
+        body_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/query")

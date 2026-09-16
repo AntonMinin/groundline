@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     max_rewrites: int = 2
     cache_similarity_threshold: float = 0.95
 
+    events_heartbeat_seconds: float = 15.0
+    events_queue_size: int = 200
+    events_max_subscribers: int = 5
+
+    ingest_workers: int = 1
+    ingest_queue_size: int = 100
+
     queries_per_day: int = 50
     max_documents: int = 100
     max_storage_mb: int = 200

@@ -108,6 +108,45 @@ async def test_use_cache_false_bypasses_lookup(fakes):
     assert calls["stream"] == 1
 
 
+async def test_pipeline_publishes_node_events(fakes):
+    from app import events
+
+    user_id = uuid.uuid4()
+    queue = events.subscribe(user_id)
+    try:
+        async for _ in pipeline.run_query(user_id, "What is the capital of France?"):
+            pass
+        published = [queue.get_nowait() for _ in range(queue.qsize())]
+    finally:
+        events.unsubscribe(user_id, queue)
+
+    started = [event["node"] for event in published if event["type"] == "node_started"]
+    finished = {event["node"]: event for event in published if event["type"] == "node_finished"}
+    assert started == ["check_cache", "rewrite_query", "retrieve", "rerank", "check_sufficiency", "generate_answer", "record"]
+    assert finished["generate_answer"]["tokens"] > 0
+    assert finished["retrieve"]["tokens"] == 0
+    assert all("timestamp" in event for event in published)
+
+
+async def test_cache_hit_publishes_saved_tokens(fakes):
+    from app import events
+
+    calls, state = fakes
+    state["cached"] = CachedAnswer("q", "cached", [], 1234, 0.99)
+    user_id = uuid.uuid4()
+    queue = events.subscribe(user_id)
+    try:
+        async for _ in pipeline.run_query(user_id, "What is the capital of France?"):
+            pass
+        published = [queue.get_nowait() for _ in range(queue.qsize())]
+    finally:
+        events.unsubscribe(user_id, queue)
+
+    check_cache = next(e for e in published if e["type"] == "node_finished" and e["node"] == "check_cache")
+    assert check_cache["cache_hit"] is True and check_cache["tokens_saved"] == 1234
+    assert [e["node"] for e in published if e["type"] == "node_started"] == ["check_cache", "record"]
+
+
 async def test_llm_errors_propagate(fakes, monkeypatch):
     import httpx
     import openai

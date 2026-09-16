@@ -13,6 +13,7 @@ from app.api.routes import router
 from app.auth.service import AuthError
 from app.config import settings
 from app.embeddings import get_model
+from app.ingestion import jobs
 from app.ingestion.extract import InvalidFileError, UnsupportedFileError
 from app.retrieval.rerank import get_reranker
 
@@ -29,7 +30,9 @@ async def lifespan(app: FastAPI):
         if settings.rerank_provider == "local":
             loaders.append(asyncio.to_thread(get_reranker))
         await asyncio.gather(*loaders)
+    await jobs.start_workers()
     yield
+    await jobs.stop_workers()
     get_client().shutdown()
 
 

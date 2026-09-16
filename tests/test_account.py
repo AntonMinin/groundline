@@ -37,6 +37,51 @@ async def test_delete_account_removes_all_user_data(client, make_user):
     assert (await store.query_stats(user.id))["total_queries"] == 0
 
 
+async def _record(user_id, cache_embedding=None):
+    await store.record_query(
+        user_id=user_id,
+        question="q",
+        answer="a",
+        sources=[],
+        cache_hit=False,
+        tokens_used=100,
+        tokens_saved=0,
+        cache_embedding=cache_embedding,
+    )
+
+
+async def test_clear_cache_keeps_documents_and_history(client, make_user):
+    user = await make_user()
+    await seed_document(user.id, "kept", seed=51)
+    await _record(user.id, cache_embedding=fake_embedding(51))
+
+    assert (await client.delete("/cache", headers=auth_headers(user.id))).status_code == 204
+    assert await store.find_cached(user.id, fake_embedding(51)) is None
+    assert len((await client.get("/documents", headers=auth_headers(user.id))).json()) == 1
+    assert len((await client.get("/history", headers=auth_headers(user.id))).json()) == 1
+
+
+async def test_clear_history_keeps_cache(client, make_user):
+    user = await make_user()
+    await _record(user.id, cache_embedding=fake_embedding(52))
+
+    assert (await client.delete("/history", headers=auth_headers(user.id))).status_code == 204
+    assert (await client.get("/history", headers=auth_headers(user.id))).json() == []
+    assert (await store.find_cached(user.id, fake_embedding(52))).answer == "a"
+
+
+async def test_delete_all_documents_also_invalidates_cache(client, make_user):
+    user, other = await make_user(), await make_user()
+    await seed_document(user.id, "mine", seed=53)
+    await seed_document(other.id, "theirs", seed=54)
+    await _record(user.id, cache_embedding=fake_embedding(53))
+
+    assert (await client.delete("/documents", headers=auth_headers(user.id))).status_code == 204
+    assert (await client.get("/documents", headers=auth_headers(user.id))).json() == []
+    assert await store.find_cached(user.id, fake_embedding(53)) is None
+    assert len((await client.get("/documents", headers=auth_headers(other.id))).json()) == 1
+
+
 async def test_daily_query_limit(client, make_user, monkeypatch):
     user = await make_user()
     await seed_document(user.id, "content", seed=31)

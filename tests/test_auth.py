@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import delete, update
 
 from app.auth import service
 from app.db.models import OtpCode
@@ -73,6 +73,17 @@ async def test_resend_cooldown_is_429(client, sent_codes):
     email = _email()
     assert (await client.post("/auth/request-otp", json={"email": email})).status_code == 202
     assert (await client.post("/auth/request-otp", json={"email": email})).status_code == 429
+
+
+async def test_requests_from_one_ip_are_limited(client, sent_codes, monkeypatch):
+    from app.config import settings
+
+    async with SessionLocal() as session:
+        await session.execute(delete(OtpCode))
+        await session.commit()
+    monkeypatch.setattr(settings, "otp_max_per_ip_per_hour", 1)
+    assert (await client.post("/auth/request-otp", json={"email": _email()})).status_code == 202
+    assert (await client.post("/auth/request-otp", json={"email": _email()})).status_code == 429
 
 
 async def test_protected_routes_require_valid_token(client, make_user):

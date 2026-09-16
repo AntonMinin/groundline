@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -9,7 +10,7 @@ from langfuse import get_client, propagate_attributes
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import StreamWriter
 
-from app import llm
+from app import events, llm
 from app.config import settings
 from app.embeddings import embed
 from app.graph import prompts, store
@@ -163,15 +164,44 @@ async def record(state: QueryState, writer: StreamWriter) -> QueryState:
     return {}
 
 
+def _instrumented(name: str, node):
+    @functools.wraps(node)
+    async def wrapper(state: QueryState, **kwargs) -> QueryState:
+        user_id = state["user_id"]
+        events.publish(user_id, {"type": "node_started", "node": name})
+        before = state.get("tokens_used", 0)
+        result = await node(state, **kwargs)
+        cache_hit = result.get("cache_hit", state.get("cache_hit", False))
+        events.publish(
+            user_id,
+            {
+                "type": "node_finished",
+                "node": name,
+                "cache_hit": bool(cache_hit),
+                "tokens": max(result.get("tokens_used", before) - before, 0),
+                "tokens_saved": result.get("tokens_saved", 0) if name == "check_cache" else 0,
+            },
+        )
+        return result
+
+    return wrapper
+
+
+NODES = (
+    ("check_cache", check_cache),
+    ("rewrite_query", rewrite_query),
+    ("retrieve", retrieve),
+    ("rerank", rerank_chunks),
+    ("check_sufficiency", check_sufficiency),
+    ("generate_answer", generate_answer),
+    ("record", record),
+)
+
+
 def build_graph():
     builder = StateGraph(QueryState)
-    builder.add_node("check_cache", check_cache)
-    builder.add_node("rewrite_query", rewrite_query)
-    builder.add_node("retrieve", retrieve)
-    builder.add_node("rerank", rerank_chunks)
-    builder.add_node("check_sufficiency", check_sufficiency)
-    builder.add_node("generate_answer", generate_answer)
-    builder.add_node("record", record)
+    for name, node in NODES:
+        builder.add_node(name, _instrumented(name, node))
     builder.add_edge(START, "check_cache")
     builder.add_conditional_edges("check_cache", route_after_cache, ["record", "rewrite_query"])
     builder.add_edge("rewrite_query", "retrieve")

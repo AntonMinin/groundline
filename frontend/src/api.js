@@ -1,4 +1,4 @@
-const BASE_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
+export const BASE_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
 
 export class ApiError extends Error {
   constructor(status, message) {
@@ -62,6 +62,9 @@ export const api = {
     return request('/ingest', { method: 'POST', body: form }).then((r) => r.json())
   },
   deleteDocument: (id) => request(`/documents/${id}`, { method: 'DELETE' }),
+  deleteAllDocuments: () => request('/documents', { method: 'DELETE' }),
+  clearCache: () => request('/cache', { method: 'DELETE' }),
+  clearHistory: () => request('/history', { method: 'DELETE' }),
   history: () => request('/history?limit=20').then((r) => r.json()),
   async *query(question) {
     const response = await request('/query', { method: 'POST', json: { question } })

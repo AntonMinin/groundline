@@ -78,9 +78,14 @@ tests/                 chunking, fusion, graph, auth, tenant isolation, quotas
 | POST | `/auth/logout` | clears the session cookie |
 | GET | `/me` | current user |
 | DELETE | `/me` | deletes the account with all documents, cache and history |
-| POST | `/ingest` | multipart `file` (pdf/txt/md) → 201 (415 unsupported, 422 unreadable, 413 too large, 429 quota) |
+| POST | `/ingest` | multipart `file` (pdf/txt/md) → 202 with a job id, processing runs in the background (415 unsupported extension, 422 empty file, 413 too large, 429 quota). An `Idempotency-Key` header replays the existing job with 200 instead of processing the file twice |
+| GET | `/jobs/{id}` | ingest job status (`queued`, `processing`, `done`, `error`) |
 | GET | `/documents` | user's documents |
 | DELETE | `/documents/{id}` | delete a document |
+| DELETE | `/documents` | delete all documents of the user |
+| DELETE | `/cache` | clear the semantic answer cache, documents untouched |
+| DELETE | `/history` | clear the query history |
+| GET | `/events` | SSE channel with live pipeline and ingest events for the current user |
 | POST | `/query` | `{question, use_cache?}` → `text/event-stream` (409 no documents, 429 daily limit, 502/504 provider errors) |
 | GET | `/history` | recent questions and answers |
 | GET | `/stats` | cache hit rate, tokens saved, usage and limits |
@@ -101,6 +106,29 @@ data: {"type": "error", "status": 504, "detail": "Model provider timed out"}
 ```
 
 Errors that happen before the first token (empty knowledge base, quota, LLM timeout during rewrite/sufficiency) are returned as regular HTTP status codes; errors during token generation arrive as an `error` event.
+
+### Live events
+
+`GET /events` is a second SSE stream, one per user, carrying what the system is doing right now. Every LangGraph node publishes on entry and exit, and background ingest jobs publish every status change:
+
+```
+event: node_started
+data: {"type": "node_started", "node": "retrieve", "timestamp": "2026-09-16T05:12:03.114Z"}
+
+event: node_finished
+data: {"type": "node_finished", "node": "generate_answer", "cache_hit": false, "tokens": 807,
+       "tokens_saved": 0, "timestamp": "2026-09-16T05:12:04.980Z"}
+
+event: ingest
+data: {"type": "ingest", "job_id": "…", "filename": "handbook.md", "status": "done",
+       "error": null, "document_id": "…", "timestamp": "2026-09-16T05:11:40.002Z"}
+```
+
+The UI subscribes once and drives two live visuals from this stream: a cumulative chart of tokens spent on the LLM against tokens saved by the cache, and a pipeline diagram that lights up the active step (red for steps that call the LLM, blue for the cache-hit path) and fades two seconds after the step finishes. There is no polling anywhere in the project: `/query` streams tokens, `/events` streams everything else.
+
+The channel is in-process: one instance serves both the SSE connection and the query, which fits the single-instance Render deployment. Scaling out horizontally requires a shared bus (Postgres `LISTEN`/`NOTIFY` fits without extra infrastructure) and changes only `app/events.py`.
+
+Slow consumers never block the pipeline: each subscriber has a bounded queue and events are dropped for that subscriber when it overflows. A user may hold at most `EVENTS_MAX_SUBSCRIBERS` streams (5 by default), and the server sends a comment heartbeat every 15 seconds so proxies keep the connection open.
 
 ## Run locally
 
@@ -142,7 +170,8 @@ H='X-Requested-With: groundline'
 curl -X POST localhost:8000/auth/request-otp -H "$H" -H 'Content-Type: application/json' -d '{"email":"me@example.com"}'
 curl -c cookies.txt -X POST localhost:8000/auth/verify-otp -H "$H" -H 'Content-Type: application/json' \
      -d '{"email":"me@example.com","code":"123456"}'
-curl -b cookies.txt -X POST localhost:8000/ingest -H "$H" -F file=@app/eval/data/handbook.md
+curl -b cookies.txt -X POST localhost:8000/ingest -H "$H" -H 'Idempotency-Key: handbook-1' -F file=@app/eval/data/handbook.md
+curl -N -b cookies.txt localhost:8000/events -H "$H" &   # watch pipeline and ingest events
 curl -N -b cookies.txt -X POST localhost:8000/query -H "$H" -H 'Content-Type: application/json' \
      -d '{"question":"How many days per week can I work from home?"}'
 ```
@@ -192,6 +221,8 @@ The dataset is a JSON list of `{question, reference}`. The script bypasses the c
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `700` / `100` | tokens |
 | `RETRIEVAL_CANDIDATES` / `RERANK_TOP_K` / `MAX_REWRITES` | `20` / `5` / `2` | pipeline tuning |
 | `QUERIES_PER_DAY` / `MAX_DOCUMENTS` / `MAX_STORAGE_MB` / `MAX_UPLOAD_MB` | `50` / `100` / `200` / `20` | per-user quotas |
+| `INGEST_WORKERS` / `INGEST_QUEUE_SIZE` | `1` / `100` | background ingest concurrency; keep it low on small instances, embedding a large PDF is the memory peak |
+| `EVENTS_HEARTBEAT_SECONDS` / `EVENTS_QUEUE_SIZE` / `EVENTS_MAX_SUBSCRIBERS` | `15` / `200` / `5` | `/events` keep-alive, per-subscriber buffer, streams per user |
 
 Local and hosted bge-m3 produce the same vectors (same weights), so switching `EMBEDDING_PROVIDER` does not require re-indexing.
 

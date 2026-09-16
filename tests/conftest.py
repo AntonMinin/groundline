@@ -20,6 +20,7 @@ os.environ["COOKIE_SECURE"] = "false"
 os.environ["COOKIE_DOMAIN"] = ""
 os.environ["RESEND_API_KEY"] = ""
 os.environ["DEV_MODE"] = "false"
+os.environ["OTP_MAX_PER_IP_PER_HOUR"] = "1000"
 os.environ["LANGFUSE_TRACING_ENABLED"] = "false"
 os.environ["LANGFUSE_PUBLIC_KEY"] = ""
 os.environ["LANGFUSE_SECRET_KEY"] = ""
@@ -28,12 +29,21 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture(scope="session")
-def migrated_db():
+async def migrated_db():
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"], cwd=ROOT, capture_output=True, text=True, env=os.environ
     )
     if result.returncode != 0:
         pytest.skip(f"Test database unavailable: {result.stderr.strip().splitlines()[-1:]}")
+
+    from sqlalchemy import text
+
+    from app.db.session import SessionLocal
+
+    async with SessionLocal() as session:
+        await session.execute(text("DELETE FROM otp_codes"))
+        await session.execute(text("DELETE FROM users"))
+        await session.commit()
 
 
 @pytest.fixture
