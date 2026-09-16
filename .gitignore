@@ -1,6 +1,7 @@
 .venv/
 .venv-eval/
 .env
+.env*
 __pycache__/
 .pytest_cache/
 eval_results.json

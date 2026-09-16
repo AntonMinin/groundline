@@ -112,6 +112,20 @@ async def test_unsupported_upload_is_415(client, make_user):
     assert response.status_code == 415
 
 
+async def test_database_outage_is_503_not_500(client, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+
+    from app.auth import service as auth
+
+    async def unavailable(*args, **kwargs):
+        raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+
+    monkeypatch.setattr(auth, "request_otp", unavailable)
+    response = await client.post("/auth/request-otp", json={"email": "outage@example.com"})
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Database unavailable"
+
+
 def test_parse_pinecone_rerank_response():
     payload = {"data": [{"index": 2, "score": 0.9}, {"index": 0, "score": 0.1}]}
     assert parse_rerank_response(payload, 3) == [0.1, 0.0, 0.9]

@@ -8,6 +8,8 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from langfuse import get_client
+from sqlalchemy.exc import InterfaceError, OperationalError
+from sqlalchemy.exc import TimeoutError as PoolTimeout
 
 from app.api.routes import router
 from app.auth.service import AuthError
@@ -64,6 +66,14 @@ async def invalid_file(request: Request, exc: InvalidFileError) -> JSONResponse:
 @app.exception_handler(AuthError)
 async def auth_error(request: Request, exc: AuthError) -> JSONResponse:
     return _error(status.HTTP_401_UNAUTHORIZED, str(exc))
+
+
+@app.exception_handler(OperationalError)
+@app.exception_handler(InterfaceError)
+@app.exception_handler(PoolTimeout)
+async def database_unavailable(request: Request, exc: Exception) -> JSONResponse:
+    log.error("Database unavailable: %s", exc)
+    return _error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database unavailable")
 
 
 @app.exception_handler(openai.APITimeoutError)

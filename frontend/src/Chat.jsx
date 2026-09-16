@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
+import { onEvent } from './events.js'
+
+const STEP_LABELS = {
+  check_cache: 'checking the answer cache…',
+  rewrite_query: 'rewriting the question…',
+  retrieve: 'searching documents…',
+  rerank: 'ranking the best fragments…',
+  check_sufficiency: 'checking whether the context is enough…',
+  generate_answer: 'writing the answer…',
+  record: 'saving…',
+}
 
 function Sources({ sources }) {
   if (!sources?.length) return null
@@ -23,7 +34,17 @@ export default function Chat({ onAnswered }) {
   const [messages, setMessages] = useState([])
   const [question, setQuestion] = useState('')
   const [busy, setBusy] = useState(false)
+  const [step, setStep] = useState(null)
   const bottom = useRef(null)
+
+  useEffect(
+    () =>
+      onEvent((event) => {
+        if (event.type === 'node_started') setStep(event.node)
+        if (event.type === 'node_finished' && event.node === 'record') setStep(null)
+      }),
+    [],
+  )
 
   useEffect(() => {
     api
@@ -70,7 +91,12 @@ export default function Chat({ onAnswered }) {
           <article key={index}>
             <p className="question">{message.question}</p>
             <div className="answer">
-              {message.pending && !message.answer && <span className="muted">Searching documents…</span>}
+              {message.pending && (
+                <p className="working">
+                  <span className="spinner" aria-hidden="true" />
+                  <span className="muted">{STEP_LABELS[step] ?? 'working…'}</span>
+                </p>
+              )}
               {message.answer}
               {message.cacheHit && <span className="badge">cache hit{message.tokensSaved ? ` · ${message.tokensSaved} tokens saved` : ''}</span>}
             </div>
@@ -82,7 +108,7 @@ export default function Chat({ onAnswered }) {
       </div>
       <form className="ask" onSubmit={ask}>
         <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask about your documents…" maxLength={2000} />
-        <button type="submit" disabled={busy}>Ask</button>
+        <button type="submit" disabled={busy}>{busy ? 'Asking…' : 'Ask'}</button>
       </form>
     </section>
   )

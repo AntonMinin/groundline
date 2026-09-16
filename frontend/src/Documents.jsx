@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import { api } from './api.js'
 import { onEvent } from './events.js'
 
+const JOB_LABELS = {
+  queued: 'queued for indexing',
+  processing: 'extracting text and building embeddings…',
+  done: 'indexed',
+  error: 'failed',
+}
+
 export default function Documents({ onChanged, onAccountDeleted, onReset }) {
   const [documents, setDocuments] = useState([])
   const [jobs, setJobs] = useState([])
@@ -37,7 +44,11 @@ export default function Documents({ onChanged, onAccountDeleted, onReset }) {
     setError('')
     for (const file of files) {
       try {
-        await api.upload(file)
+        const job = await api.upload(file)
+        setJobs((current) => [
+          { id: job.id, filename: job.filename, status: job.status, error: null },
+          ...current.filter((item) => item.id !== job.id),
+        ])
       } catch (err) {
         setError(`${file.name}: ${err.message}`)
       }
@@ -83,16 +94,19 @@ export default function Documents({ onChanged, onAccountDeleted, onReset }) {
         <input type="file" accept=".pdf,.txt,.md" multiple disabled={busy} onChange={upload} />
       </label>
       {error && <p className="error" role="alert">{error}</p>}
-      {jobs.filter((job) => job.status !== 'done').length > 0 && (
+      {jobs.length > 0 && (
         <ul className="jobs">
-          {jobs
-            .filter((job) => job.status !== 'done')
-            .map((job) => (
-              <li key={job.id}>
-                <strong>{job.filename}</strong>
-                <span className={job.status === 'error' ? 'error' : 'muted'}> {job.status}{job.error ? `: ${job.error}` : ''}</span>
-              </li>
-            ))}
+          {jobs.map((job) => (
+            <li key={job.id}>
+              {['queued', 'processing'].includes(job.status) && <span className="spinner" aria-hidden="true" />}
+              <strong>{job.filename}</strong>
+              <span className={job.status === 'error' ? 'error' : 'muted'}>
+                {' '}
+                {JOB_LABELS[job.status] ?? job.status}
+                {job.error ? `: ${job.error}` : ''}
+              </span>
+            </li>
+          ))}
         </ul>
       )}
       {documents.length === 0 ? (
