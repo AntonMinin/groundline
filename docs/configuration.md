@@ -120,7 +120,7 @@ Upstash is failure-tolerant by design: if the REST call errors or times out, the
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | — | tracing credentials; tracing is disabled when either is empty |
-| `LANGFUSE_HOST` | `https://cloud.langfuse.com` | self-hosted LangFuse works too |
+| `LANGFUSE_HOST` | `https://cloud.langfuse.com` | must match the region the keys were issued in: `cloud.langfuse.com` for EU, `us.cloud.langfuse.com` for US. A US key pair against the EU host authenticates fine nowhere and fails every span export with `401`. Self-hosted LangFuse works too |
 
 The LangFuse SDK reads these from the process environment, which a `.env` file does not populate on its own — so `app/config.py` exports them at import time, without overwriting variables that are already set. That is what makes tracing work when the backend runs from the host with only a `.env`, the same as it already did in Docker and on Render.
 
