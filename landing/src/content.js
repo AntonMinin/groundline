@@ -1,8 +1,8 @@
 export const SITE = {
   name: 'Groundline',
   appUrl: process.env.PUBLIC_APP_URL || 'https://app.groundline.antonmb.com',
-  repoUrl: process.env.PUBLIC_REPO_URL || 'https://github.com/antonmb/groundline',
-  docsUrl: (process.env.PUBLIC_REPO_URL || 'https://github.com/antonmb/groundline') + '/tree/main/docs',
+  repoUrl: process.env.PUBLIC_REPO_URL || 'https://github.com/AntonMinin/groundline',
+  docsUrl: (process.env.PUBLIC_REPO_URL || 'https://github.com/AntonMinin/groundline') + '/tree/main/docs',
   author: 'Anton Minin Baranovskii',
   locales: ['en', 'ru'],
   defaultLocale: 'en',

@@ -1,7 +1,7 @@
 .venv
 .venv-eval
 .git
-.env
+.env*
 frontend
 tests
 **/__pycache__

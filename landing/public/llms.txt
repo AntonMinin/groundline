@@ -35,5 +35,5 @@ Technical summary:
 - [Privacy](https://groundline.antonmb.com/privacy): what is stored, which external service receives what, how to delete everything.
 - [Terms](https://groundline.antonmb.com/terms): demonstration service, no availability guarantee, quotas, no confidential uploads.
 - [Live demo](https://app.groundline.antonmb.com): sign in with an email code, upload a document, ask a question.
-- [Source code](https://github.com/antonmb/groundline): repository with docker compose setup.
-- [Documentation](https://github.com/antonmb/groundline/tree/main/docs): architecture, API, configuration, security notes, deployment.
+- [Source code](https://github.com/AntonMinin/groundline): repository with docker compose setup.
+- [Documentation](https://github.com/AntonMinin/groundline/tree/main/docs): architecture, API, configuration, security notes, deployment.

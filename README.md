@@ -4,7 +4,7 @@ Groundline answers questions about **your own documents**. Upload PDF, TXT or Ma
 
 On top of the usual RAG pipeline it keeps a **semantic answer cache**: ask the same thing in different words and the answer comes back instantly, without a single call to the language model.
 
-**Live demo: [groundline.antonmb.com](http://groundline.antonmb.com)** — log in with a code sent to your email, upload a file, ask a question.
+**Live demo: [groundline.antonmb.com](https://groundline.antonmb.com)** — log in with a code sent to your email, upload a file, ask a question.
 The API runs on a free Render instance that sleeps when idle, so the first request after a pause can take 30–50 seconds. Everything after that is fast.
 
 ## What you get
