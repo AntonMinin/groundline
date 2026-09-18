@@ -294,6 +294,23 @@ async def add(key: str, amount: float = 1.0, subject: str | None = None) -> None
         )
 
 
+async def claim_daily_run(name: str) -> bool:
+    statement = (
+        insert(ServiceUsage)
+        .values(quota_key=f"run:{name}", period_start=period_start("day"), used=1)
+        .on_conflict_do_nothing(index_elements=[ServiceUsage.quota_key, ServiceUsage.period_start])
+        .returning(ServiceUsage.quota_key)
+    )
+    try:
+        async with SessionLocal() as session:
+            claimed = await session.scalar(statement)
+            await session.commit()
+    except Exception:
+        log.warning("Could not claim the daily run of %s, skipping it", name, exc_info=True)
+        return False
+    return claimed is not None
+
+
 async def used(keys: tuple[str, ...], subject: str | None = None) -> dict[str, float]:
     if not keys:
         return {}

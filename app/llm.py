@@ -31,9 +31,9 @@ def messages_tokens(messages: list[dict]) -> int:
     return sum(count_tokens(message["content"]) for message in messages)
 
 
-async def complete(name: str, messages: list[dict], **kwargs) -> str:
+async def complete(name: str, messages: list[dict], model: str | None = None, **kwargs) -> str:
     response = await client.chat.completions.create(
-        name=name, model=settings.llm_model, messages=messages, temperature=0, **kwargs
+        name=name, model=model or settings.llm_model, messages=messages, temperature=0, **kwargs
     )
     text = response.choices[0].message.content or ""
     await _record(messages_tokens(messages), text)

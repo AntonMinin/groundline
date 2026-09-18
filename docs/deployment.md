@@ -117,6 +117,7 @@ Without a verified domain, Resend only delivers to the account owner's address.
 ## After deploying, check
 
 - `GET https://api.example.com/health` returns `{"status": "ok"}`.
+- The start-up log says `LangFuse tracing enabled, host …`. If it says the keys were rejected, the spans would otherwise fail with `401 Unauthorized` on every batch: the pair must belong to one project, and `LANGFUSE_HOST` must match that project's region (`cloud.langfuse.com` for EU, `us.cloud.langfuse.com` for US). Verify a pair from a terminal with `curl -u "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" $LANGFUSE_HOST/api/public/projects` — `200` means the pair fits that host, `401` means it does not.
 - A login code arrives by email and the cookie is set (DevTools → Application → Cookies, domain `.example.com`).
 - An upload reaches `done` and the document list updates without a refresh — that confirms `/events` is not being buffered by a proxy.
 - A question streams token by token, and repeating it as a paraphrase returns a cache hit.

@@ -74,6 +74,8 @@ The free-tier ceilings themselves live in the registry in `app/limits.py` (limit
 | `DEEPINFRA_PRICE_PER_1M` | `0.01` | USD per 1M embedding tokens, used to price local spend when the balance endpoint is unavailable |
 | `DEEPINFRA_MONTHLY_BUDGET_USD` | `5.0` | monthly spending cap. Reaching it blocks uploads and queries with 429, exactly like an exhausted free tier |
 | `LIMITS_AUTOCHECK_ENABLED` | `true` | the daily job that re-reads each provider's pricing page and compares the published number with the registry. Never changes a limit by itself. Also skipped when `GROQ_API_KEY` is empty |
+| `LIMITS_CHECK_MODEL` | `openai/gpt-oss-20b` | model used to read a limit out of a pricing page. Groq counts rate limits **per model**, so a model different from `LLM_MODEL` gives the job its own token-per-minute budget instead of competing with people's questions |
+| `LIMITS_CHECK_SPACING_SECONDS` | `60` | pause between pricing pages. The whole set as one burst is around 30K tokens, well over a 8K-per-minute window; one page a minute stays inside it |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | — | alert delivery. Empty means alerts stay in the log and in `/limits` |
 
 See [Architecture → service limits](architecture.md#service-limits) for what is metered where.

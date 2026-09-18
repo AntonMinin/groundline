@@ -24,9 +24,30 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger("groundline")
 
 
+async def check_langfuse() -> None:
+    if not (settings.langfuse_public_key and settings.langfuse_secret_key):
+        log.info("LangFuse tracing disabled: no keys configured")
+        return
+    try:
+        ok = await asyncio.to_thread(get_client().auth_check)
+    except Exception as exc:
+        log.error("LangFuse credentials could not be verified against %s: %s", settings.langfuse_host, exc)
+        return
+    if ok:
+        log.info("LangFuse tracing enabled, host %s", settings.langfuse_host)
+    else:
+        log.error(
+            "LangFuse rejected the configured keys for host %s. Every span export will fail with 401. "
+            "Check that LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY belong to the same project and that "
+            "LANGFUSE_HOST matches that project's region (cloud.langfuse.com for EU, us.cloud.langfuse.com for US).",
+            settings.langfuse_host,
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     inference.configure_torch()
+    await check_langfuse()
     if settings.preload_models:
         loaders = []
         if settings.embedding_provider == "local":

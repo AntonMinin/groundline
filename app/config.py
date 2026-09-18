@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     deepinfra_monthly_budget_usd: float = 5.0
 
     limits_autocheck_enabled: bool = True
+    limits_check_model: str = "openai/gpt-oss-20b"
+    limits_check_spacing_seconds: float = 60.0
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 

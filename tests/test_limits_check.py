@@ -28,6 +28,13 @@ def telegram(monkeypatch):
 
 
 @pytest.fixture
+async def clean_service_usage(migrated_db):
+    async with SessionLocal() as session:
+        await session.execute(delete(ServiceUsage))
+        await session.commit()
+
+
+@pytest.fixture
 def pricing_page(monkeypatch):
     def serve(limit_on_page, quote="free plan includes it"):
         async def fetch(url):
@@ -100,6 +107,46 @@ async def test_flag_reaches_the_limits_endpoint(client, make_user, telegram, pri
     assert quota["limit_outdated"] is True
     assert quota["limit"] == 100
     assert quota["limit_found_on_page"] == 50
+
+
+async def test_the_extractor_runs_on_its_own_model(telegram, monkeypatch):
+    monkeypatch.setattr(settings, "limits_check_model", "openai/gpt-oss-20b")
+    seen = {}
+
+    async def fetch(url):
+        return "pricing page text"
+
+    async def complete(name, messages, **kwargs):
+        seen.update(kwargs)
+        return json.dumps({"limit": 100, "quote": ""})
+
+    monkeypatch.setattr(limits_check, "fetch_page", fetch)
+    monkeypatch.setattr(limits_check.llm, "complete", complete)
+    await limits_check.check_quota(limits.REGISTRY["resend.emails_per_day"])
+
+    assert seen["model"] == "openai/gpt-oss-20b"
+    assert seen["model"] != settings.llm_model
+
+
+async def test_checks_are_spaced_out_instead_of_running_as_one_burst(telegram, monkeypatch, pricing_page):
+    pricing_page(100)
+    pauses = []
+
+    async def fake_sleep(seconds):
+        pauses.append(seconds)
+
+    monkeypatch.setattr(limits_check.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(settings, "limits_check_spacing_seconds", 60)
+    results = await limits_check.check_all()
+
+    assert len(results) > 1
+    assert pauses == [60] * (len(results) - 1)
+
+
+async def test_the_daily_run_is_claimed_once_a_day(clean_service_usage):
+    assert await limits.claim_daily_run("limits_check") is True
+    assert await limits.claim_daily_run("limits_check") is False
+    assert await limits.claim_daily_run("something_else") is True
 
 
 async def test_autocheck_does_not_start_when_disabled(monkeypatch):

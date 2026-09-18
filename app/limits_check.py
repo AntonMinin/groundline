@@ -59,6 +59,7 @@ async def extract_limit(quota: limits.Quota, text: str) -> tuple[float | None, s
     raw = await llm.complete(
         "check_limit",
         [{"role": "system", "content": EXTRACT_SYSTEM}, {"role": "user", "content": question}],
+        model=settings.limits_check_model,
         response_format={"type": "json_object"},
     )
     return parse_extraction(raw)
@@ -83,11 +84,14 @@ async def check_quota(quota: limits.Quota) -> float | None:
     return found
 
 
-async def check_all() -> dict[str, float | None]:
+async def check_all(spacing: float | None = None) -> dict[str, float | None]:
+    gap = settings.limits_check_spacing_seconds if spacing is None else spacing
     results: dict[str, float | None] = {}
     for quota in limits.QUOTAS:
         if limits.limit_of(quota) is None:
             continue
+        if results and gap > 0:
+            await asyncio.sleep(gap)
         try:
             results[quota.key] = await check_quota(quota)
         except Exception:
@@ -99,8 +103,11 @@ async def check_all() -> dict[str, float | None]:
 async def _loop() -> None:
     await asyncio.sleep(STARTUP_DELAY_SECONDS)
     while True:
-        log.info("Checking provider limit pages")
-        await check_all()
+        if await limits.claim_daily_run("limits_check"):
+            log.info("Checking provider limit pages with %s", settings.limits_check_model)
+            await check_all()
+        else:
+            log.info("Limit autocheck already ran today, skipping this start")
         await asyncio.sleep(INTERVAL_SECONDS)
 
 
