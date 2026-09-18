@@ -591,8 +591,12 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   background: var(--color-surface-2); cursor: pointer;
 }
 .dropzone:hover, .dropzone.is-dragover { border-color: var(--color-accent); background: var(--color-accent-100); }
-.dropzone[data-busy='true'] { cursor: progress; opacity: 0.6; }
-.dropzone[data-busy='true']:hover { border-color: var(--color-divider); background: var(--color-surface-2); }
+.dropzone[data-busy='true'] { cursor: progress; }
+.dropzone[data-full='true'] { cursor: not-allowed; }
+.dropzone[data-busy='true'], .dropzone[data-full='true'] { opacity: 0.6; }
+.dropzone[data-busy='true']:hover, .dropzone[data-full='true']:hover {
+  border-color: var(--color-divider); background: var(--color-surface-2);
+}
 .dropzone:focus-within { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .dropzone strong { font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 17px; }
 .dropzone p { font-size: 13px; color: var(--color-muted); }

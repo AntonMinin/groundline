@@ -35,7 +35,7 @@ Two rules apply to every request from a browser:
 
 Multipart upload. Returns `202` with a job; indexing happens in the background and progress arrives on `/events`.
 
-- `415` unsupported extension, `422` empty or unreadable file, `413` larger than `MAX_UPLOAD_MB`, `429` document or storage quota reached.
+- `415` unsupported extension, `422` empty or unreadable file, `413` larger than `MAX_UPLOAD_MB`, `429` document or storage quota reached. At `MAX_DOCUMENTS` the detail asks for the current document to be deleted first.
 - An `Idempotency-Key` header replays an existing job with `200` instead of processing the same file twice.
 
 ```json
@@ -68,7 +68,7 @@ data: {"type": "error", "status": 504, "detail": "Model provider timed out"}
 
 On a cache hit the whole stored answer arrives as a single `token` event, followed by `done` with `cache_hit: true` and `tokens_saved` set to what that answer originally cost.
 
-Errors raised *before* the first token (no documents, daily quota, a provider failure during rewrite or sufficiency) are returned as ordinary HTTP status codes: `409` empty knowledge base, `429` daily limit, `502` provider unavailable, `504` provider timeout. Errors *during* generation arrive as an `error` event, because the response has already started with `200`.
+Errors raised *before* the first token (no documents, a question asked too soon after the last one, daily quota, a provider failure during rewrite or sufficiency) are returned as ordinary HTTP status codes: `409` empty knowledge base, `429` `QUERY_MIN_INTERVAL_SECONDS` not elapsed or daily limit reached, `502` provider unavailable, `504` provider timeout. Errors *during* generation arrive as an `error` event, because the response has already started with `200`.
 
 ### GET /events
 
@@ -125,7 +125,7 @@ Node names, in pipeline order: `check_cache`, `rewrite_query`, `retrieve`, `rera
   "tokens_saved": 807,
   "tokens_used": 1646,
   "usage": {"documents": 1, "storage_bytes": 1336, "queries_last_24h": 2},
-  "limits": {"queries_per_day": 50, "max_documents": 100, "max_storage_mb": 200, "max_upload_mb": 20}
+  "limits": {"queries_per_day": 50, "max_documents": 1, "max_storage_mb": 200, "max_upload_mb": 0.3}
 }
 ```
 
@@ -168,7 +168,7 @@ Node names, in pipeline order: `check_cache`, `rewrite_query`, `retrieve`, `rera
 | `413` | upload larger than `MAX_UPLOAD_MB` |
 | `415` | upload is not `.pdf`, `.txt` or `.md` |
 | `422` | empty file, unparsable PDF, non-UTF-8 text file, or request body validation failure |
-| `429` | OTP cooldown or per-IP hourly limit; document, storage or daily query quota; too many `/events` streams; an exhausted external service quota (the detail names the service and when it resets) |
+| `429` | OTP cooldown or per-IP hourly limit; document, storage or daily query quota; two questions closer together than `QUERY_MIN_INTERVAL_SECONDS`; too many `/events` streams; an exhausted external service quota (the detail names the service and when it resets) |
 | `502` / `504` | the model provider failed or timed out |
 | `503` | the database is unavailable |
 

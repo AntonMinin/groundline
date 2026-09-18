@@ -57,9 +57,10 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `MAX_UPLOAD_MB` | `20` | per-file limit, enforced while the upload is being read |
+| `MAX_UPLOAD_MB` | `0.3` | per-file limit in megabytes, enforced while the upload is being read. Fractions are allowed, so `0.3` caps a file at about 300 KB |
 | `QUERIES_PER_DAY` | `50` | per user, rolling 24 hours; cache hits are not counted |
-| `MAX_DOCUMENTS` | `100` | per user |
+| `QUERY_MIN_INTERVAL_SECONDS` | `15` | shortest gap between two questions from one user. `0` disables it |
+| `MAX_DOCUMENTS` | `1` | per user. At the limit `/ingest` answers `429` and the document has to be deleted first |
 | `MAX_STORAGE_MB` | `200` | total uploaded bytes per user |
 | `INGEST_WORKERS` | `1` | background indexing concurrency. Keep it low on small instances — embedding a large PDF is the memory peak |
 | `INGEST_QUEUE_SIZE` | `100` | queued jobs before `/ingest` blocks |

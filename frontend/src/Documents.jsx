@@ -13,6 +13,10 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
   const [dragging, setDragging] = useState(false)
   const { t, n, locale } = useI18n()
 
+  const maxDocuments = stats?.limits?.max_documents ?? 0
+  const uploadMb = stats?.limits?.max_upload_mb ?? 0
+  const full = maxDocuments > 0 && documents.length >= maxDocuments
+
   const load = () => api.documents().then(setDocuments).catch((err) => setError(err.message))
 
   useEffect(() => {
@@ -36,7 +40,7 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
   )
 
   const send = async (files) => {
-    if (busy || files.length === 0) return
+    if (busy || full || files.length === 0) return
     setBusy('upload')
     setError('')
     for (const file of files) {
@@ -135,6 +139,7 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
         htmlFor="upload"
         data-dragging={dragging}
         data-busy={busy === 'upload'}
+        data-full={full}
         aria-busy={busy === 'upload'}
         onDragOver={(event) => {
           event.preventDefault()
@@ -146,10 +151,19 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
         <strong>{t('docs.dropTitle')}</strong>
         {busy === 'upload' ? (
           <p className="working" role="status">{dot}{t('docs.uploading')}</p>
+        ) : full ? (
+          <p>{t('docs.full')}</p>
         ) : (
-          <p>{t('docs.dropHint', { size: stats?.limits?.max_upload_mb ?? 20 })}</p>
+          <p>{t('docs.dropHint', { size: uploadMb })}</p>
         )}
-        <input id="upload" type="file" accept=".pdf,.txt,.md" multiple disabled={busy !== null} onChange={upload} />
+        <input
+          id="upload"
+          type="file"
+          accept=".pdf,.txt,.md"
+          multiple={maxDocuments > 1}
+          disabled={busy !== null || full}
+          onChange={upload}
+        />
       </label>
 
       {error && <p className="error" role="alert">{error}</p>}

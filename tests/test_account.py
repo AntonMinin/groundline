@@ -112,8 +112,22 @@ async def test_daily_query_limit(client, make_user, monkeypatch):
         user_id=user.id, question="q", answer="a", sources=[], cache_hit=False, tokens_used=1, tokens_saved=0, cache_embedding=None
     )
     monkeypatch.setattr(settings, "queries_per_day", 1)
+    monkeypatch.setattr(settings, "query_min_interval_seconds", 0)
     response = await client.post("/query", json={"question": "again"}, headers=auth_headers(user.id))
     assert response.status_code == 429
+    assert "Daily limit" in response.json()["detail"]
+
+
+async def test_questions_are_spaced_apart(client, make_user, monkeypatch):
+    user = await make_user()
+    await seed_document(user.id, "content", seed=32)
+    await store.record_query(
+        user_id=user.id, question="q", answer="a", sources=[], cache_hit=True, tokens_used=0, tokens_saved=7, cache_embedding=None
+    )
+    monkeypatch.setattr(settings, "query_min_interval_seconds", 3600)
+    response = await client.post("/query", json={"question": "again"}, headers=auth_headers(user.id))
+    assert response.status_code == 429
+    assert response.json()["detail"] == "Please wait 3600 seconds between questions."
 
 
 async def test_document_and_storage_limits(client, make_user, monkeypatch):
@@ -122,7 +136,9 @@ async def test_document_and_storage_limits(client, make_user, monkeypatch):
     upload = {"file": ("notes.txt", b"hello world")}
 
     monkeypatch.setattr(settings, "max_documents", 1)
-    assert (await client.post("/ingest", files=upload, headers=auth_headers(user.id))).status_code == 429
+    response = await client.post("/ingest", files=upload, headers=auth_headers(user.id))
+    assert response.status_code == 429
+    assert response.json()["detail"] == "Document limit of 1 reached. Delete the current document to upload another."
 
     monkeypatch.setattr(settings, "max_documents", 10)
     monkeypatch.setattr(settings, "max_storage_mb", 0)

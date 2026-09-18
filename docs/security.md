@@ -60,9 +60,10 @@ Cookie authentication means a cross-site request would otherwise carry credentia
 | Limit | Default | Where |
 | --- | --- | --- |
 | Queries per day (cache hits excluded) | 50 | `QUERIES_PER_DAY` |
-| Documents per user | 100 | `MAX_DOCUMENTS` |
+| Gap between two questions from one user | 15 s | `QUERY_MIN_INTERVAL_SECONDS` |
+| Documents per user | 1 | `MAX_DOCUMENTS` |
 | Storage per user | 200 MB | `MAX_STORAGE_MB` |
-| Upload size | 20 MB | `MAX_UPLOAD_MB` |
+| Upload size | 0.3 MB | `MAX_UPLOAD_MB` |
 | Concurrent `/events` streams per user | 5 | `EVENTS_MAX_SUBSCRIBERS` |
 | OTP requests per IP per hour | 20 | `OTP_MAX_PER_IP_PER_HOUR` |
 | Login codes per email address per day | 3 | `RESEND_PER_USER_PER_DAY` |

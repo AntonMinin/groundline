@@ -114,7 +114,7 @@ export const CONTENT = {
         ],
         [
           'How many questions can I ask per day?',
-          'The demo allows 50 questions and 100 documents per account. Cache hits are free and do not count. Your current usage is visible in the app.',
+          'The demo allows 50 questions a day and one document of up to 0.3 MB per account, with at least 15 seconds between questions. Cache hits are free and do not count. Your current usage is visible in the app.',
         ],
         [
           'Can I run it myself?',
@@ -215,7 +215,7 @@ export const CONTENT = {
         ],
         [
           'Сколько вопросов в день можно задать?',
-          'В демо — 50 вопросов и 100 документов на аккаунт. Попадания в кэш бесплатны и в счёт не идут. Текущий расход виден в приложении.',
+          'В демо — 50 вопросов в сутки и один документ до 0,3 МБ на аккаунт, между вопросами не меньше 15 секунд. Попадания в кэш бесплатны и в счёт не идут. Текущий расход виден в приложении.',
         ],
         [
           'Можно развернуть у себя?',

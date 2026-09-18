@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
@@ -13,7 +13,7 @@ import openai
 from fastapi import APIRouter, File, Header, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app import events, limits, ratelimit
 from app.auth import service as auth
@@ -189,7 +189,8 @@ async def _spool_upload(file: UploadFile, extension: str) -> tuple[str, int]:
                 size += len(chunk)
                 if size > limit:
                     raise HTTPException(
-                        status.HTTP_413_CONTENT_TOO_LARGE, f"File exceeds {settings.max_upload_mb} MB"
+                        status.HTTP_413_CONTENT_TOO_LARGE,
+                        f"File exceeds the {settings.max_upload_mb:g} MB limit for a single file",
                     )
                 target.write(chunk)
         if size == 0:
@@ -218,7 +219,12 @@ async def ingest(
     await limits.ensure(*limits.INGEST_KEYS)
     usage = await store.usage(user.id)
     if usage["documents"] >= settings.max_documents:
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Document limit of {settings.max_documents} reached")
+        kept = settings.max_documents
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Document limit of {kept} reached. "
+            f"Delete {'the current document' if kept == 1 else 'one'} to upload another.",
+        )
 
     path, size = await _spool_upload(file, extension)
     if usage["storage_bytes"] + size > settings.max_storage_mb * 1024 * 1024:
@@ -361,11 +367,33 @@ async def events_stream(user: CurrentUser) -> StreamingResponse:
     )
 
 
+async def _ensure_question_spacing(user_id: UUID) -> None:
+    interval = settings.query_min_interval_seconds
+    if interval <= 0:
+        return
+    allowed = await ratelimit.allow(f"query:user:{user_id}", 1, interval)
+    if allowed is None:
+        async with tenant_session(user_id) as session:
+            recent = await session.scalar(
+                select(func.count()).where(
+                    QueryLog.user_id == user_id,
+                    QueryLog.created_at > func.now() - timedelta(seconds=interval),
+                )
+            )
+        allowed = not recent
+    if not allowed:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Please wait {interval} seconds between questions.",
+        )
+
+
 @router.post("/query")
 async def query(body: QueryIn, user: CurrentUser) -> StreamingResponse:
     async with tenant_session(user.id) as session:
         if not await user_has_chunks(session, user.id):
             raise HTTPException(status.HTTP_409_CONFLICT, "No documents uploaded yet")
+    await _ensure_question_spacing(user.id)
     if (await store.usage(user.id))["queries_last_24h"] >= settings.queries_per_day:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Daily limit of {settings.queries_per_day} queries reached")
     stream = run_query(user.id, body.question, use_cache=body.use_cache)

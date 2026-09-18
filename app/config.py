@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     chunk_size: int = 700
     chunk_overlap: int = 100
-    max_upload_mb: int = 20
+    max_upload_mb: float = 0.3
 
     retrieval_candidates: int = 20
     rerank_top_k: int = 5
@@ -52,7 +52,8 @@ class Settings(BaseSettings):
     ingest_queue_size: int = 100
 
     queries_per_day: int = 50
-    max_documents: int = 100
+    query_min_interval_seconds: int = 15
+    max_documents: int = 1
     max_storage_mb: int = 200
     resend_per_user_per_day: int = 3
 
