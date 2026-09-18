@@ -78,6 +78,7 @@ Tests run against the `groundline_test` database **as the restricted application
 | `test_ratelimit.py` | shared rate limits over Upstash, fallback when it is absent or failing |
 | `test_limits.py` | usage counters, 429 at the ceiling, provider headers over local counters, personal sub-limits |
 | `test_limits_check.py` | the daily pricing-page check, its flag, Telegram alerts and their dedup |
+| `test_eval_upload.py` | the evaluation script's upload path: waiting for indexing, failing on a broken job, giving up on a stuck one |
 
 The frontend has its own check, run by Node with no test framework:
 
@@ -99,7 +100,7 @@ export GROUNDLINE_SESSION=...   # the groundline_session cookie value after logg
 python app/eval/run_eval.py app/eval/data/dataset.json --docs app/eval/data/handbook.md
 ```
 
-The dataset is a JSON list of `{question, reference}`. The script uploads the documents, sends every question with `use_cache=false` (so it measures the pipeline, not the cache), and reports faithfulness, context precision, context recall and answer correctness per question and on average, writing `eval_results.json`.
+The dataset is a JSON list of `{question, reference}`. The script uploads the documents and **waits for indexing to finish** — `/ingest` only queues the work, so it polls `/jobs/{id}` until the job reports `done` and fails loudly if it reports `error`. Then it sends every question with `use_cache=false` (so it measures the pipeline, not the cache), and reports faithfulness, context precision, context recall and answer correctness per question and on average, writing `eval_results.json`.
 
 What the metrics mean in practice: **faithfulness** drops when the answer states something the retrieved fragments do not support (hallucination), **context recall** drops when retrieval missed the fragment that held the answer, and **context precision** drops when the top-5 is padded with irrelevant chunks — that is, low recall points at search, low precision at the reranker, low faithfulness at the prompt.
 

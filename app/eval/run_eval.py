@@ -2,21 +2,46 @@ import argparse
 import asyncio
 import json
 import os
+import time
 from pathlib import Path
 from statistics import mean
 
 import httpx
-from openai import AsyncOpenAI
-from ragas.llms import llm_factory
-from ragas.metrics.collections import AnswerCorrectness, ContextPrecision, ContextRecall, Faithfulness
 
 METRICS = ("faithfulness", "context_precision", "context_recall", "answer_correctness")
+PENDING_STATUSES = ("queued", "processing")
+INGEST_TIMEOUT_SECONDS = 300.0
+POLL_SECONDS = 1.0
+
+
+async def wait_for_job(client: httpx.AsyncClient, job: dict, timeout: float = INGEST_TIMEOUT_SECONDS) -> dict:
+    deadline = time.monotonic() + timeout
+    while job["status"] in PENDING_STATUSES:
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"indexing {job['filename']} did not finish within {timeout:.0f}s")
+        await asyncio.sleep(POLL_SECONDS)
+        response = await client.get(f"/jobs/{job['id']}")
+        response.raise_for_status()
+        job = response.json()
+    if job["status"] != "done":
+        raise RuntimeError(f"indexing {job['filename']} failed: {job.get('error') or 'unknown error'}")
+    return job
+
+
+async def chunk_count(client: httpx.AsyncClient, document_id: str | None) -> int | None:
+    if document_id is None:
+        return None
+    response = await client.get("/documents")
+    response.raise_for_status()
+    return next((item["chunk_count"] for item in response.json() if item["id"] == document_id), None)
 
 
 async def upload(client: httpx.AsyncClient, path: Path) -> None:
     response = await client.post("/ingest", files={"file": (path.name, path.read_bytes())})
     response.raise_for_status()
-    print(f"uploaded {path.name}: {response.json()['chunk_count']} chunks")
+    job = await wait_for_job(client, response.json())
+    chunks = await chunk_count(client, job.get("document_id"))
+    print(f"indexed {path.name}: {chunks if chunks is not None else 'unknown'} chunks")
 
 
 async def ask(client: httpx.AsyncClient, question: str) -> tuple[str, list[dict]]:
@@ -49,6 +74,10 @@ async def score(metrics: dict, item: dict, answer: str, contexts: list[str]) -> 
 
 
 async def main() -> None:
+    from openai import AsyncOpenAI
+    from ragas.llms import llm_factory
+    from ragas.metrics.collections import AnswerCorrectness, ContextPrecision, ContextRecall, Faithfulness
+
     parser = argparse.ArgumentParser(description="Offline RAG quality evaluation with ragas")
     parser.add_argument("dataset", type=Path, help="JSON list of {question, reference}")
     parser.add_argument("--api", default=os.environ.get("GROUNDLINE_API", "http://localhost:8000"))
