@@ -15,9 +15,12 @@ CSRF_VALUE = "groundline"
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 
-async def current_user(request: Request, session: Session) -> User:
+def require_csrf(request: Request) -> None:
     if request.method not in SAFE_METHODS and request.headers.get(CSRF_HEADER) != CSRF_VALUE:
         raise HTTPException(status.HTTP_403_FORBIDDEN, f"Missing {CSRF_HEADER} header")
+
+
+async def current_user(request: Request, session: Session) -> User:
     unauthorized = HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
     token = request.cookies.get(settings.cookie_name)
     if not token:

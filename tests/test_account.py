@@ -15,6 +15,14 @@ async def test_unsafe_requests_require_csrf_header(client, make_user):
     assert (await client.get("/me", headers={**auth_headers(user.id), "X-Requested-With": ""})).status_code == 200
 
 
+async def test_unauthenticated_unsafe_requests_require_csrf_header(client):
+    assert (await client.post("/auth/logout", headers={"X-Requested-With": ""})).status_code == 403
+    response = await client.post(
+        "/auth/request-otp", json={"email": "csrf@example.com"}, headers={"X-Requested-With": ""}
+    )
+    assert response.status_code == 403
+
+
 async def test_delete_account_removes_all_user_data(client, make_user):
     user = await make_user()
     await seed_document(user.id, "to be erased", seed=21)

@@ -10,14 +10,14 @@ from uuid import UUID
 
 import httpx
 import openai
-from fastapi import APIRouter, File, Header, HTTPException, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import delete, func, select
 
 from app import events, limits, ratelimit
 from app.auth import service as auth
-from app.auth.deps import CurrentUser, Session
+from app.auth.deps import CurrentUser, Session, require_csrf
 from app.config import settings
 from app.db.models import Document, IngestJob, OtpCode, QueryCache, QueryLog, User
 from app.db.session import tenant_session
@@ -28,7 +28,7 @@ from app.ingestion.extract import check_extension
 from app.retrieval.search import user_has_chunks
 
 log = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_csrf)])
 UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 
