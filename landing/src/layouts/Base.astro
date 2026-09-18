@@ -1,6 +1,8 @@
 ---
 import '../styles/landing.css'
 import { SITE } from '../content.js'
+import Analytics from '@vercel/analytics/astro'
+import SpeedInsights from '@vercel/speed-insights/astro'
 
 const { lang = 'en', title, description, path = '/', jsonld = [], noindex = false } = Astro.props
 const site = Astro.site ?? new URL('https://groundline.antonmb.com')
@@ -52,5 +54,7 @@ const alternates = [
   </head>
   <body>
     <slot />
+    <Analytics />
+    <SpeedInsights />
   </body>
 </html>

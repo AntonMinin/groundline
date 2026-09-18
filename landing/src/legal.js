@@ -32,6 +32,7 @@ export const LEGAL = {
             ['Resend', 'Your email address and the six-digit login code.'],
             ['Cloudflare Turnstile', 'A challenge token and your IP address, to keep bots from requesting login codes.'],
             ['Upstash', 'Counters only — how many login codes an IP requested, how many streams an account holds. No document text.'],
+            ['Vercel Analytics and Speed Insights', 'Page views and page-load timings, aggregated. Cookieless, no identifier that follows you to other sites, no document text and no email address.'],
           ],
           after:
             'Running Groundline yourself with local models keeps document text inside your own infrastructure; the hosted demo does not.',
@@ -47,7 +48,7 @@ export const LEGAL = {
         {
           h: 'What is not done',
           list: [
-            ['No advertising, no analytics, no third-party trackers', 'the landing page and the app load no tracking scripts.'],
+            ['No advertising and no third-party trackers', 'the landing page and the app measure page views and load times through Vercel, which sets no cookies and builds no cross-site profile. Nothing else is loaded.'],
             ['No selling or sharing', 'data goes only to the services listed above, and only to answer your questions.'],
             ['No training on your documents', 'the providers are used through their APIs; check their own terms for their retention policies.'],
           ],
@@ -132,6 +133,7 @@ export const LEGAL = {
             ['Resend', 'Ваш адрес почты и шестизначный код входа.'],
             ['Cloudflare Turnstile', 'Токен проверки и ваш IP-адрес, чтобы боты не заказывали коды входа.'],
             ['Upstash', 'Только счётчики: сколько кодов запросил IP, сколько потоков держит аккаунт. Текста документов там нет.'],
+            ['Vercel Analytics и Speed Insights', 'Просмотры страниц и время их загрузки, в агрегированном виде. Без кук, без идентификатора, который следует за вами на другие сайты, без текста документов и без адреса почты.'],
           ],
           after:
             'Если развернуть Groundline у себя с локальными моделями, текст документов не покидает вашу инфраструктуру; в размещённом демо — покидает.',
@@ -147,7 +149,7 @@ export const LEGAL = {
         {
           h: 'Чего здесь нет',
           list: [
-            ['Ни рекламы, ни аналитики, ни сторонних трекеров', 'ни лендинг, ни приложение не грузят отслеживающих скриптов.'],
+            ['Ни рекламы, ни сторонних трекеров', 'лендинг и приложение считают просмотры страниц и время загрузки через Vercel — без кук и без профиля, который следует за вами по другим сайтам. Больше ничего не грузится.'],
             ['Данные не продаются и не передаются', 'уходят только в перечисленные сервисы и только чтобы ответить на ваш вопрос.'],
             ['Обучения на ваших документах нет', 'провайдеры используются через их API; их собственные условия хранения смотрите у них.'],
           ],
