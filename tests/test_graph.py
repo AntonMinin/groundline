@@ -4,6 +4,7 @@ import uuid
 
 import pytest
 
+from app.config import settings
 from app.graph import pipeline
 from app.graph.store import CachedAnswer
 from app.retrieval.fusion import RetrievedChunk
@@ -176,7 +177,7 @@ async def test_similarity_below_threshold_is_a_miss_but_is_still_reported(fakes)
 
     assert collected[-1]["cache_hit"] is False
     assert collected[-1]["cache_similarity"] == 0.8123
-    assert collected[-1]["cache_threshold"] == 0.95
+    assert collected[-1]["cache_threshold"] == settings.cache_similarity_threshold
     assert calls["stream"] == 1
     check_cache = next(e for e in published if e["type"] == "node_finished" and e["node"] == "check_cache")
     assert check_cache["similarity"] == 0.8123 and check_cache["cache_hit"] is False

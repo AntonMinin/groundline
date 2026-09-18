@@ -109,7 +109,7 @@ What the metrics mean in practice: **faithfulness** drops when the answer states
 `CACHE_SIMILARITY_THRESHOLD` decides when two differently worded questions count as the same one. Too high and paraphrases miss; too low and a different question gets someone else's answer. It is chosen from measurements, not guessed: **every query logs the similarity to the nearest cached question, whether or not it cleared the threshold.**
 
 ```
-INFO app.graph.pipeline cache lookup user=… hit=False similarity=0.9126 threshold=0.9500
+INFO app.graph.pipeline cache lookup user=… hit=False similarity=0.8912 threshold=0.9000
      question='How many days can I work remotely?' nearest='How many days per week can I work from home?'
 ```
 
@@ -126,7 +126,7 @@ It prints HIT/MISS with the similarity for each question, plus the observed rang
 ## Reading the logs
 
 ```
-INFO app.graph.pipeline cache lookup user=… hit=False similarity=0.9126 threshold=0.9500
+INFO app.graph.pipeline cache lookup user=… hit=False similarity=0.8912 threshold=0.9000
      ingest_pending=1 inference_waiting=1 question=… nearest=…
 ```
 

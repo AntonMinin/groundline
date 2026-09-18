@@ -30,7 +30,6 @@ async def test_disabled_without_configuration(monkeypatch):
     monkeypatch.setattr(settings, "upstash_redis_rest_url", "")
     monkeypatch.setattr(settings, "upstash_redis_rest_token", "")
     assert await ratelimit.allow("otp:ip:1.2.3.4", 1, 3600) is None
-    assert await ratelimit.acquire_slot("events:user", 1) is None
 
 
 async def test_allow_counts_until_the_limit(upstash):
@@ -38,20 +37,6 @@ async def test_allow_counts_until_the_limit(upstash):
     assert await ratelimit.allow("otp:ip:1.2.3.4", 2, 3600) is True
     assert await ratelimit.allow("otp:ip:1.2.3.4", 2, 3600) is False
     assert await ratelimit.allow("otp:ip:5.6.7.8", 2, 3600) is True
-
-
-async def test_slots_are_released(upstash):
-    assert await ratelimit.acquire_slot("events:user", 1) is True
-    assert await ratelimit.acquire_slot("events:user", 1) is False
-    assert upstash["events:user"] == 1
-    await ratelimit.release_slot("events:user")
-    assert upstash["events:user"] == 0
-    assert await ratelimit.acquire_slot("events:user", 1) is True
-
-
-async def test_release_never_goes_negative(upstash):
-    await ratelimit.release_slot("events:ghost")
-    assert upstash["events:ghost"] == 0
 
 
 async def test_upstash_failure_falls_back_to_local(monkeypatch):
@@ -63,4 +48,3 @@ async def test_upstash_failure_falls_back_to_local(monkeypatch):
 
     monkeypatch.setattr(ratelimit, "_pipeline", broken)
     assert await ratelimit.allow("otp:ip:1.2.3.4", 1, 3600) is None
-    assert await ratelimit.acquire_slot("events:user", 1) is None

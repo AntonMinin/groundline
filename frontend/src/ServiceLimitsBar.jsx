@@ -1,25 +1,13 @@
 import { useEffect, useState } from 'react'
-import { api } from './api.js'
 import { onEvent } from './events.js'
 import { useI18n } from './i18n.jsx'
 import { isDegraded, shareLeft, stateOf, worstOf } from './telemetry.js'
 
-export default function ServiceLimitsBar() {
-  const [services, setServices] = useState([])
-  const [degraded, setDegraded] = useState(false)
-  const [checkedAt, setCheckedAt] = useState(null)
+export default function ServiceLimitsBar({ initial }) {
+  const [services, setServices] = useState(initial?.services ?? [])
+  const [degraded, setDegraded] = useState(Boolean(initial?.degraded))
+  const [checkedAt, setCheckedAt] = useState(initial?.checked_at ?? null)
   const { t, n, locale } = useI18n()
-
-  useEffect(() => {
-    api
-      .limits()
-      .then((body) => {
-        setServices(body.services)
-        setDegraded(Boolean(body.degraded))
-        setCheckedAt(body.checked_at)
-      })
-      .catch(() => {})
-  }, [])
 
   useEffect(
     () =>

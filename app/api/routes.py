@@ -334,17 +334,10 @@ def _stream_error(exc: Exception) -> dict:
 
 @router.get("/events")
 async def events_stream(user: CurrentUser) -> StreamingResponse:
-    slot = f"events:{user.id}"
-    too_many = HTTPException(
-        status.HTTP_429_TOO_MANY_REQUESTS, f"At most {settings.events_max_subscribers} event streams per user"
-    )
-    if await ratelimit.acquire_slot(slot, settings.events_max_subscribers) is False:
-        raise too_many
     try:
         queue = events.subscribe(user.id)
-    except events.TooManySubscribers:
-        await ratelimit.release_slot(slot)
-        raise too_many
+    except events.TooManySubscribers as exc:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(exc)) from exc
 
     async def body_stream():
         try:
@@ -358,7 +351,6 @@ async def events_stream(user: CurrentUser) -> StreamingResponse:
                 yield _sse(event)
         finally:
             events.unsubscribe(user.id, queue)
-            await ratelimit.release_slot(slot)
 
     return StreamingResponse(
         body_stream(),

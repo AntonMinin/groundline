@@ -50,7 +50,7 @@ function Meta({ message }) {
 }
 
 export default function Chat({ onAnswered }) {
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState(null)
   const [question, setQuestion] = useState('')
   const [busy, setBusy] = useState(false)
   const [step, setStep] = useState(null)
@@ -84,7 +84,7 @@ export default function Chat({ onAnswered }) {
           })),
         ),
       )
-      .catch(() => {})
+      .catch(() => setMessages([]))
   }, [])
 
   useEffect(() => {
@@ -104,7 +104,7 @@ export default function Chat({ onAnswered }) {
     setQuestion('')
     setBusy(true)
     started.current = performance.now()
-    setMessages((current) => [...current, { question: text, answer: '', sources: [], pending: true }])
+    setMessages((current) => [...(current ?? []), { question: text, answer: '', sources: [], pending: true }])
     try {
       for await (const evt of api.query(text)) {
         if (evt.type === 'token') update((m) => ({ answer: m.answer + evt.text }))
@@ -131,8 +131,8 @@ export default function Chat({ onAnswered }) {
   return (
     <div className="thread-col">
       <ol className="thread">
-        {messages.length === 0 && <p className="muted">{t('chat.empty')}</p>}
-        {messages.map((message, index) => (
+        {messages !== null && messages.length === 0 && <p className="muted">{t('chat.empty')}</p>}
+        {(messages ?? []).map((message, index) => (
           <li className="msg" key={index}>
             <p className="msg-question">{message.question}</p>
             <div className="msg-answer">

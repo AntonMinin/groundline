@@ -111,7 +111,7 @@ This is the full path. Seven steps, three of which call the LLM.
 ```mermaid
 flowchart TD
     Q([Your question]) --> EMB[embed the question]
-    EMB --> C{"1 - check_cache<br/>nearest stored question:<br/>similarity >= 0.95?"}
+    EMB --> C{"1 - check_cache<br/>nearest stored question:<br/>similarity >= 0.90?"}
     C -->|"no - MISS"| W["2 - rewrite_query (LLM)<br/>turn the question into a search query"]
     C -->|"yes - HIT"| HIT["stored answer, 0 LLM calls"]
     W --> S["3 - retrieve<br/>vector search + full-text search,<br/>merged by rank fusion into 20 candidates"]
@@ -133,7 +133,7 @@ flowchart TD
 
 Step by step:
 
-1. **check_cache.** Your question is embedded and compared with every question you have already asked. The nearest one is found by cosine similarity; if it is at or above the threshold (0.95 by default) the stored answer is returned and the pipeline jumps straight to step 7. Here, it is not.
+1. **check_cache.** Your question is embedded and compared with every question you have already asked. The nearest one is found by cosine similarity; if it is at or above the threshold (0.90 by default) the stored answer is returned and the pipeline jumps straight to step 7. Here, it is not.
 2. **rewrite_query** *(LLM call)*. The LLM turns your wording into a better *search* query: abbreviations expanded, vague words resolved, key terms preserved. "Can I WFH?" becomes something a search engine can actually match. On a retry it is also told what was missing last time.
 3. **retrieve.** Two searches run in parallel over your chunks only:
    - **Vector search** — finds chunks whose meaning is closest to the query. Catches paraphrases, misses exact codes.
@@ -159,7 +159,7 @@ sequenceDiagram
     P->>E: embed the question
     P->>DB: nearest question in query_cache?
     DB-->>P: "How many days per week can I work from home?" (similarity 0.97)
-    Note over P: 0.97 >= 0.95, so it is a hit
+    Note over P: 0.97 >= 0.90, so it is a hit
     P-->>U: the stored answer, at once, with its sources
     P->>DB: query_log row (cache_hit true, tokens_saved = what it cost the first time)
     Note over P,DB: nothing new goes into query_cache - the entry is already there
@@ -178,12 +178,12 @@ The semantic cache is the part people ask about most, so here it is end to end.
 | **When is it read?** | At the very start of every query, before any LLM call. |
 | **When is it written?** | At the very end, in the `record` step, and **only** when the run was a cache miss **and** the sufficiency check passed. An answer built on admittedly insufficient context is never cached. |
 | **When is the lookup skipped?** | When the request sets `use_cache: false` — which is what the evaluation harness does, so it measures the pipeline rather than the cache. The result is still recorded. |
-| **What counts as "the same question"?** | Cosine similarity between the embeddings ≥ `CACHE_SIMILARITY_THRESHOLD` (0.95). Not string matching: different words with the same meaning hit. |
+| **What counts as "the same question"?** | Cosine similarity between the embeddings ≥ `CACHE_SIMILARITY_THRESHOLD` (0.90). Not string matching: different words with the same meaning hit. |
 | **When is it thrown away?** | Whenever your documents change — a new upload, a deleted document, all documents deleted — and on demand via `DELETE /cache`. It is always the whole cache for that account, never a partial invalidation: cheap to rebuild, impossible to get subtly wrong. |
 | **Can it leak between users?** | No. The lookup filters by `user_id`, and Postgres Row-Level Security rejects the query at the database level even if that filter were ever forgotten. |
 | **How is the threshold chosen?** | By measurement, not by guessing: every query logs the similarity it got, hit or miss. See [Development → tuning the cache threshold](development.md#tuning-the-cache-threshold). |
 
-Why 0.95 and not something looser: a hit returns a *stored* answer, so a wrong hit means answering a question nobody asked. With embeddings of this family, scores that high are essentially only reached by restatements of one question.
+Why a threshold this high at all: a hit returns a *stored* answer, so a wrong hit means answering a question nobody asked. The number is a trade between that risk and how often the cache pays off — raise it if hits show up that you disagree with, lower it if near-identical questions keep missing. Every query logs the similarity it got, so the choice is made on your own data rather than on a rule of thumb.
 
 ## Who writes what, and when
 

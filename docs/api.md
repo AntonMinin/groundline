@@ -57,7 +57,7 @@ event: token
 data: {"type": "token", "text": "Remote work is allowed "}
 
 event: done
-data: {"type": "done", "cache_hit": false, "cache_similarity": 0.9126, "cache_threshold": 0.95,
+data: {"type": "done", "cache_hit": false, "cache_similarity": 0.9126, "cache_threshold": 0.9,
        "tokens_used": 807, "tokens_saved": 0,
        "sources": [{"filename": "handbook.md", "chunk_index": 0, "page": null, "document_id": "…",
                     "content": "…", "score": 0.97}]}

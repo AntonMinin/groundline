@@ -22,6 +22,18 @@ function BrandMark() {
   )
 }
 
+function Splash() {
+  return (
+    <main className="center">
+      <p className="brand" role="status">
+        <BrandMark />
+        Groundline
+        <span className="dot-pulse" aria-hidden="true" />
+      </p>
+    </main>
+  )
+}
+
 export default function App() {
   const [user, setUser] = useState(undefined)
   const [tab, setTab] = useState('chat')
@@ -29,6 +41,8 @@ export default function App() {
   const [resetKey, setResetKey] = useState(0)
   const [languageOpen, setLanguageOpen] = useState(false)
   const [leaving, setLeaving] = useState(false)
+  const [serviceLimits, setServiceLimits] = useState(null)
+  const [ready, setReady] = useState(false)
   const { t, locale } = useI18n()
 
   const refreshStats = useCallback(() => {
@@ -45,10 +59,10 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return undefined
-    refreshStats()
+    Promise.allSettled([api.stats().then(setStats), api.limits().then(setServiceLimits)]).then(() => setReady(true))
     connectEvents()
     return disconnectEvents
-  }, [user, refreshStats])
+  }, [user])
 
   const logout = async () => {
     setLeaving(true)
@@ -56,8 +70,9 @@ export default function App() {
     setUser(null)
   }
 
-  if (user === undefined) return <main className="center"><p className="muted">…</p></main>
+  if (user === undefined) return <Splash />
   if (user === null) return <Login onLogin={setUser} onLanguage={() => setLanguageOpen(true)} dialogOpen={languageOpen} onDialogClose={() => setLanguageOpen(false)} />
+  if (!ready) return <Splash />
 
   return (
     <div className="app">
@@ -108,7 +123,7 @@ export default function App() {
         onReset={() => setResetKey((key) => key + 1)}
       />
 
-      <ServiceLimitsBar />
+      <ServiceLimitsBar initial={serviceLimits} />
       <LanguageDialog open={languageOpen} onClose={() => setLanguageOpen(false)} />
     </div>
   )

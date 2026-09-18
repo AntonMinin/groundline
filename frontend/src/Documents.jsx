@@ -6,7 +6,7 @@ import { useI18n } from './i18n.jsx'
 const ACTIVE = ['queued', 'processing']
 
 export default function Documents({ hidden, stats, onChanged, onAccountDeleted, onReset }) {
-  const [documents, setDocuments] = useState([])
+  const [documents, setDocuments] = useState(null)
   const [jobs, setJobs] = useState([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(null)
@@ -15,7 +15,8 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
 
   const maxDocuments = stats?.limits?.max_documents ?? 0
   const uploadMb = stats?.limits?.max_upload_mb ?? 0
-  const full = maxDocuments > 0 && documents.length >= maxDocuments
+  const list = documents ?? []
+  const full = maxDocuments > 0 && list.length >= maxDocuments
 
   const load = () => api.documents().then(setDocuments).catch((err) => setError(err.message))
 
@@ -26,6 +27,12 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
   useEffect(
     () =>
       onEvent((event) => {
+        if (event.type === 'connected') {
+          setJobs([])
+          load()
+          onChanged()
+          return
+        }
         if (event.type !== 'ingest') return
         setJobs((current) => [
           { id: event.job_id, filename: event.filename, status: event.status, error: event.error },
@@ -116,7 +123,7 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
     }
   }
 
-  const chunks = documents.reduce((sum, document) => sum + document.chunk_count, 0)
+  const chunks = list.reduce((sum, document) => sum + document.chunk_count, 0)
   const size = (bytes) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`)
   const jobLabel = (job) => (job.status === 'error' ? t('job.error', { error: job.error ?? '' }) : t(`job.${job.status}`))
   const dot = <span className="dot-pulse" aria-hidden="true" />
@@ -125,13 +132,11 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
     <main className="app-main docs" hidden={hidden}>
       <div className="docs-head">
         <h1>{t('docs.title')}</h1>
-        <p className="muted">
-          {t('docs.summary', {
-            documents: n(documents.length),
-            limit: n(stats?.limits?.max_documents ?? 0),
-            chunks: n(chunks),
-          })}
-        </p>
+        {documents !== null && (
+          <p className="muted">
+            {t('docs.summary', { documents: n(list.length), limit: n(maxDocuments), chunks: n(chunks) })}
+          </p>
+        )}
       </div>
 
       <label
@@ -193,7 +198,7 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
 
       <section aria-labelledby="docs-h">
         <h2 className="kicker" id="docs-h">{t('docs.uploaded')}</h2>
-        {documents.length === 0 ? (
+        {documents === null ? null : list.length === 0 ? (
           <p className="muted">{t('docs.empty')}</p>
         ) : (
           <table className="doc-table">
@@ -208,7 +213,7 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
               </tr>
             </thead>
             <tbody>
-              {documents.map((doc) => (
+              {list.map((doc) => (
                 <tr key={doc.id}>
                   <td className="col-file" data-label={t('docs.file')}>{doc.filename}</td>
                   <td data-label={t('docs.status')}><span className="tag tag-accent">{t('docs.indexed')}</span></td>

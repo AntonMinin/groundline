@@ -49,7 +49,7 @@ Local and hosted bge-m3 produce the same vectors (identical weights), so switchi
 | `RETRIEVAL_CANDIDATES` | `20` | rows fetched by each search and kept after fusion |
 | `RERANK_TOP_K` | `5` | fragments handed to the LLM |
 | `MAX_REWRITES` | `2` | extra search attempts when the sufficiency check says no |
-| `CACHE_SIMILARITY_THRESHOLD` | `0.95` | cosine similarity at which a stored answer is reused. See [tuning](development.md#tuning-the-cache-threshold) |
+| `CACHE_SIMILARITY_THRESHOLD` | `0.90` | cosine similarity at which a stored answer is reused. See [tuning](development.md#tuning-the-cache-threshold) |
 
 Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwards; existing chunks are not re-cut.
 
@@ -103,10 +103,10 @@ See [Architecture → service limits](architecture.md#service-limits) for what i
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `UPSTASH_REDIS_REST_URL` | — | Upstash Redis REST endpoint. With both variables set, the per-IP OTP limit and the `/events` subscription limit are counted in Redis and therefore shared across instances |
+| `UPSTASH_REDIS_REST_URL` | — | Upstash Redis REST endpoint. With both variables set, the per-IP OTP limit is counted in Redis and therefore shared across instances |
 | `UPSTASH_REDIS_REST_TOKEN` | — | REST token for the above. Empty (either one) falls back to the per-process and Postgres counters |
 
-Upstash is failure-tolerant by design: if the REST call errors or times out, the request falls back to the local limit rather than failing. Free-tier budget matters here — each OTP request costs 2 commands, each `/events` connect/disconnect 3, out of 500K per month.
+Upstash is failure-tolerant by design: if the REST call errors or times out, the request falls back to the local limit rather than failing. Free-tier budget matters here — each OTP request costs 2 commands out of 500K per month.
 
 ## Live events
 

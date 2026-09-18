@@ -7,9 +7,6 @@ from app.config import settings
 
 log = logging.getLogger(__name__)
 
-SLOT_TTL_SECONDS = 6 * 3600
-
-
 def enabled() -> bool:
     return bool(settings.upstash_redis_rest_url and settings.upstash_redis_rest_token)
 
@@ -41,18 +38,6 @@ async def allow(key: str, limit: int, window_seconds: int) -> bool | None:
     return None if results is None else results[0] <= limit
 
 
-async def acquire_slot(key: str, limit: int) -> bool | None:
-    if not enabled():
-        return None
-    results = await _pipeline([["INCR", key], ["EXPIRE", key, str(SLOT_TTL_SECONDS), "NX"]])
-    if results is None:
-        return None
-    if results[0] > limit:
-        await _pipeline([["DECR", key]])
-        return False
-    return True
-
-
 async def commands_used() -> float | None:
     if not enabled():
         return None
@@ -61,12 +46,3 @@ async def commands_used() -> float | None:
         return None
     return float(results[0])
 
-
-async def release_slot(key: str) -> None:
-    # ponytail: a stream killed with the process leaks its slot until SLOT_TTL_SECONDS expires;
-    # refresh the TTL per heartbeat if that ever matters, at the cost of ~4 Upstash commands/minute/stream.
-    if not enabled():
-        return
-    results = await _pipeline([["DECR", key]])
-    if results is not None and results[0] < 0:
-        await _pipeline([["SET", key, "0"]])

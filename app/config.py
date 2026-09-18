@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     retrieval_candidates: int = 20
     rerank_top_k: int = 5
     max_rewrites: int = 2
-    cache_similarity_threshold: float = 0.95
+    cache_similarity_threshold: float = 0.90
 
     events_heartbeat_seconds: float = 15.0
     events_queue_size: int = 200
