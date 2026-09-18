@@ -60,7 +60,7 @@ async def main() -> None:
         parser.error("--session or GROUNDLINE_SESSION is required")
 
     judge = llm_factory(
-        os.environ.get("EVAL_LLM_MODEL", "llama-3.3-70b-versatile"),
+        os.environ.get("EVAL_LLM_MODEL", "openai/gpt-oss-120b"),
         provider="openai",
         client=AsyncOpenAI(
             api_key=os.environ["GROQ_API_KEY"],

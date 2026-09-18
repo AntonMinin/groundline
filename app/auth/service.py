@@ -10,6 +10,7 @@ import jwt
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import limits, ratelimit
 from app.config import settings
 from app.db.models import OtpCode, User
 
@@ -22,6 +23,38 @@ class AuthError(Exception):
 
 class OtpRateLimitError(Exception):
     pass
+
+
+class CaptchaError(Exception):
+    pass
+
+
+TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+
+
+async def _siteverify(payload: dict) -> dict:
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(TURNSTILE_VERIFY_URL, data=payload)
+        response.raise_for_status()
+        return response.json()
+
+
+async def verify_turnstile(token: str | None, ip: str | None) -> None:
+    if not settings.turnstile_secret_key:
+        return
+    if not token:
+        raise CaptchaError("Captcha token is missing")
+    payload = {"secret": settings.turnstile_secret_key, "response": token}
+    if ip:
+        payload["remoteip"] = ip
+    try:
+        result = await _siteverify(payload)
+    except httpx.HTTPError as exc:
+        raise CaptchaError("Captcha verification is unavailable") from exc
+    await limits.add("turnstile.siteverify_per_month")
+    if not result.get("success"):
+        log.warning("Turnstile rejected a token: %s", result.get("error-codes"))
+        raise CaptchaError("Captcha verification failed")
 
 
 def hash_code(email: str, code: str) -> str:
@@ -55,11 +88,17 @@ async def send_otp_email(email: str, code: str) -> None:
         )
         if response.is_error:
             raise EmailDeliveryError(f"Resend returned {response.status_code}: {response.text}")
+    limits.report_resend_headers(response.headers)
+    for key in limits.EMAIL_KEYS:
+        await limits.add(key)
+    await limits.add("resend.emails_per_day", subject=email)
 
 
 async def request_otp(session: AsyncSession, email: str, ip: str | None) -> None:
     email = normalize_email(email)
     now = datetime.now(UTC)
+    await limits.ensure(*limits.EMAIL_KEYS)
+    await limits.ensure_personal("resend.emails_per_day", email, settings.resend_per_user_per_day)
     recent = await session.scalar(
         select(OtpCode.id).where(
             OtpCode.email == email,
@@ -69,10 +108,13 @@ async def request_otp(session: AsyncSession, email: str, ip: str | None) -> None
     if recent:
         raise OtpRateLimitError("Code was sent recently, try again later")
     if ip:
-        sent_from_ip = await session.scalar(
-            select(func.count()).where(OtpCode.ip == ip, OtpCode.created_at > now - timedelta(hours=1))
-        )
-        if sent_from_ip >= settings.otp_max_per_ip_per_hour:
+        allowed = await ratelimit.allow(f"otp:ip:{ip}", settings.otp_max_per_ip_per_hour, 3600)
+        if allowed is None:
+            sent_from_ip = await session.scalar(
+                select(func.count()).where(OtpCode.ip == ip, OtpCode.created_at > now - timedelta(hours=1))
+            )
+            allowed = sent_from_ip < settings.otp_max_per_ip_per_hour
+        if not allowed:
             raise OtpRateLimitError("Too many code requests, try again later")
     code = f"{secrets.randbelow(1_000_000):06d}"
     await session.execute(update(OtpCode).where(OtpCode.email == email, OtpCode.used.is_(False)).values(used=True))

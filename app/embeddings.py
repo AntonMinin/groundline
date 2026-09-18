@@ -3,6 +3,7 @@ from functools import lru_cache
 from langfuse import get_client
 from openai import AsyncOpenAI
 
+from app import limits
 from app.config import settings
 from app.inference import run_inference
 
@@ -63,6 +64,8 @@ async def embed(texts: list[str], name: str = "embed") -> list[list[float]]:
         if settings.embedding_provider == "api":
             vectors, tokens = await _encode_api(texts)
             observation.update(usage_details={"input": tokens})
+            await limits.add("deepinfra.spend_per_month", limits.spend_for(tokens))
+            await limits.add("langfuse.units_per_month")
         else:
             vectors, waited_ms = await _encode_local_batched(texts)
             observation.update(metadata={"provider": "local", "lock_wait_ms": round(waited_ms)})

@@ -1,0 +1,61 @@
+---
+import Header from './Header.astro'
+import Footer from './Footer.astro'
+import { UPDATED } from '../legal.js'
+
+const { copy, doc } = Astro.props
+const updatedLabel = copy.lang === 'ru' ? 'Обновлено' : 'Last updated'
+---
+
+<Header copy={copy} />
+
+<main class="landing">
+  <section class="section">
+    <div class="section-head">
+      <p class="kicker">{updatedLabel} {UPDATED}</p>
+      <h1>{doc.heading}</h1>
+      <p class="hero-lede">{doc.lede}</p>
+    </div>
+
+    {
+      doc.sections.map((section) => (
+        <div class="split-item">
+          <h2>{section.h}</h2>
+          {section.body && <p>{section.body}</p>}
+          {section.list && (
+            <ul>
+              {section.list.map(([term, rest]) => (
+                <li>
+                  <b>{term}</b> — {rest}
+                </li>
+              ))}
+            </ul>
+          )}
+          {section.table && (
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th scope="col">{copy.lang === 'ru' ? 'Сервис' : 'Service'}</th>
+                  <th scope="col">{copy.lang === 'ru' ? 'Что получает' : 'What it receives'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {section.table.map(([service, receives]) => (
+                  <tr>
+                    <td class="col-file" data-label={copy.lang === 'ru' ? 'Сервис' : 'Service'}>
+                      {service}
+                    </td>
+                    <td data-label={copy.lang === 'ru' ? 'Что получает' : 'What it receives'}>{receives}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {section.after && <p class="muted">{section.after}</p>}
+        </div>
+      ))
+    }
+  </section>
+</main>
+
+<Footer copy={copy} />

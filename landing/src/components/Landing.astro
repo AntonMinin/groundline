@@ -1,0 +1,131 @@
+---
+import Header from './Header.astro'
+import Footer from './Footer.astro'
+import Screenshot from './Screenshot.astro'
+import { PIPELINE_STEPS, SITE } from '../content.js'
+
+const { copy } = Astro.props
+---
+
+<Header copy={copy} />
+
+<main class="landing">
+  <section class="hero">
+    <p class="kicker">{copy.hero.kicker}</p>
+    <h1>{copy.hero.title}</h1>
+    <p class="hero-lede">{copy.hero.lede}</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href={SITE.appUrl}>{copy.nav.demo}</a>
+      <a class="btn btn-secondary" href={SITE.repoUrl} rel="noopener">{copy.nav.repo}</a>
+    </div>
+    <ul class="hero-facts">
+      {
+        copy.hero.facts.map(([value, label]) => (
+          <li class="fact">
+            <span class="fact-value num">{value}</span>
+            <span class="fact-label">{label}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="section" id="how">
+    <div class="section-head">
+      <p class="kicker">{copy.how.kicker}</p>
+      <h2>{copy.how.title}</h2>
+      <p class="muted">{copy.how.lede}</p>
+    </div>
+    <ol class="flow">
+      {
+        PIPELINE_STEPS.map(([name, usesLlm], index) => (
+          <li class="flow-step" data-llm={String(usesLlm)}>
+            <span class="num">{String(index + 1).padStart(2, '0')}</span>
+            <h3>{name}</h3>
+            <p>{copy.how.steps[index]}</p>
+          </li>
+        ))
+      }
+    </ol>
+    <p class="muted">{copy.how.llmNote}</p>
+    <Screenshot src="/screens/chat.webp" alt={copy.screenshots.chat} width={1280} height={800} />
+  </section>
+
+  <section class="section" id="auth">
+    <div class="section-head">
+      <p class="kicker">{copy.auth.kicker}</p>
+      <h2>{copy.auth.title}</h2>
+      <p class="muted">{copy.auth.lede}</p>
+    </div>
+    <div class="split">
+      {
+        copy.auth.items.map(([title, body]) => (
+          <div class="split-item">
+            <h3>{title}</h3>
+            <p>{body}</p>
+          </div>
+        ))
+      }
+    </div>
+    <Screenshot src="/screens/documents.webp" alt={copy.screenshots.documents} width={1280} height={800} />
+  </section>
+
+  <section class="section" id="numbers">
+    <div class="section-head">
+      <p class="kicker">{copy.numbers.kicker}</p>
+      <h2>{copy.numbers.title}</h2>
+      <p class="muted">{copy.numbers.lede}</p>
+    </div>
+    <table class="doc-table">
+      <tbody>
+        {
+          copy.numbers.rows.map(([label, value, note]) => (
+            <tr>
+              <td class="col-file">{label}</td>
+              <td class="num">{value}</td>
+              <td class="muted">{note}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+    <p class="muted">{copy.numbers.caption}</p>
+    <Screenshot src="/screens/limits.webp" alt={copy.screenshots.limits} width={1280} height={420} />
+  </section>
+
+  <section class="section" id="limits">
+    <div class="section-head">
+      <p class="kicker">{copy.limits.kicker}</p>
+      <h2>{copy.limits.title}</h2>
+    </div>
+    <div class="split">
+      {
+        copy.limits.items.map(([title, body]) => (
+          <div class="split-item">
+            <h3>{title}</h3>
+            <p>{body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section" id="faq">
+    <div class="section-head">
+      <p class="kicker">{copy.faq.kicker}</p>
+      <h2>{copy.faq.title}</h2>
+    </div>
+    <div class="faq">
+      {
+        copy.faq.items.map(([question, answer]) => (
+          <details>
+            <summary>{question}</summary>
+            <p>{answer}</p>
+          </details>
+        ))
+      }
+    </div>
+  </section>
+</main>
+
+<Footer copy={copy} />

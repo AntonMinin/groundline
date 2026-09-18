@@ -49,6 +49,19 @@ The deployed instance uses `EMBEDDING_PROVIDER=api` and `RERANK_PROVIDER=api`: w
 
    The migration grants table privileges to `groundline_app`, enables and forces RLS, and revokes access from Supabase's `anon` and `authenticated` roles so the tables are not exposed through the Supabase Data API.
 
+   Supabase projects can be configured to enable row-level security on **every** new table in `public`. For a tenant table that is what we want; for `users`, `otp_codes`, `service_usage` and `alembic_version` it is not — RLS with no policy means the application role reads nothing and login fails with "invalid or expired code" even for a correct one. Migration `0005` disables RLS on exactly those four. After running migrations, check the result:
+
+   ```sql
+   SELECT c.relname, c.relrowsecurity AS rls, count(p.polname) AS policies
+   FROM pg_class c
+   JOIN pg_namespace n ON n.oid = c.relnamespace
+   LEFT JOIN pg_policy p ON p.polrelid = c.oid
+   WHERE n.nspname = 'public' AND c.relkind = 'r'
+   GROUP BY 1, 2 ORDER BY 1;
+   ```
+
+   Every row must be either `rls = true` with one policy (the five tenant tables) or `rls = false` with none. A row with `rls = true` and zero policies is the broken state.
+
 ## 2. Backend: Render
 
 1. Push the repository to GitHub.
@@ -62,6 +75,9 @@ The deployed instance uses `EMBEDDING_PROVIDER=api` and `RERANK_PROVIDER=api`: w
    - `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`
    - `CORS_ORIGINS=https://app.example.com`
    - `COOKIE_DOMAIN=.example.com`
+   - `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` — [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile) widget for `app.example.com`; leaving them empty disables the captcha
+   - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — [Upstash](https://upstash.com) Redis, for rate limits shared across instances; empty falls back to per-process counters
+   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — where quota alerts go (exhausted, under 20% left, a provider limit that changed on its pricing page); empty leaves alerts in the log and in `/limits`
 4. **Settings → Custom Domains**: add `api.example.com` and create the CNAME record Render shows.
 
 Setting `MIGRATION_DATABASE_URL` on the service makes the container run `alembic upgrade head` at start-up. Leaving it unset (the safer default) means migrations are applied deliberately, from your machine or from CI.
@@ -77,7 +93,17 @@ No `vercel.json` is needed: the UI is a plain Vite SPA with no client-side route
 3. **Environment Variables**: `VITE_API_URL=https://api.example.com`.
 4. Deploy, then **Settings → Domains**: add `app.example.com`.
 
-## 4. Email: Resend
+## 4. Landing: Vercel
+
+The public page lives in [`landing/`](../landing/README.md) and takes the **root** domain, with the app on `app.`; both stay under one registrable domain so the `SameSite=Lax` session cookie keeps working.
+
+1. A second Vercel project from the same repository, **Root Directory** `landing`.
+2. Environment variables: `SITE_URL`, `PUBLIC_APP_URL`, `PUBLIC_REPO_URL`.
+3. **Settings → Domains**: the root domain.
+
+Moving the app to `app.` also means `CORS_ORIGINS=https://app.<domain>` on Render and `VITE_API_URL` on the app's Vercel project; `COOKIE_DOMAIN` stays the shared `.<domain>`.
+
+## 5. Email: Resend
 
 1. [resend.com](https://resend.com) → **Domains** → add `example.com`, create the DNS records (SPF, DKIM) and wait for verification.
 2. Create an API key, then set `RESEND_API_KEY` and `RESEND_FROM=Groundline <login@example.com>` on Render.

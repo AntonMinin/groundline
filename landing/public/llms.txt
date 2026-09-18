@@ -1,0 +1,39 @@
+# Groundline
+
+> Groundline answers questions about documents a person uploads, and caches answers by the meaning of the question rather than its text, so a reworded question costs no language-model tokens. It is an open-source portfolio project with a free hosted demo.
+
+Key facts, measured on 2026-09-18 against the demo corpus (one employee handbook):
+
+- Answer served from cache: 439 ms, 0 language-model calls, 849 tokens saved.
+- Same answer through the full pipeline: about 2.6 seconds, 3 language-model calls.
+- The cache hit came from a similarity of 0.9916 against a threshold of 0.95.
+- Indexing the document took about 2.3 seconds.
+
+How a question is answered (seven steps, three of which call the model):
+
+1. check_cache — the question is embedded and compared with previously answered questions; at or above the similarity threshold the stored answer is returned immediately.
+2. rewrite_query (model) — the question is rewritten into a precise search query.
+3. retrieve — hybrid search over the user's chunks: vector search plus Postgres full-text search, merged with reciprocal rank fusion.
+4. rerank — a cross-encoder scores the candidates and keeps the top five.
+5. check_sufficiency (model) — decides whether those fragments can answer the question; if not, the query is rewritten and searched again, at most twice.
+6. generate_answer (model) — the answer is streamed from those fragments only, with inline citations.
+7. record — answer, sources and per-step metrics are stored, and the answer enters the cache when the run was a miss and the context was sufficient.
+
+Technical summary:
+
+- Stack: FastAPI, LangGraph, Postgres 17 with pgvector, SQLAlchemy async, Alembic, React with Vite, Astro for this site.
+- Models: Groq openai/gpt-oss-120b for generation, BAAI bge-m3 for embeddings, BAAI bge-reranker-v2-m3 for reranking. Embeddings and reranking run either locally or through hosted APIs, chosen by configuration.
+- Tenant isolation: every row carries a user id, and Postgres row-level security enforces separation at the database level, not only in application code.
+- Authentication: passwordless email codes, session in an httpOnly cookie, Cloudflare Turnstile on the code request.
+- Quotas: 50 questions per account per day (cache hits are free), 100 documents, 200 MB per account, 20 MB per file.
+- External free tiers are metered inside the application and shown in the interface, with a daily job that re-reads each provider's pricing page and flags a limit that changed.
+
+## Pages
+
+- [Landing, English](https://groundline.antonmb.com/): what it is, how the pipeline works, why sign-in exists, measured cache numbers, FAQ.
+- [Landing, Russian](https://groundline.antonmb.com/ru): the same content in Russian.
+- [Privacy](https://groundline.antonmb.com/privacy): what is stored, which external service receives what, how to delete everything.
+- [Terms](https://groundline.antonmb.com/terms): demonstration service, no availability guarantee, quotas, no confidential uploads.
+- [Live demo](https://app.groundline.antonmb.com): sign in with an email code, upload a document, ask a question.
+- [Source code](https://github.com/antonmb/groundline): repository with docker compose setup.
+- [Documentation](https://github.com/antonmb/groundline/tree/main/docs): architecture, API, configuration, security notes, deployment.

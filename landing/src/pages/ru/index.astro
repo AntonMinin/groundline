@@ -1,0 +1,20 @@
+---
+import Base from '../../layouts/Base.astro'
+import Landing from '../../components/Landing.astro'
+import { CONTENT } from '../../content.js'
+import { breadcrumbs, faq, organization, softwareApplication, website } from '../../schema.js'
+
+const copy = CONTENT.ru
+const site = Astro.site
+const jsonld = [
+  organization(site),
+  website(site, 'ru'),
+  softwareApplication(site, 'ru'),
+  breadcrumbs(site, 'ru', [{ name: 'Groundline', path: '/ru' }]),
+  faq(site, 'ru'),
+]
+---
+
+<Base lang="ru" title={copy.title} description={copy.description} path="/ru" jsonld={jsonld}>
+  <Landing copy={copy} />
+</Base>

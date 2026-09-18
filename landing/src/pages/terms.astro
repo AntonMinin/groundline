@@ -1,0 +1,21 @@
+---
+import Base from '../layouts/Base.astro'
+import LegalPage from '../components/LegalPage.astro'
+import { CONTENT } from '../content.js'
+import { LEGAL } from '../legal.js'
+import { breadcrumbs, organization } from '../schema.js'
+
+const copy = CONTENT.en
+const doc = LEGAL.en.terms
+const jsonld = [
+  organization(Astro.site),
+  breadcrumbs(Astro.site, 'en', [
+    { name: 'Groundline', path: '/' },
+    { name: 'Terms', path: '/terms' },
+  ]),
+]
+---
+
+<Base lang="en" title={doc.title} description={doc.description} path="/terms" jsonld={jsonld}>
+  <LegalPage copy={copy} doc={doc} />
+</Base>

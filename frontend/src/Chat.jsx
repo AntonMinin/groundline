@@ -1,32 +1,51 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
 import { onEvent } from './events.js'
-
-const STEP_LABELS = {
-  check_cache: 'checking the answer cache…',
-  rewrite_query: 'rewriting the question…',
-  retrieve: 'searching documents…',
-  rerank: 'ranking the best fragments…',
-  check_sufficiency: 'checking whether the context is enough…',
-  generate_answer: 'writing the answer…',
-  record: 'saving…',
-}
+import { useI18n } from './i18n.jsx'
 
 function Sources({ sources }) {
+  const { t } = useI18n()
   if (!sources?.length) return null
   return (
     <details className="sources">
-      <summary>Sources ({sources.length})</summary>
+      <summary>{t('chat.sources', { count: sources.length })}</summary>
       <ol>
         {sources.map((source, index) => (
-          <li key={index}>
-            <strong>{source.filename}</strong>
-            <span className="muted"> · chunk {source.chunk_index}{source.page ? ` · page ${source.page}` : ''}</span>
-            {source.content && <p>{source.content.slice(0, 300)}{source.content.length > 300 ? '…' : ''}</p>}
+          <li className="source" key={index}>
+            <span className="source-file">{source.filename}</span>
+            <span className="source-loc">
+              {t('chat.chunk', { index: source.chunk_index })}
+              {source.page ? ` · ${t('chat.page', { page: source.page })}` : ''}
+            </span>
+            {source.content && (
+              <p className="source-quote">
+                «{source.content.slice(0, 300)}{source.content.length > 300 ? '…' : ''}»
+              </p>
+            )}
           </li>
         ))}
       </ol>
     </details>
+  )
+}
+
+function Meta({ message }) {
+  const { t, n } = useI18n()
+  if (message.pending) return null
+  return (
+    <p className="msg-meta">
+      <span className={message.cacheHit ? 'tag tag-accent' : 'tag'}>
+        {message.cacheHit
+          ? t('chat.cacheHit', { similarity: (message.similarity ?? 0).toFixed(4) })
+          : t('chat.cacheMiss')}
+      </span>
+      {message.durationMs !== undefined && <span className="num">{message.durationMs >= 1000 ? `${(message.durationMs / 1000).toFixed(2)} s` : `${message.durationMs} ms`}</span>}
+      <span className="num">
+        {message.cacheHit
+          ? t('chat.saved', { tokens: n(message.tokensSaved ?? 0) })
+          : t('chat.tokens', { tokens: n(message.tokensUsed ?? 0) })}
+      </span>
+    </p>
   )
 }
 
@@ -35,7 +54,9 @@ export default function Chat({ onAnswered }) {
   const [question, setQuestion] = useState('')
   const [busy, setBusy] = useState(false)
   const [step, setStep] = useState(null)
+  const started = useRef(0)
   const bottom = useRef(null)
+  const { t } = useI18n()
 
   useEffect(
     () =>
@@ -50,7 +71,18 @@ export default function Chat({ onAnswered }) {
     api
       .history()
       .then((rows) =>
-        setMessages(rows.reverse().map((row) => ({ question: row.question, answer: row.answer, sources: row.sources, cacheHit: row.cache_hit }))),
+        setMessages(
+          rows.reverse().map((row) => ({
+            question: row.question,
+            answer: row.answer,
+            sources: row.sources,
+            cacheHit: row.cache_hit,
+            tokensUsed: row.tokens_used,
+            tokensSaved: row.tokens_saved,
+            similarity: row.node_metrics?.find((metric) => metric.node === 'check_cache')?.similarity,
+            durationMs: row.node_metrics?.reduce((sum, metric) => sum + (metric.duration_ms ?? 0), 0),
+          })),
+        ),
       )
       .catch(() => {})
   }, [])
@@ -60,7 +92,10 @@ export default function Chat({ onAnswered }) {
   }, [messages])
 
   const update = (patch) =>
-    setMessages((current) => [...current.slice(0, -1), { ...current[current.length - 1], ...patch(current[current.length - 1]) }])
+    setMessages((current) => [
+      ...current.slice(0, -1),
+      { ...current[current.length - 1], ...patch(current[current.length - 1]) },
+    ])
 
   const ask = async (event) => {
     event.preventDefault()
@@ -68,11 +103,21 @@ export default function Chat({ onAnswered }) {
     if (!text) return
     setQuestion('')
     setBusy(true)
+    started.current = performance.now()
     setMessages((current) => [...current, { question: text, answer: '', sources: [], pending: true }])
     try {
       for await (const evt of api.query(text)) {
         if (evt.type === 'token') update((m) => ({ answer: m.answer + evt.text }))
-        if (evt.type === 'done') update(() => ({ sources: evt.sources, cacheHit: evt.cache_hit, tokensSaved: evt.tokens_saved, pending: false }))
+        if (evt.type === 'done')
+          update(() => ({
+            sources: evt.sources,
+            cacheHit: evt.cache_hit,
+            similarity: evt.cache_similarity,
+            tokensUsed: evt.tokens_used,
+            tokensSaved: evt.tokens_saved,
+            durationMs: Math.round(performance.now() - started.current),
+            pending: false,
+          }))
         if (evt.type === 'error') update(() => ({ error: `${evt.status}: ${evt.detail}`, pending: false }))
       }
     } catch (err) {
@@ -84,32 +129,45 @@ export default function Chat({ onAnswered }) {
   }
 
   return (
-    <section className="chat">
-      <div className="messages">
-        {messages.length === 0 && <p className="muted">Ask a question about your documents.</p>}
+    <div className="thread-col">
+      <ol className="thread">
+        {messages.length === 0 && <p className="muted">{t('chat.empty')}</p>}
         {messages.map((message, index) => (
-          <article key={index}>
-            <p className="question">{message.question}</p>
-            <div className="answer">
+          <li className="msg" key={index}>
+            <p className="msg-question">{message.question}</p>
+            <div className="msg-answer">
               {message.pending && (
-                <p className="working">
-                  <span className="spinner" aria-hidden="true" />
-                  <span className="muted">{STEP_LABELS[step] ?? 'working…'}</span>
+                <p className="msg-working" role="status">
+                  <span className="dot-pulse" aria-hidden="true" />
+                  {step ? t(`step.${step}`) : '…'}
                 </p>
               )}
-              {message.answer}
-              {message.cacheHit && <span className="badge">cache hit{message.tokensSaved ? ` · ${message.tokensSaved} tokens saved` : ''}</span>}
+              {message.answer && <p>{message.answer}</p>}
+              {message.error && <p className="error" role="alert">{message.error}</p>}
+              <Meta message={message} />
+              <Sources sources={message.sources} />
             </div>
-            {message.error && <p className="error" role="alert">{message.error}</p>}
-            <Sources sources={message.sources} />
-          </article>
+          </li>
         ))}
-        <div ref={bottom} />
-      </div>
-      <form className="ask" onSubmit={ask}>
-        <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask about your documents…" maxLength={2000} />
-        <button type="submit" disabled={busy}>{busy ? 'Asking…' : 'Ask'}</button>
+        <li ref={bottom} />
+      </ol>
+
+      <form className="composer" onSubmit={ask}>
+        <label className="visually-hidden" htmlFor="ask">{t('chat.placeholder')}</label>
+        <input
+          className="input"
+          id="ask"
+          type="text"
+          maxLength={2000}
+          autoComplete="off"
+          placeholder={t('chat.placeholder')}
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+        />
+        <button className="btn btn-primary" type="submit" disabled={busy}>
+          {busy ? t('chat.asking') : t('chat.ask')}
+        </button>
       </form>
-    </section>
+    </div>
   )
 }

@@ -37,6 +37,11 @@ def subscriber_count(user_id: UUID) -> int:
     return len(_subscribers.get(user_id, ()))
 
 
+def broadcast(event: dict) -> None:
+    for user_id in list(_subscribers):
+        publish(user_id, event)
+
+
 def publish(user_id: UUID, event: dict) -> None:
     queues = _subscribers.get(user_id)
     if not queues:

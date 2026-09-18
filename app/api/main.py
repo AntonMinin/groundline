@@ -11,7 +11,7 @@ from langfuse import get_client
 from sqlalchemy.exc import InterfaceError, OperationalError
 from sqlalchemy.exc import TimeoutError as PoolTimeout
 
-from app import inference
+from app import inference, limits, limits_check
 from app.api.routes import router
 from app.auth.service import AuthError
 from app.config import settings
@@ -35,7 +35,9 @@ async def lifespan(app: FastAPI):
             loaders.append(asyncio.to_thread(get_reranker))
         await asyncio.gather(*loaders)
     await jobs.start_workers()
+    await limits_check.start()
     yield
+    await limits_check.stop()
     await jobs.stop_workers()
     inference.shutdown()
     get_client().shutdown()
@@ -69,6 +71,12 @@ async def invalid_file(request: Request, exc: InvalidFileError) -> JSONResponse:
 @app.exception_handler(AuthError)
 async def auth_error(request: Request, exc: AuthError) -> JSONResponse:
     return _error(status.HTTP_401_UNAUTHORIZED, str(exc))
+
+
+@app.exception_handler(limits.LimitExceeded)
+async def limit_exceeded(request: Request, exc: limits.LimitExceeded) -> JSONResponse:
+    log.warning("Service limit reached: %s", exc)
+    return _error(status.HTTP_429_TOO_MANY_REQUESTS, str(exc))
 
 
 @app.exception_handler(OperationalError)

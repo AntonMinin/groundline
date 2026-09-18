@@ -4,6 +4,7 @@ from functools import lru_cache
 import httpx
 from langfuse import get_client
 
+from app import limits
 from app.config import settings
 from app.inference import run_inference
 from app.retrieval.fusion import RetrievedChunk
@@ -29,6 +30,11 @@ def parse_rerank_response(payload: dict, count: int) -> list[float]:
     return scores
 
 
+def rerank_units(payload: dict) -> float:
+    usage = payload.get("usage") or {}
+    return float(usage.get("rerank_units", 1))
+
+
 async def _score_api(query: str, chunks: list[RetrievedChunk]) -> list[float]:
     async with httpx.AsyncClient(timeout=settings.llm_timeout) as client:
         response = await client.post(
@@ -44,7 +50,10 @@ async def _score_api(query: str, chunks: list[RetrievedChunk]) -> list[float]:
             },
         )
         response.raise_for_status()
-    return parse_rerank_response(response.json(), len(chunks))
+    payload = response.json()
+    await limits.add("pinecone.rerank_units_per_month", rerank_units(payload))
+    await limits.add("langfuse.units_per_month")
+    return parse_rerank_response(payload, len(chunks))
 
 
 async def rerank(query: str, chunks: list[RetrievedChunk], top_k: int = settings.rerank_top_k) -> list[RetrievedChunk]:

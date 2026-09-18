@@ -24,7 +24,9 @@ This only works while the application connects as a role **without** `BYPASSRLS`
 
 `tests/test_isolation.py` runs against the restricted role and asserts that a second user cannot find, list, delete or insert rows even with deliberately unfiltered queries.
 
-`users` and `otp_codes` are not tenant tables: they are reached only through the authentication path, before any user identity exists.
+**Tables that must *not* have RLS.** `users` and `otp_codes` are reached through the authentication path, before any user identity exists, so there is no `app.user_id` to match a policy against; `alembic_version` belongs to the migration role alone. On a platform that enables row-level security automatically for every new table in `public` — Supabase does — those tables end up with RLS on and **no policy**, which in Postgres means the application role sees zero rows and login stops working. Migration `0005` turns RLS off on them explicitly and re-revokes `anon`/`authenticated`, so the Supabase Data API still cannot reach them. `tests/test_isolation.py` asserts the invariant for every table in `public`: either RLS with a policy, or no RLS — a table with RLS and no policy fails the suite. Add a new tenant table with its policy, or add it to the non-tenant list; never leave it in between.
+
+`users` and `otp_codes` are not tenant tables: they are reached only through the authentication path, before any user identity exists. `service_usage` is not one either — it holds account-wide counters of calls to external services, with no user content; its only per-user rows are the personal sub-limit counters, keyed by subject and filtered in the application, and `GET /limits` only ever returns the caller's own.
 
 ## Authentication
 
@@ -33,6 +35,7 @@ This only works while the application connects as a role **without** `BYPASSRLS`
 - A code expires after `OTP_TTL_MINUTES` (10), dies after `OTP_MAX_ATTEMPTS` (5) wrong guesses, and requesting a new one marks all previous unused codes for that address as used.
 - The verification row is selected `FOR UPDATE`, so parallel guesses cannot race the attempt counter.
 - Rate limits: one code per address per `OTP_RESEND_COOLDOWN_SECONDS` (60), and at most `OTP_MAX_PER_IP_PER_HOUR` (20) requests per client IP.
+- **Cloudflare Turnstile** guards `POST /auth/request-otp`: the browser solves a challenge, and the backend validates the token with `siteverify` before a code is issued or an email is sent. With `TURNSTILE_SECRET_KEY` empty the check is skipped entirely (local development and tests); with it set, a request without a token is rejected with `403` before any database or email work happens.
 - The session is a JWT (HS256) in a cookie: `httpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, lifetime `JWT_TTL_MINUTES` (7 days).
 
 ## CSRF and CORS
@@ -62,6 +65,9 @@ Cookie authentication means a cross-site request would otherwise carry credentia
 | Upload size | 20 MB | `MAX_UPLOAD_MB` |
 | Concurrent `/events` streams per user | 5 | `EVENTS_MAX_SUBSCRIBERS` |
 | OTP requests per IP per hour | 20 | `OTP_MAX_PER_IP_PER_HOUR` |
+| Login codes per email address per day | 3 | `RESEND_PER_USER_PER_DAY` |
+
+External service quotas are enforced on top of these: when a provider's free tier (or the DeepInfra budget) is spent, the affected endpoint answers `429` naming the service and its reset time, instead of failing at the provider. See [Architecture → service limits](architecture.md#service-limits).
 
 ## Data handling
 
@@ -75,6 +81,6 @@ Cookie authentication means a cross-site request would otherwise carry credentia
 
 - **Sessions cannot be revoked.** JWTs are stateless: logout clears the cookie, but a token already copied elsewhere stays valid until it expires (or until the account is deleted). A token version column on `users`, checked per request, would fix this.
 - **`X-Forwarded-For` is trusted from any proxy** (`--forwarded-allow-ips '*'`). Expose the backend only behind a reverse proxy you control (Render, nginx), or the per-IP OTP limit can be bypassed with a forged header.
-- **Rate limits are per process.** They live in the database for OTP but in memory for the event channel, so several backend instances would each enforce their own subscriber limit.
+- **Rate limits are shared only when Upstash is configured.** With `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` set, the per-IP OTP limit and the `/events` subscription limit are counted in Redis and hold across instances. Without them the OTP limit falls back to a Postgres count (shared, but only over rows that exist) and the subscription limit to a per-process counter, so several instances would each allow their own five streams. Two ceilings remain even with Upstash: a stream whose process dies holds its slot until the 6-hour TTL expires, and a Redis outage fails open to the local counters rather than rejecting logins.
 - **No antivirus or content scanning** on uploads. Files are parsed as text and never executed, but nothing inspects them for malicious payloads.
 - **`DEV_MODE=true` prints login codes to the log.** It exists for local development; enabling it in production hands out sessions to anyone who can read logs.

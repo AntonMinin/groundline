@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
 import { onEvent } from './events.js'
+import { useI18n } from './i18n.jsx'
 
-const JOB_LABELS = {
-  queued: 'queued for indexing',
-  processing: 'extracting text and building embeddings…',
-  done: 'indexed',
-  error: 'failed',
-}
+const ACTIVE = ['queued', 'processing']
 
-export default function Documents({ onChanged, onAccountDeleted, onReset }) {
+export default function Documents({ hidden, stats, onChanged, onAccountDeleted, onReset }) {
   const [documents, setDocuments] = useState([])
   const [jobs, setJobs] = useState([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const { t, n, locale } = useI18n()
 
   const load = () => api.documents().then(setDocuments).catch((err) => setError(err.message))
 
@@ -37,9 +35,7 @@ export default function Documents({ onChanged, onAccountDeleted, onReset }) {
     [],
   )
 
-  const upload = async (event) => {
-    const files = [...event.target.files]
-    event.target.value = ''
+  const send = async (files) => {
     setBusy(true)
     setError('')
     for (const file of files) {
@@ -56,6 +52,18 @@ export default function Documents({ onChanged, onAccountDeleted, onReset }) {
     setBusy(false)
   }
 
+  const upload = async (event) => {
+    const files = [...event.target.files]
+    event.target.value = ''
+    await send(files)
+  }
+
+  const drop = async (event) => {
+    event.preventDefault()
+    setDragging(false)
+    await send([...event.dataTransfer.files])
+  }
+
   const remove = async (id) => {
     await api.deleteDocument(id).catch((err) => setError(err.message))
     load()
@@ -63,7 +71,7 @@ export default function Documents({ onChanged, onAccountDeleted, onReset }) {
   }
 
   const resetDemo = async () => {
-    if (!window.confirm('Delete all documents, the answer cache and the query history? Your account stays.')) return
+    if (!window.confirm(t('docs.confirmReset'))) return
     setBusy(true)
     setError('')
     try {
@@ -82,60 +90,120 @@ export default function Documents({ onChanged, onAccountDeleted, onReset }) {
   }
 
   const deleteAccount = async () => {
-    if (!window.confirm('Delete your account, all documents and history? This cannot be undone.')) return
+    if (!window.confirm(t('docs.confirmDelete'))) return
     await api.deleteAccount()
     onAccountDeleted()
   }
 
+  const chunks = documents.reduce((sum, document) => sum + document.chunk_count, 0)
+  const size = (bytes) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`)
+  const jobLabel = (job) => (job.status === 'error' ? t('job.error', { error: job.error ?? '' }) : t(`job.${job.status}`))
+
   return (
-    <section>
-      <label className="upload">
-        {busy ? 'Uploading and indexing…' : 'Upload PDF, TXT or MD'}
-        <input type="file" accept=".pdf,.txt,.md" multiple disabled={busy} onChange={upload} />
-      </label>
-      {error && <p className="error" role="alert">{error}</p>}
-      {jobs.length > 0 && (
-        <ul className="jobs">
-          {jobs.map((job) => (
-            <li key={job.id}>
-              {['queued', 'processing'].includes(job.status) && <span className="spinner" aria-hidden="true" />}
-              <strong>{job.filename}</strong>
-              <span className={job.status === 'error' ? 'error' : 'muted'}>
-                {' '}
-                {JOB_LABELS[job.status] ?? job.status}
-                {job.error ? `: ${job.error}` : ''}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {documents.length === 0 ? (
-        <p className="muted">No documents yet.</p>
-      ) : (
-        <div className="table-wrap">
-        <table>
-          <thead>
-            <tr><th>File</th><th>Chunks</th><th>Size</th><th>Uploaded</th><th /></tr>
-          </thead>
-          <tbody>
-            {documents.map((doc) => (
-              <tr key={doc.id}>
-                <td>{doc.filename}</td>
-                <td>{doc.chunk_count}</td>
-                <td>{(doc.size_bytes / 1024).toFixed(0)} KB</td>
-                <td>{new Date(doc.created_at).toLocaleString()}</td>
-                <td><button onClick={() => remove(doc.id)}>Delete</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      )}
-      <hr />
-      <div className="actions">
-        <button onClick={resetDemo} disabled={busy}>Reset demo</button>
-        <button className="danger" onClick={deleteAccount}>Delete account</button>
+    <main className="app-main docs" hidden={hidden}>
+      <div className="docs-head">
+        <h1>{t('docs.title')}</h1>
+        <p className="muted">
+          {t('docs.summary', {
+            documents: n(documents.length),
+            limit: n(stats?.limits?.max_documents ?? 0),
+            chunks: n(chunks),
+          })}
+        </p>
       </div>
-    </section>
+
+      <label
+        className="dropzone"
+        htmlFor="upload"
+        data-dragging={dragging}
+        onDragOver={(event) => {
+          event.preventDefault()
+          setDragging(true)
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={drop}
+      >
+        <strong>{t('docs.dropTitle')}</strong>
+        <p>{t('docs.dropHint', { size: stats?.limits?.max_upload_mb ?? 20 })}</p>
+        <input id="upload" type="file" accept=".pdf,.txt,.md" multiple disabled={busy} onChange={upload} />
+      </label>
+
+      {error && <p className="error" role="alert">{error}</p>}
+
+      {jobs.length > 0 && (
+        <section aria-labelledby="jobs-h">
+          <h2 className="kicker" id="jobs-h">{t('docs.indexing')}</h2>
+          <ul className="jobs">
+            {jobs.map((job) => (
+              <li className="job" key={job.id} data-status={job.status}>
+                <span className="job-name">{job.filename}</span>
+                <span className="job-status">{jobLabel(job)}</span>
+                {ACTIVE.includes(job.status) && (
+                  <span
+                    className="job-progress"
+                    aria-hidden="true"
+                    data-indeterminate={job.status === 'processing'}
+                  >
+                    <i style={job.status === 'processing' ? undefined : { width: '8%' }} />
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section aria-labelledby="docs-h">
+        <h2 className="kicker" id="docs-h">{t('docs.uploaded')}</h2>
+        {documents.length === 0 ? (
+          <p className="muted">{t('docs.empty')}</p>
+        ) : (
+          <table className="doc-table">
+            <thead>
+              <tr>
+                <th scope="col">{t('docs.file')}</th>
+                <th scope="col">{t('docs.status')}</th>
+                <th scope="col">{t('docs.chunks')}</th>
+                <th scope="col">{t('docs.size')}</th>
+                <th scope="col">{t('docs.uploadedAt')}</th>
+                <th scope="col"><span className="visually-hidden">{t('docs.actions')}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {documents.map((doc) => (
+                <tr key={doc.id}>
+                  <td className="col-file" data-label={t('docs.file')}>{doc.filename}</td>
+                  <td data-label={t('docs.status')}><span className="tag tag-accent">{t('docs.indexed')}</span></td>
+                  <td className="num" data-label={t('docs.chunks')}>{n(doc.chunk_count)}</td>
+                  <td className="num" data-label={t('docs.size')}>{size(doc.size_bytes)}</td>
+                  <td className="num" data-label={t('docs.uploadedAt')}>
+                    {new Date(doc.created_at).toLocaleString(locale, {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </td>
+                  <td className="col-actions">
+                    <button className="btn-quiet" type="button" onClick={() => remove(doc.id)}>
+                      {t('docs.delete')}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <div className="docs-danger">
+        <button className="btn btn-secondary" type="button" onClick={resetDemo} disabled={busy}>
+          {t('docs.reset')}
+        </button>
+        <button className="btn btn-secondary btn-danger" type="button" onClick={deleteAccount}>
+          {t('docs.deleteAccount')}
+        </button>
+      </div>
+    </main>
   )
 }

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 
@@ -179,6 +180,32 @@ async def test_similarity_below_threshold_is_a_miss_but_is_still_reported(fakes)
     assert calls["stream"] == 1
     check_cache = next(e for e in published if e["type"] == "node_finished" and e["node"] == "check_cache")
     assert check_cache["similarity"] == 0.8123 and check_cache["cache_hit"] is False
+
+
+async def test_a_reader_leaving_during_the_write_does_not_interrupt_it(fakes):
+    calls, _ = fakes
+    started, finished = asyncio.Event(), asyncio.Event()
+
+    async def slow_record(**kwargs):
+        started.set()
+        await asyncio.sleep(0.1)
+        calls["recorded"].append(kwargs)
+        finished.set()
+
+    pipeline.store.record_query = slow_record
+    stream = pipeline.run_query(uuid.uuid4(), "What is the capital of France?")
+
+    async def drain():
+        async for _ in stream:
+            pass
+
+    consumer = asyncio.create_task(drain())
+    await asyncio.wait_for(started.wait(), timeout=2)
+    consumer.cancel()
+    await asyncio.gather(consumer, return_exceptions=True)
+
+    await asyncio.wait_for(finished.wait(), timeout=2)
+    assert len(calls["recorded"]) == 1
 
 
 async def test_llm_errors_propagate(fakes, monkeypatch):

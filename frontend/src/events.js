@@ -1,6 +1,6 @@
 import { BASE_URL } from './api.js'
 
-const TYPES = ['connected', 'node_started', 'node_finished', 'ingest', 'error']
+const TYPES = ['connected', 'node_started', 'node_finished', 'ingest', 'limits', 'error']
 
 let source = null
 const listeners = new Set()

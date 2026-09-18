@@ -14,7 +14,8 @@ The API runs on a free Render instance that sleeps when idle, so the first reque
 - **A second opinion on the results.** A reranker model re-reads the candidates and keeps the five that actually answer the question.
 - **A self-check loop.** Before answering, the model judges whether the fragments are enough; if not, the question is reformulated and searched again (up to two extra attempts).
 - **A semantic cache.** Repeat questions cost nothing and return immediately.
-- **A live view of the machine.** The UI shows the pipeline lighting up step by step, with per-step time and token cost, plus a running chart of tokens spent vs. tokens saved.
+- **A live view of the machine.** The UI shows the pipeline stepping through its seven stages with per-step time and token cost, the share of questions the cache answered, and a bar along the bottom with how much of every external free tier is left.
+- **English and Russian**, switched from the header.
 - **Your documents stay yours.** Every row is tied to a user and isolated by Postgres Row-Level Security, not just by application-level filters.
 
 ## Using it
@@ -51,7 +52,8 @@ Running the backend and frontend on the host, tests and evaluation: see [Develop
 | [Security](docs/security.md) | Tenant isolation, authentication, cookies, CSRF, rate limits, and the known limitations. |
 | [Deployment](docs/deployment.md) | Production layout on Supabase + Render + Vercel + Resend, step by step. |
 | [Development](docs/development.md) | Local setup, tests, ragas evaluation, tuning the cache threshold, CI. |
+| [Landing](landing/README.md) | The public Astro page in front of the app: domains, deployment, screenshots, structured data. |
 
 ## Stack
 
-FastAPI · LangGraph · Postgres 17 + pgvector · SQLAlchemy async + Alembic · Groq (`llama-3.3-70b-versatile`) · BAAI `bge-m3` embeddings · BAAI `bge-reranker-v2-m3` · LangFuse · ragas · React + Vite.
+FastAPI · LangGraph · Postgres 17 + pgvector · SQLAlchemy async + Alembic · Groq (`openai/gpt-oss-120b`) · BAAI `bge-m3` embeddings · BAAI `bge-reranker-v2-m3` · LangFuse · ragas · React + Vite.

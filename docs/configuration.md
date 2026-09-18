@@ -16,7 +16,7 @@ Everything is read from the environment (or a `.env` file) by `app/config.py`. S
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `GROQ_API_KEY` | — | API key for the LLM |
-| `LLM_MODEL` | `llama-3.3-70b-versatile` | any model of the configured provider |
+| `LLM_MODEL` | `openai/gpt-oss-120b` | any model of the configured provider. Groq moved `llama-3.3-70b-versatile` to Enterprise-only, so a free-tier key gets a 404 for it |
 | `LLM_BASE_URL` | `https://api.groq.com/openai/v1` | any OpenAI-compatible endpoint works |
 | `LLM_TIMEOUT` | `30` | seconds; also the timeout for the rerank API |
 
@@ -63,6 +63,20 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | `MAX_STORAGE_MB` | `200` | total uploaded bytes per user |
 | `INGEST_WORKERS` | `1` | background indexing concurrency. Keep it low on small instances — embedding a large PDF is the memory peak |
 | `INGEST_QUEUE_SIZE` | `100` | queued jobs before `/ingest` blocks |
+| `RESEND_PER_USER_PER_DAY` | `3` | personal sub-limit: login codes one email address may request per day, under the service-wide Resend quota. `0` disables it |
+
+## External service limits
+
+The free-tier ceilings themselves live in the registry in `app/limits.py` (limit, period, data source, pricing URL) rather than in the environment, so that changing one is a reviewed edit. Only the paid service is configured here:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DEEPINFRA_PRICE_PER_1M` | `0.01` | USD per 1M embedding tokens, used to price local spend when the balance endpoint is unavailable |
+| `DEEPINFRA_MONTHLY_BUDGET_USD` | `5.0` | monthly spending cap. Reaching it blocks uploads and queries with 429, exactly like an exhausted free tier |
+| `LIMITS_AUTOCHECK_ENABLED` | `true` | the daily job that re-reads each provider's pricing page and compares the published number with the registry. Never changes a limit by itself. Also skipped when `GROQ_API_KEY` is empty |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | — | alert delivery. Empty means alerts stay in the log and in `/limits` |
+
+See [Architecture → service limits](architecture.md#service-limits) for what is metered where.
 
 ## Authentication and cookies
 
@@ -79,6 +93,17 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | `CORS_ORIGINS` | `http://localhost:5173` | comma-separated list of allowed frontend origins. Credentials are allowed, so this must never be `*` |
 | `RESEND_API_KEY` | — | email delivery; without it and without `DEV_MODE`, login fails with 502 |
 | `RESEND_FROM` | `Groundline <onboarding@resend.dev>` | must use a domain verified in Resend |
+| `TURNSTILE_SITE_KEY` | — | Cloudflare Turnstile widget key, served to the frontend by `GET /config`. Empty means no widget is rendered |
+| `TURNSTILE_SECRET_KEY` | — | server-side key for `siteverify`. **Empty disables the captcha check entirely** — that is the local-development and test default |
+
+## Shared rate limiting
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `UPSTASH_REDIS_REST_URL` | — | Upstash Redis REST endpoint. With both variables set, the per-IP OTP limit and the `/events` subscription limit are counted in Redis and therefore shared across instances |
+| `UPSTASH_REDIS_REST_TOKEN` | — | REST token for the above. Empty (either one) falls back to the per-process and Postgres counters |
+
+Upstash is failure-tolerant by design: if the REST call errors or times out, the request falls back to the local limit rather than failing. Free-tier budget matters here — each OTP request costs 2 commands, each `/events` connect/disconnect 3, out of 500K per month.
 
 ## Live events
 
@@ -94,6 +119,8 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | --- | --- | --- |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | — | tracing credentials; tracing is disabled when either is empty |
 | `LANGFUSE_HOST` | `https://cloud.langfuse.com` | self-hosted LangFuse works too |
+
+The LangFuse SDK reads these from the process environment, which a `.env` file does not populate on its own — so `app/config.py` exports them at import time, without overwriting variables that are already set. That is what makes tracing work when the backend runs from the host with only a `.env`, the same as it already did in Docker and on Render.
 
 ## Used outside the application
 

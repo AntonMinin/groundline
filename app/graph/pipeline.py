@@ -12,7 +12,7 @@ from langfuse import get_client, propagate_attributes
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import StreamWriter
 
-from app import events, inference, llm
+from app import events, inference, limits, llm
 from app.config import settings
 from app.embeddings import embed
 from app.graph import prompts, store
@@ -103,6 +103,7 @@ async def check_cache(state: QueryState, writer: StreamWriter) -> QueryState:
 
 
 async def rewrite_query(state: QueryState) -> QueryState:
+    await limits.ensure(*limits.QUERY_KEYS)
     messages = prompts.rewrite_messages(state["question"], state.get("query"), state.get("missing"))
     rewritten = (await llm.complete("rewrite_query", messages)).strip() or state["question"]
     return {
@@ -173,16 +174,18 @@ async def generate_answer(state: QueryState, writer: StreamWriter) -> QueryState
 
 async def record(state: QueryState, writer: StreamWriter) -> QueryState:
     cacheable = not state["cache_hit"] and state.get("sufficient", False)
-    await store.record_query(
-        user_id=state["user_id"],
-        question=state["question"],
-        answer=state["answer"],
-        sources=state["sources"],
-        cache_hit=state["cache_hit"],
-        tokens_used=state["tokens_used"],
-        tokens_saved=state["tokens_saved"],
-        cache_embedding=state["question_embedding"] if cacheable else None,
-        node_metrics=state.get("node_metrics", []),
+    await asyncio.shield(
+        store.record_query(
+            user_id=state["user_id"],
+            question=state["question"],
+            answer=state["answer"],
+            sources=state["sources"],
+            cache_hit=state["cache_hit"],
+            tokens_used=state["tokens_used"],
+            tokens_saved=state["tokens_saved"],
+            cache_embedding=state["question_embedding"] if cacheable else None,
+            node_metrics=state.get("node_metrics", []),
+        )
     )
     writer(
         {
@@ -290,3 +293,4 @@ async def run_query(user_id: UUID, question: str, use_cache: bool = True) -> Asy
             yield item
     finally:
         task.cancel()
+        await asyncio.gather(task, return_exceptions=True)

@@ -1,3 +1,4 @@
+import os
 from typing import Literal
 
 from pydantic import field_validator
@@ -14,7 +15,7 @@ class Settings(BaseSettings):
 
     groq_api_key: str = ""
     llm_base_url: str = "https://api.groq.com/openai/v1"
-    llm_model: str = "llama-3.3-70b-versatile"
+    llm_model: str = "openai/gpt-oss-120b"
     llm_timeout: float = 30.0
 
     embedding_provider: Literal["local", "api"] = "local"
@@ -53,6 +54,14 @@ class Settings(BaseSettings):
     queries_per_day: int = 50
     max_documents: int = 100
     max_storage_mb: int = 200
+    resend_per_user_per_day: int = 3
+
+    deepinfra_price_per_1m: float = 0.01
+    deepinfra_monthly_budget_usd: float = 5.0
+
+    limits_autocheck_enabled: bool = True
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
 
     jwt_secret: str
     jwt_ttl_minutes: int = 60 * 24 * 7
@@ -70,6 +79,16 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5173"
 
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://cloud.langfuse.com"
+
+    turnstile_site_key: str = ""
+    turnstile_secret_key: str = ""
+
+    upstash_redis_rest_url: str = ""
+    upstash_redis_rest_token: str = ""
+
     @field_validator("jwt_secret")
     @classmethod
     def _strong_secret(cls, value: str) -> str:
@@ -79,3 +98,16 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+SDK_ENV_VARS = ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST")
+
+
+def export_sdk_env(target: dict | None = None) -> None:
+    environment = os.environ if target is None else target
+    for name in SDK_ENV_VARS:
+        value = getattr(settings, name.lower())
+        if value and not environment.get(name):
+            environment[name] = value
+
+
+export_sdk_env()

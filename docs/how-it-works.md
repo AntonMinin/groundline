@@ -19,7 +19,7 @@ A plain-language tour of the system: what the parts are, and what actually happe
 | **Token** | A piece of text roughly half a word long. Language models are billed per token, so "tokens used" is the bill and "tokens saved" is the discount. |
 | **Embedding** (vector) | A list of 1024 numbers that stands for the *meaning* of a piece of text. Two texts that mean the same thing get two similar lists, and "similar" is a number you can compute — that is what makes "find me something that means this" possible. |
 | **Chunk** | One slice of your document, ~700 tokens. Documents are searched, retrieved and quoted in chunks, never as whole files. |
-| **LLM** | The large language model (here: Llama 3.3 70B running on Groq). It is the expensive, slow part — everything else in the system exists to call it less and give it better material. |
+| **LLM** | The large language model (here: GPT-OSS 120B running on Groq). It is the expensive, slow part — everything else in the system exists to call it less and give it better material. |
 | **Cache hit** | Your new question means the same as an older one, so the stored answer is returned as is. Zero LLM calls. |
 
 ## The blocks
@@ -210,12 +210,15 @@ Everything above is per user. Deleting your account removes the user row, and ev
 
 The browser holds one long-lived connection (`GET /events`) that the backend publishes to. Every pipeline step announces itself when it starts and when it finishes — with its duration, its token cost and, for the cache step, the similarity it measured — and every ingest job announces each status change.
 
-Two visuals are driven by that stream:
+Three things on screen are driven by it:
 
-- **The pipeline diagram** lights up the step running right now: red for the steps that call the LLM, blue for the cache-hit shortcut. When the run finishes it stays on screen with each step's time and token cost until the next question starts.
-- **The savings chart** plots tokens spent on the LLM against tokens saved by the cache, cumulatively.
+- **The pipeline panel** — a seven-segment track that marks the step running right now, and, expanded, every step with its own time and token cost. The `check_cache` line also shows how close the nearest stored question was and the threshold it had to clear.
+- **The savings bar** — the share of questions answered from cache, with tokens saved against tokens spent.
+- **The service limits bar** at the bottom of the screen — one line showing whether the external free tiers are healthy and which quota is closest to its limit; click it and every quota opens with its own meter, marked with where the number came from (the provider, or our own counter). Green above 50% remaining, yellow between 20% and 50%, red below 20%.
 
-Neither starts empty after a page reload: per-step numbers are stored with every query, so the history replays the chart and restores the last run's diagram (labelled *Previous query*).
+Nothing starts empty after a page reload: per-step numbers are stored with every query, so the history restores the last run (labelled *Previous query*) and the totals come from `/stats`.
+
+The interface is available in English and Russian; the switch is in the header, and the choice is remembered in the browser.
 
 The answer itself arrives on a *different* stream — the response to `POST /query` — one event per token. Two streams, two jobs: `/query` delivers the answer, `/events` delivers everything else happening in the background.
 

@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, Computed, DateTime, ForeignKey, Index, Integer, String, Text, func, text
+from sqlalchemy import Boolean, Computed, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -130,6 +130,15 @@ class QueryCache(Base):
             postgresql_ops={"question_embedding": "vector_cosine_ops"},
         ),
     )
+
+
+class ServiceUsage(Base):
+    __tablename__ = "service_usage"
+
+    quota_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    period_start: Mapped[date] = mapped_column(Date, primary_key=True)
+    used: Mapped[float] = mapped_column(Float, default=0.0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class QueryLog(Base):

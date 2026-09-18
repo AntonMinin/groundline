@@ -11,7 +11,8 @@ Two rules apply to every request from a browser:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/auth/request-otp` | `{email}` → 202, sends a 6-digit code (429 on cooldown or IP limit) |
+| GET | `/config` | public frontend configuration: `{"turnstile_site_key": "…"}`, no authentication |
+| POST | `/auth/request-otp` | `{email, turnstile_token?}` → 202, sends a 6-digit code (403 captcha, 429 on cooldown or IP limit) |
 | POST | `/auth/verify-otp` | `{email, code}` → sets the session cookie (401 on an invalid or expired code) |
 | POST | `/auth/logout` | clears the session cookie |
 | GET | `/me` | the current user |
@@ -25,6 +26,7 @@ Two rules apply to every request from a browser:
 | DELETE | `/history` | clears the query history |
 | GET | `/history` | recent questions and answers, with per-step metrics |
 | GET | `/stats` | cache hit rate, tokens saved, usage and limits |
+| GET | `/limits` | external service quotas (limit, used, remaining, period, data source) plus the current user's personal limits |
 | GET | `/events` | SSE channel with live pipeline and ingest events for the current user |
 | POST | `/query` | `{question, use_cache?}` → `text/event-stream` |
 | GET | `/health` | liveness, no database access |
@@ -87,7 +89,13 @@ data: {"type": "node_finished", "node": "generate_answer", "cache_hit": false, "
 event: ingest
 data: {"type": "ingest", "job_id": "…", "filename": "handbook.md", "status": "done",
        "error": null, "document_id": "…", "timestamp": "2026-09-16T05:11:40.002Z"}
+
+event: limits
+data: {"type": "limits", "services": [ … same objects as GET /limits … ],
+       "timestamp": "2026-09-18T09:41:12.884Z"}
 ```
+
+`limits` is the one broadcast event: it carries external service quotas, which are account-wide rather than per user, and is published after every query and every finished ingest job so the limits bar updates without polling.
 
 Node names, in pipeline order: `check_cache`, `rewrite_query`, `retrieve`, `rerank`, `check_sufficiency`, `generate_answer`, `record`.
 
@@ -117,23 +125,50 @@ Node names, in pipeline order: `check_cache`, `rewrite_query`, `retrieve`, `rera
   "tokens_saved": 807,
   "tokens_used": 1646,
   "usage": {"documents": 1, "storage_bytes": 1336, "queries_last_24h": 2},
-  "limits": {"queries_per_day": 50, "max_documents": 100, "max_storage_mb": 200}
+  "limits": {"queries_per_day": 50, "max_documents": 100, "max_storage_mb": 200, "max_upload_mb": 20}
 }
 ```
 
 `queries_last_24h` counts only queries that were *not* cache hits — a cached answer costs nothing, so it does not consume the daily quota.
+
+### GET /limits
+
+```json
+{
+  "services": [
+    {"key": "groq.tokens_per_day", "service": "Groq", "title": "Tokens",
+     "limit": 200000, "used": 50000, "remaining": 150000, "daily_budget": 150000,
+     "period": "day", "source": "local", "provider_reported": false, "unit": "tokens",
+     "paid": false, "enforced": true, "limit_outdated": false,
+     "pricing_url": "https://console.groq.com/docs/rate-limits",
+     "note": "Groq headers expose the daily request quota…", "resets_at": "2026-09-19T00:00:00+00:00",
+     "provider_balance_usd": null}
+  ],
+  "personal": [
+    {"title": "Questions today", "used": 2, "limit": 50, "unit": "queries", "period": "day"}
+  ],
+  "checked_at": "2026-09-18T09:14:02+00:00"
+}
+```
+
+`limit_outdated: true` means the daily pricing-page check found a different number than the registry holds; `limit_found_on_page` carries what it found. The application keeps using the configured limit until a human changes it.
+
+`degraded: true` at the top level means the usage counters could not be read. Every metered quota then reports `used: null` with `source: "degraded"` rather than `used: 0`, because an unknown number must not be mistaken for an untouched quota. Limits are not enforced while this lasts (a broken counter should not lock people out), the log carries a `limits check degraded` warning, and the flag clears on the next successful read.
+
+`provider_reported: true` marks a number that came from the provider (Groq and Resend headers, the Upstash counter); everything else is counted locally. `source: "dashboard"` services (Render, Supabase, Vercel) carry `used: null` — the application does not meter them. For monthly quotas `daily_budget` is remaining ÷ days left in the month, with no carry-over. The paid service (DeepInfra) reports `unit: "usd"` and `paid: true`, so spend is shown in dollars against `DEEPINFRA_MONTHLY_BUDGET_USD` rather than as a share of a free tier.
 
 ## Status codes
 
 | Code | When |
 | --- | --- |
 | `401` | missing, invalid or expired session; wrong or expired OTP |
+| `403` | missing `X-Requested-With` header, or a Turnstile token that is missing or rejected by `siteverify` |
 | `404` | job or document not found (including one belonging to another user) |
 | `409` | `/query` with no documents indexed yet |
 | `413` | upload larger than `MAX_UPLOAD_MB` |
 | `415` | upload is not `.pdf`, `.txt` or `.md` |
 | `422` | empty file, unparsable PDF, non-UTF-8 text file, or request body validation failure |
-| `429` | OTP cooldown or per-IP hourly limit; document, storage or daily query quota; too many `/events` streams |
+| `429` | OTP cooldown or per-IP hourly limit; document, storage or daily query quota; too many `/events` streams; an exhausted external service quota (the detail names the service and when it resets) |
 | `502` / `504` | the model provider failed or timed out |
 | `503` | the database is unavailable |
 

@@ -30,7 +30,7 @@ That is a deliberate ceiling — it fits a single-instance deployment and keeps 
 | ORM / migrations | SQLAlchemy async + Alembic |
 | Tenancy | `user_id` on every tenant table, explicit filters in every query **and** RLS policies (`app.user_id` set per transaction; the app connects as a non-superuser role without `BYPASSRLS`) |
 | Auth | Passwordless email OTP via Resend, JWT in an httpOnly `Secure` `SameSite=Lax` cookie, CSRF defence via a required `X-Requested-With` header plus a strict CORS allowlist |
-| LLM | Groq `llama-3.3-70b-versatile` through the OpenAI-compatible client |
+| LLM | Groq `openai/gpt-oss-120b` through the OpenAI-compatible client |
 | Embeddings | `BAAI/bge-m3`, 1024 dimensions — local (sentence-transformers in a threadpool) or a hosted OpenAI-compatible API |
 | Rerank | `BAAI/bge-reranker-v2-m3` — local (CrossEncoder in a threadpool) or Pinecone Inference |
 | Orchestration | LangGraph `StateGraph`, custom stream mode for token and progress events |
@@ -73,7 +73,17 @@ app/
   eval/
     run_eval.py        ragas evaluation against a live API
     cache_probe.py     similarity probe for threshold tuning
-frontend/src/          React UI (Chat, Documents, StatsBar, SavingsChart, PipelineDiagram)
+frontend/src/
+    App.jsx            header, tabs, telemetry column
+    Chat.jsx           thread, streaming answer, sources
+    Documents.jsx      upload, ingest jobs, document table
+    PipelineDiagram.jsx  seven-step track with per-step time and tokens
+    SavingsChart.jsx   cache share, tokens saved against spent
+    StatsBar.jsx       the account's own quotas
+    ServiceLimitsBar.jsx  external service quotas, bottom bar
+    telemetry.js       threshold and formatting helpers (unit-tested)
+    i18n.jsx           EN/RU dictionary, locale in localStorage
+    LanguageDialog.jsx language switch, native modal dialog
 tests/                 chunking, fusion, graph, auth, isolation, ingest, events, inference
 ```
 
@@ -88,6 +98,7 @@ tests/                 chunking, fusion, graph, auth, isolation, ingest, events,
 | `ingest_jobs` | background upload jobs | `status` (`queued`/`processing`/`done`/`error`), `error`, `document_id`, partial unique index on `(user_id, idempotency_key)` |
 | `query_cache` | semantic answer cache | `question_text`, `question_embedding vector(1024)` with an HNSW cosine index, `answer_text`, `sources` JSONB, `tokens_used` |
 | `query_log` | history and stats | `cache_hit`, `tokens_used`, `tokens_saved`, `sources` JSONB, `node_metrics` JSONB |
+| `service_usage` | external-service counters | composite key `(quota_key, period_start)`, `used`. Not a tenant table: rows are account-wide counters, plus personal sub-limits keyed by subject |
 
 Every tenant table has `user_id` with `ON DELETE CASCADE` to `users`, so deleting an account removes everything in one statement. `chunks` also cascades from `documents`.
 
@@ -127,7 +138,7 @@ Two things are layered on top of every node by `_instrumented()`:
 
 Token counting is deliberate and local: `tiktoken` (`cl100k_base`) counts prompt messages and generated text, so a figure exists even for providers that do not return usage on streamed responses.
 
-`run_query()` wraps `graph.astream(stream_mode="custom")` in a task feeding an `asyncio.Queue`, so exceptions raised inside the graph surface at the HTTP layer and the LangFuse root observation closes correctly. The first event is pulled before the `StreamingResponse` starts, which is how pre-stream failures (no documents, quota, a provider error during rewrite) can still be returned as ordinary HTTP status codes rather than as a 200 with an error event.
+`run_query()` wraps `graph.astream(stream_mode="custom")` in a task feeding an `asyncio.Queue`, so exceptions raised inside the graph surface at the HTTP layer and the LangFuse root observation closes correctly. A reader that leaves mid-answer (a closed browser tab) cancels that task, which is why the write in `record` runs under `asyncio.shield` and `run_query` awaits the cancelled task before returning: without both, a cancellation landing inside the write leaves the query unrecorded *and* leaks its pooled database connection until the garbage collector terminates it. The first event is pulled before the `StreamingResponse` starts, which is how pre-stream failures (no documents, quota, a provider error during rewrite) can still be returned as ordinary HTTP status codes rather than as a 200 with an error event.
 
 ## Ingestion
 
@@ -140,6 +151,34 @@ Token counting is deliberate and local: `tiktoken` (`cl100k_base`) counts prompt
 Every status change is published to the event channel, so the UI needs no polling; `GET /jobs/{id}` exists as a fallback.
 
 `Idempotency-Key` is enforced by a partial unique index on `(user_id, idempotency_key)`. A repeated key returns the existing job with `200` instead of `202`, both on the pre-check and on the `IntegrityError` path, so two concurrent retries cannot create two documents.
+
+## Service limits
+
+`app/limits.py` holds one registry of quotas — limit, period, data source, unit, pricing URL — and one rule: **use the provider's own number where the provider publishes one, count locally where it does not.**
+
+| Quota | Limit | Period | Where the number comes from |
+| --- | --- | --- | --- |
+| Groq requests | 1 000 | day | `x-ratelimit-limit-requests` / `-remaining-requests`, captured by an httpx response hook on the OpenAI client |
+| Groq tokens | 200 000 | day | local counter — Groq's headers carry the daily *request* quota and the per-minute token quota, not the daily token one |
+| DeepInfra spend | `DEEPINFRA_MONTHLY_BUDGET_USD` | month | local: embedding tokens × `DEEPINFRA_PRICE_PER_1M`. The undocumented balance endpoint is read opportunistically and shown alongside, never used for enforcement |
+| Pinecone rerank units | 500 | month | local counter fed by `usage.rerank_units` from each response |
+| Resend emails | 100 / day, 3 000 / month | day, month | `x-resend-daily-quota`, `x-resend-monthly-quota` |
+| LangFuse units | 50 000 | month | local counter, approximate: one unit per traced model call (no usage API exists) |
+| Upstash commands | 500 000 | month | counted in Redis itself, so the number is shared across instances |
+| Turnstile verifications | unlimited | month | local counter, for visibility only |
+| Render / Supabase / Vercel | 750 h, 5 GB, 100 GB | month | not metered by the application: the registry carries the limit and a dashboard link |
+
+Counters live in `service_usage` (`quota_key`, `period_start`, `used`), incremented with a single upsert at the point of each call. Provider-reported numbers are kept in memory and override the local counter when present. A monthly quota also reports a **daily budget** — remaining ÷ days left in the month — with no carry-over of yesterday's unused share, because providers do not grant one.
+
+Quotas that do not apply to the running configuration are hidden rather than shown at zero: DeepInfra and Pinecone only count with `EMBEDDING_PROVIDER=api` / `RERANK_PROVIDER=api`, Upstash only when configured, Turnstile only when a secret is set.
+
+**Staying current.** Published free tiers move, and a limit that quietly drifted is worse than no limit at all. Once a day `app/limits_check.py` fetches each pricing page, strips it to text, and asks the LLM for that one number (`{"limit": …, "quote": …}`). A value differing from the registry by more than 1% is **not applied**: it is logged, flagged as `limit_outdated` in `/limits` with the number found, and sent to Telegram. Changing the registry stays a human decision. The job is skipped entirely with `LIMITS_AUTOCHECK_ENABLED=false` or without an LLM key, and it starts five minutes after boot so it never slows a cold start.
+
+**Alerts.** `app/alerts.py` delivers to Telegram (a no-op when the token or chat id is empty, so the log and the `/limits` flag remain the fallback) and covers three events: a limit that looks outdated, a quota below 20% remaining, and a quota at zero. The red-zone and exhaustion checks ride on the counter upsert — it returns the new total, so no extra query is needed. Each (quota, event) pair is sent at most once per 24 hours; that dedup lives in memory, so a restart may repeat one alert.
+
+**When the counters themselves fail.** An unreadable `service_usage` table must not take the application down, so the read falls back to zeros — but zeros are then reported as *unknown*, never as a healthy empty quota: the log gets a `limits check degraded` warning, `/limits` and the live event carry `degraded: true`, each metered quota reports `used: null` with `source: "degraded"`, and the bar in the UI says so instead of showing full meters. Enforcement is suspended while this lasts and resumes on the next successful read.
+
+**Enforcement.** `limits.ensure()` raises `LimitExceeded`, which the app turns into `429` with the exhausted quota and its reset time. It runs in `rewrite_query` — the first node that calls the LLM — rather than at the route, so a question that the semantic cache can answer is still served when Groq is exhausted, and at `/ingest` and `/auth/request-otp` before any work starts. Personal sub-limits (`RESEND_PER_USER_PER_DAY`) share the table, keyed by subject.
 
 ## Live event channel
 

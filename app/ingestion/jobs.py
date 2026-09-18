@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app import events
+from app import events, limits
 from app.config import settings
 from app.db.models import IngestJob
 from app.db.session import tenant_session
@@ -81,6 +81,7 @@ async def _process(task: IngestTask) -> None:
         _running -= 1
         with contextlib.suppress(OSError):
             os.unlink(task.path)
+        await limits.publish_snapshot()
 
 
 async def _worker() -> None:

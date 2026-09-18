@@ -1,0 +1,21 @@
+---
+import fs from 'node:fs'
+import path from 'node:path'
+
+const { src, alt, width = 1280, height = 800, caption } = Astro.props
+const file = path.join(process.cwd(), 'public', src.replace(/^\//, ''))
+const exists = fs.existsSync(file)
+---
+
+<figure class="shot">
+  {
+    exists ? (
+      <img src={src} alt={alt} width={width} height={height} loading="lazy" decoding="async" />
+    ) : (
+      <div class="shot-missing" style={`aspect-ratio: ${width} / ${height}`} role="img" aria-label={alt}>
+        <span>{alt}</span>
+      </div>
+    )
+  }
+  {caption && <figcaption class="muted">{caption}</figcaption>}
+</figure>

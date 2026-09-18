@@ -1,8 +1,8 @@
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import DBAPIError
 
-from app.db.models import Chunk, Document
+from app.db.models import Chunk, Document, User
 from app.db.session import tenant_session
 from app.graph import store
 from app.retrieval.search import fulltext_search, hybrid_search, vector_search
@@ -49,6 +49,52 @@ async def test_query_cache_is_per_user(make_user):
     assert (await store.find_nearest(owner.id, fake_embedding(3))).answer == "owner answer"
     assert await store.find_nearest(stranger.id, fake_embedding(3)) is None
     assert (await store.query_stats(stranger.id))["total_queries"] == 0
+
+
+TENANT_TABLES = {"documents", "chunks", "query_cache", "query_log", "ingest_jobs"}
+NON_TENANT_TABLES = {"users", "otp_codes", "service_usage", "alembic_version"}
+
+
+async def test_every_table_is_either_tenant_isolated_or_rls_free(migrated_db):
+    from app.db.session import SessionLocal
+
+    async with SessionLocal() as session:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT c.relname, c.relrowsecurity, count(p.polname) AS policies
+                    FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    LEFT JOIN pg_policy p ON p.polrelid = c.oid
+                    WHERE n.nspname = 'public' AND c.relkind = 'r'
+                    GROUP BY c.relname, c.relrowsecurity
+                    """
+                )
+            )
+        ).all()
+
+    state = {name: (rls, policies) for name, rls, policies in rows}
+    assert TENANT_TABLES <= set(state), f"missing tenant tables: {TENANT_TABLES - set(state)}"
+
+    for name, (rls, policies) in state.items():
+        if name in TENANT_TABLES:
+            assert rls and policies, f"{name} must keep row-level security with a policy"
+        else:
+            assert not rls or policies, (
+                f"{name} has row-level security enabled with no policy: the application role would see "
+                "no rows at all. Tenant tables need a policy, other tables need RLS disabled."
+            )
+
+
+async def test_the_application_role_can_read_non_tenant_tables(make_user):
+    from app.db.session import SessionLocal
+
+    user = await make_user()
+    async with SessionLocal() as session:
+        assert await session.scalar(select(func.count()).select_from(User).where(User.id == user.id)) == 1
+        assert await session.scalar(text("SELECT count(*) FROM otp_codes")) is not None
+        assert await session.scalar(text("SELECT count(*) FROM service_usage")) is not None
 
 
 async def test_api_does_not_expose_other_users_data(client, make_user):

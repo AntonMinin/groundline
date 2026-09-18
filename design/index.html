@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Groundline — RAG по вашим документам с семантическим кэшем</title>
+<meta name="description" content="Groundline отвечает на вопросы по вашим документам и кэширует ответы по смыслу, а не по строке запроса: похожий вопрос не тратит токены LLM.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Header.astro -->
+<header class="site-header">
+  <a class="brand" href="index.html">
+    <!-- Брендовый знак. Заменить на реальный ассет (assets/groundline-mark.svg);
+         inline нужен, чтобы контур наследовал цвет темы. -->
+    <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+      <path class="sheet" d="M14 5h24l12 12v42H14z"></path>
+      <line class="line" x1="23" y1="28" x2="41" y2="28"></line>
+      <line class="line" x1="23" y1="38" x2="41" y2="38"></line>
+      <line class="line line-accent" x1="23" y1="48" x2="37" y2="48"></line>
+    </svg>
+    Groundline
+  </a>
+  <nav class="site-nav" aria-label="Разделы">
+    <a href="#how">Как работает</a>
+    <a href="#auth">Вход по email</a>
+    <a href="#numbers">Цифры</a>
+    <a href="#faq">FAQ</a>
+    <a href="https://github.com/">GitHub</a>
+    <a class="btn btn-primary" href="chat.html">Открыть демо</a>
+  </nav>
+</header>
+
+<main class="landing">
+
+  <!-- Hero.astro -->
+  <section class="hero">
+    <p class="kicker">RAG for your documents</p>
+    <h1>Отвечает по вашим документам и <em>не платит дважды</em> за один вопрос</h1>
+    <p class="hero-lede">Groundline индексирует загруженные файлы и отвечает со ссылками на источники. Ответы кэшируются по смыслу запроса, а не по его тексту: «какой у нас SLA?» и «сколько времени на реакцию по договору?» попадают в один кэш — второй запрос не идёт в LLM.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="chat.html">Открыть демо</a>
+      <a class="btn btn-secondary" href="https://github.com/">Код на GitHub</a>
+    </div>
+    <ul class="hero-facts">
+      <li class="fact"><span class="fact-value num">62%</span><span class="fact-label">запросов закрываются кэшем на демо-корпусе</span></li>
+      <li class="fact"><span class="fact-value num">180 ms</span><span class="fact-label">медиана ответа при попадании в кэш</span></li>
+      <li class="fact"><span class="fact-value num">7</span><span class="fact-label">шагов пайплайна, каждый с временем и токенами</span></li>
+    </ul>
+  </section>
+
+  <!-- HowItWorks.astro — порядок и имена узлов совпадают с app/graph и PipelineDiagram.jsx -->
+  <section class="section" id="how">
+    <div class="section-head">
+      <p class="kicker">Как это работает</p>
+      <h2>Один запрос — семь шагов, каждый виден в интерфейсе</h2>
+      <p class="muted">Пайплайн не спрятан: в чате видно, какой шаг выполняется сейчас, сколько занял предыдущий и сколько токенов потратил.</p>
+    </div>
+    <ol class="flow">
+      <li class="flow-step" data-llm="false">
+        <span class="num">01</span><h3>check_cache</h3>
+        <p>Эмбеддинг вопроса ищется среди прошлых ответов. Совпадение по смыслу выше порога — ответ отдаётся сразу.</p>
+      </li>
+      <li class="flow-step" data-llm="true">
+        <span class="num">02</span><h3>rewrite_query</h3>
+        <p>Вопрос переписывается в самостоятельный поисковый запрос с учётом истории диалога.</p>
+      </li>
+      <li class="flow-step" data-llm="false">
+        <span class="num">03</span><h3>retrieve</h3>
+        <p>Гибридный поиск по чанкам: векторный плюс лексический, результаты объединяются.</p>
+      </li>
+      <li class="flow-step" data-llm="false">
+        <span class="num">04</span><h3>rerank</h3>
+        <p>Кандидаты пересортировываются кросс-энкодером, в контекст уходит только верх списка.</p>
+      </li>
+      <li class="flow-step" data-llm="true">
+        <span class="num">05</span><h3>check_sufficiency</h3>
+        <p>Проверка, хватает ли найденного для ответа. Если нет — честное «в документах этого нет».</p>
+      </li>
+      <li class="flow-step" data-llm="true">
+        <span class="num">06</span><h3>generate_answer</h3>
+        <p>Ответ генерируется стримом только по найденным фрагментам, со ссылкой на файл и чанк.</p>
+      </li>
+      <li class="flow-step" data-llm="false">
+        <span class="num">07</span><h3>record</h3>
+        <p>Ответ, источники и метрики шагов пишутся в историю и в кэш — для следующего похожего вопроса.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- WhyAuth.astro -->
+  <section class="section" id="auth">
+    <div class="section-head">
+      <p class="kicker">Зачем вход по email</p>
+      <h2>Вход — это не формальность, а часть продукта</h2>
+      <p class="muted">Демо работает на бесплатных тарифах внешних сервисов. Идентификация пользователя — способ раздать этот бюджет честно и не смешивать чужие документы.</p>
+    </div>
+    <div class="split">
+      <div class="split-item">
+        <h3>Персональные квоты</h3>
+        <p>Лимит запросов и документов считается на аккаунт, а не на весь сервис. Один активный пользователь не выжигает дневной бюджет LLM для остальных.</p>
+      </div>
+      <div class="split-item">
+        <h3>Изоляция данных</h3>
+        <p>Документы, история и кэш ответов привязаны к аккаунту: поиск идёт только по вашим чанкам, кэш не отдаёт чужой ответ.</p>
+      </div>
+      <div class="split-item">
+        <h3>Ссылка вместо пароля</h3>
+        <p>Одноразовая ссылка на email — без пароля, без OAuth-приложений и без хранения лишних персональных данных.</p>
+      </div>
+      <div class="split-item">
+        <h3>Удаление в один шаг</h3>
+        <p>Кнопка «Удалить аккаунт» на экране Documents удаляет файлы, историю и кэш без переписки с поддержкой.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CacheNumbers.astro -->
+  <section class="section" id="numbers">
+    <div class="section-head">
+      <p class="kicker">Цифры кэша</p>
+      <h2>Что даёт семантический кэш</h2>
+      <p class="muted">Замеры на демо-корпусе: 40 запросов, 6 документов, 1 240 чанков. Не обещание — то, что видно в интерфейсе.</p>
+    </div>
+    <div class="metrics">
+      <div class="metric"><span class="metric-value num">62%</span><span class="metric-label">cache hit rate</span></div>
+      <div class="metric"><span class="metric-value num">88 600</span><span class="metric-label">токенов сэкономлено</span></div>
+      <div class="metric"><span class="metric-value num">180 ms</span><span class="metric-label">ответ из кэша</span></div>
+      <div class="metric"><span class="metric-value num">2.8 s</span><span class="metric-label">полный проход пайплайна</span></div>
+    </div>
+  </section>
+
+  <!-- Limits.astro — «что это не» -->
+  <section class="section" id="limits">
+    <div class="section-head">
+      <p class="kicker">Ограничения</p>
+      <h2>Чего Groundline не делает</h2>
+    </div>
+    <div class="split">
+      <div class="split-item">
+        <h3>Это не замена корпоративному поиску</h3>
+        <p>Демо рассчитано на десятки документов на аккаунт, а не на архив целой компании.</p>
+      </div>
+      <div class="split-item">
+        <h3>Отвечает только по загруженному</h3>
+        <p>Если в документах ответа нет, модель не достраивает его из общих знаний — шаг check_sufficiency прерывает генерацию.</p>
+      </div>
+      <div class="split-item">
+        <h3>Форматы: PDF, TXT, MD</h3>
+        <p>Таблицы, сканы без текстового слоя и презентации не разбираются.</p>
+      </div>
+      <div class="split-item">
+        <h3>Бесплатные тарифы провайдеров</h3>
+        <p>При исчерпании дневного лимита Groq или Pinecone запросы отклоняются до сброса квоты — состояние видно в полосе лимитов.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Faq.astro — нативный details, без скриптов -->
+  <section class="section" id="faq">
+    <div class="section-head">
+      <p class="kicker">FAQ</p>
+      <h2>Короткие ответы</h2>
+    </div>
+    <div class="faq">
+      <details>
+        <summary>Чем семантический кэш отличается от обычного?</summary>
+        <p>Обычный кэш сравнивает строку запроса. Семантический сравнивает эмбеддинги: перефразированный вопрос находит тот же ответ. Порог схожести настраивается, ниже порога запрос идёт в полный пайплайн.</p>
+      </details>
+      <details>
+        <summary>Кто видит мои документы?</summary>
+        <p>Документы и чанки привязаны к аккаунту и в поиск другим пользователям не попадают. Тексты уходят во внешние модели для эмбеддингов и генерации ответа — полный список сервисов есть в разделе security репозитория.</p>
+      </details>
+      <details>
+        <summary>Сколько запросов в день доступно?</summary>
+        <p>На демо — 50 запросов и 20 документов на аккаунт в сутки. Текущий расход и общие лимиты сервисов видны в чате внизу экрана.</p>
+      </details>
+      <details>
+        <summary>Можно развернуть у себя?</summary>
+        <p>Да, репозиторий содержит docker-compose и описание переменных окружения. Провайдеры моделей и эмбеддингов заменяются конфигурацией.</p>
+      </details>
+      <details>
+        <summary>Что происходит при попадании в кэш?</summary>
+        <p>Шаги rewrite_query…generate_answer не выполняются, ответ и источники берутся из записи кэша, а в интерфейсе шаг check_cache помечается как cache hit с указанием схожести и сэкономленных токенов.</p>
+      </details>
+    </div>
+  </section>
+
+</main>
+
+<!-- Footer.astro -->
+<footer class="site-footer">
+  <span>Groundline — RAG for your documents</span>
+  <nav aria-label="Ссылки">
+    <a href="chat.html">Демо</a>
+    <a href="https://github.com/">GitHub</a>
+    <a href="https://github.com/">Документация</a>
+  </nav>
+</footer>
+
+</body>
+</html>

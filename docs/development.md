@@ -53,6 +53,8 @@ alembic upgrade head
 
 Alembic connects with `MIGRATION_DATABASE_URL` (the owner role), not `DATABASE_URL` — the application role cannot create tables. A new tenant table needs three things added by hand in the migration: the grant to `groundline_app`, `ENABLE`/`FORCE ROW LEVEL SECURITY`, and the `tenant_isolation` policy. Copy the block from `0001_initial.py`.
 
+A table that is **not** tenant-scoped needs the opposite treatment: a grant plus an explicit `DISABLE ROW LEVEL SECURITY`, as in `0005_non_tenant_tables_rls.py`. Hosted Postgres can turn RLS on for new tables by itself, and RLS without a policy means the application reads nothing. `tests/test_isolation.py` fails on any table caught in between.
+
 ## Tests
 
 ```bash
@@ -73,6 +75,17 @@ Tests run against the `groundline_test` database **as the restricted application
 | `test_events.py` | subscriber limits, event fan-out, slow-consumer drops, heartbeats |
 | `test_inference.py` | serialisation of local model calls, lock release on failure |
 | `test_account.py` | account deletion cascade, cache and history clearing, quotas, CSRF header, database outage → 503 |
+| `test_ratelimit.py` | shared rate limits over Upstash, fallback when it is absent or failing |
+| `test_limits.py` | usage counters, 429 at the ceiling, provider headers over local counters, personal sub-limits |
+| `test_limits_check.py` | the daily pricing-page check, its flag, Telegram alerts and their dedup |
+
+The frontend has its own check, run by Node with no test framework:
+
+```bash
+cd frontend && npm test          # node --test src/*.test.js
+```
+
+It covers `telemetry.js` — the limit thresholds behind the colours in the limits bar (green above 50% remaining, yellow 20–50%, red below 20%), which quota the collapsed bar reports, and duration formatting.
 
 ## Evaluation with ragas
 

@@ -15,7 +15,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import delete, select
 
-from app import events
+from app import events, limits, ratelimit
 from app.auth import service as auth
 from app.auth.deps import CurrentUser, Session
 from app.config import settings
@@ -34,6 +34,7 @@ UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 class EmailIn(BaseModel):
     email: EmailStr
+    turnstile_token: str | None = None
 
 
 class VerifyIn(BaseModel):
@@ -78,10 +79,20 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+@router.get("/config")
+async def public_config() -> dict:
+    return {"turnstile_site_key": settings.turnstile_site_key}
+
+
 @router.post("/auth/request-otp", status_code=status.HTTP_202_ACCEPTED)
 async def request_otp(body: EmailIn, request: Request, session: Session) -> dict:
+    ip = request.client.host if request.client else None
     try:
-        await auth.request_otp(session, body.email, request.client.host if request.client else None)
+        await auth.verify_turnstile(body.turnstile_token, ip)
+    except auth.CaptchaError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc))
+    try:
+        await auth.request_otp(session, body.email, ip)
     except auth.OtpRateLimitError as exc:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(exc))
     except (auth.EmailDeliveryError, httpx.HTTPError):
@@ -126,8 +137,46 @@ async def stats(user: CurrentUser) -> dict:
             "queries_per_day": settings.queries_per_day,
             "max_documents": settings.max_documents,
             "max_storage_mb": settings.max_storage_mb,
+            "max_upload_mb": settings.max_upload_mb,
         },
     }
+
+
+@router.get("/limits")
+async def service_limits(user: CurrentUser) -> dict:
+    usage = await store.usage(user.id)
+    emails = await limits.used(("resend.emails_per_day",), subject=user.email)
+    personal = [
+        {
+            "title": "Questions today",
+            "used": usage["queries_last_24h"],
+            "limit": settings.queries_per_day,
+            "unit": "queries",
+            "period": "day",
+        },
+        {
+            "title": "Login codes today",
+            "used": emails["resend.emails_per_day"],
+            "limit": settings.resend_per_user_per_day,
+            "unit": "emails",
+            "period": "day",
+        },
+        {
+            "title": "Documents",
+            "used": usage["documents"],
+            "limit": settings.max_documents,
+            "unit": "documents",
+            "period": "total",
+        },
+        {
+            "title": "Storage",
+            "used": round(usage["storage_bytes"] / 1024 / 1024, 2),
+            "limit": settings.max_storage_mb,
+            "unit": "MB",
+            "period": "total",
+        },
+    ]
+    return await limits.snapshot(personal)
 
 
 async def _spool_upload(file: UploadFile, extension: str) -> tuple[str, int]:
@@ -166,6 +215,7 @@ async def ingest(
             response.status_code = status.HTTP_200_OK
             return JobOut.model_validate(existing, from_attributes=True)
 
+    await limits.ensure(*limits.INGEST_KEYS)
     usage = await store.usage(user.id)
     if usage["documents"] >= settings.max_documents:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Document limit of {settings.max_documents} reached")
@@ -266,6 +316,8 @@ def _sse(event: dict) -> str:
 
 
 def _stream_error(exc: Exception) -> dict:
+    if isinstance(exc, limits.LimitExceeded):
+        return {"type": "error", "status": 429, "detail": str(exc)}
     if isinstance(exc, (openai.APITimeoutError, httpx.TimeoutException)):
         return {"type": "error", "status": 504, "detail": "Model provider timed out"}
     if isinstance(exc, (openai.OpenAIError, httpx.HTTPError)):
@@ -276,10 +328,17 @@ def _stream_error(exc: Exception) -> dict:
 
 @router.get("/events")
 async def events_stream(user: CurrentUser) -> StreamingResponse:
+    slot = f"events:{user.id}"
+    too_many = HTTPException(
+        status.HTTP_429_TOO_MANY_REQUESTS, f"At most {settings.events_max_subscribers} event streams per user"
+    )
+    if await ratelimit.acquire_slot(slot, settings.events_max_subscribers) is False:
+        raise too_many
     try:
         queue = events.subscribe(user.id)
-    except events.TooManySubscribers as exc:
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(exc))
+    except events.TooManySubscribers:
+        await ratelimit.release_slot(slot)
+        raise too_many
 
     async def body_stream():
         try:
@@ -293,6 +352,7 @@ async def events_stream(user: CurrentUser) -> StreamingResponse:
                 yield _sse(event)
         finally:
             events.unsubscribe(user.id, queue)
+            await ratelimit.release_slot(slot)
 
     return StreamingResponse(
         body_stream(),
@@ -308,22 +368,23 @@ async def query(body: QueryIn, user: CurrentUser) -> StreamingResponse:
             raise HTTPException(status.HTTP_409_CONFLICT, "No documents uploaded yet")
     if (await store.usage(user.id))["queries_last_24h"] >= settings.queries_per_day:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Daily limit of {settings.queries_per_day} queries reached")
-    events = run_query(user.id, body.question, use_cache=body.use_cache)
+    stream = run_query(user.id, body.question, use_cache=body.use_cache)
     try:
-        first = await anext(events)
+        first = await anext(stream)
     except BaseException:
-        await events.aclose()
+        await stream.aclose()
         raise
 
     async def body_stream():
         try:
             yield _sse(first)
-            async for event in events:
+            async for event in stream:
                 yield _sse(event)
         except Exception as exc:
             yield _sse(_stream_error(exc))
         finally:
-            await events.aclose()
+            await stream.aclose()
+            await limits.publish_snapshot()
 
     return StreamingResponse(
         body_stream(),

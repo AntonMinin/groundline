@@ -86,6 +86,52 @@ async def test_requests_from_one_ip_are_limited(client, sent_codes, monkeypatch)
     assert (await client.post("/auth/request-otp", json={"email": _email()})).status_code == 429
 
 
+async def test_turnstile_rejects_a_request_without_a_token(client, sent_codes, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "turnstile_secret_key", "secret")
+    response = await client.post("/auth/request-otp", json={"email": _email()})
+    assert response.status_code == 403
+    assert not sent_codes
+
+
+async def test_turnstile_rejects_a_token_cloudflare_refuses(client, sent_codes, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "turnstile_secret_key", "secret")
+
+    async def refuse(payload):
+        return {"success": False, "error-codes": ["invalid-input-response"]}
+
+    monkeypatch.setattr(service, "_siteverify", refuse)
+    response = await client.post("/auth/request-otp", json={"email": _email(), "turnstile_token": "bad"})
+    assert response.status_code == 403
+    assert not sent_codes
+
+
+async def test_turnstile_accepts_a_valid_token(client, sent_codes, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "turnstile_secret_key", "secret")
+    seen = {}
+
+    async def accept(payload):
+        seen.update(payload)
+        return {"success": True}
+
+    monkeypatch.setattr(service, "_siteverify", accept)
+    email = _email()
+    response = await client.post("/auth/request-otp", json={"email": email, "turnstile_token": "good"})
+    assert response.status_code == 202
+    assert seen["secret"] == "secret" and seen["response"] == "good"
+    assert email.lower() in sent_codes
+
+
+async def test_turnstile_is_skipped_without_a_secret(client, sent_codes):
+    assert (await client.get("/config")).json() == {"turnstile_site_key": ""}
+    assert (await client.post("/auth/request-otp", json={"email": _email()})).status_code == 202
+
+
 async def test_protected_routes_require_valid_token(client, make_user):
     assert (await client.get("/me")).status_code == 401
     assert (await client.get("/me", headers={"Cookie": "groundline_session=garbage"})).status_code == 401

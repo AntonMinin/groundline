@@ -1,57 +1,46 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
 import { onEvent } from './events.js'
+import { useI18n } from './i18n.jsx'
+import { formatDuration } from './telemetry.js'
 
-const LLM = '#c0392b'
-const CACHE = '#2563eb'
-const IDLE = '#8a8a86'
+const NODES = ['check_cache', 'rewrite_query', 'retrieve', 'rerank', 'check_sufficiency', 'generate_answer', 'record']
 
-const NODES = [
-  { id: 'check_cache', label: 'check cache', llm: false },
-  { id: 'rewrite_query', label: 'rewrite', llm: true },
-  { id: 'retrieve', label: 'retrieve', llm: false },
-  { id: 'rerank', label: 'rerank', llm: false },
-  { id: 'check_sufficiency', label: 'sufficiency', llm: true },
-  { id: 'generate_answer', label: 'generate', llm: true },
-]
-
-const BOX = { width: 132, height: 44, gap: 28, top: 18 }
-const WIDTH = NODES.length * BOX.width + (NODES.length - 1) * BOX.gap
-const HEIGHT = 108
-
-function formatDuration(ms) {
-  return ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`
+function fromMetrics(metrics) {
+  const nodes = {}
+  metrics.forEach((metric) => {
+    nodes[metric.node] = {
+      state: 'done',
+      durationMs: metric.duration_ms,
+      tokens: metric.tokens,
+      tokensSaved: metric.tokens_saved,
+      similarity: metric.similarity,
+      cacheHit: Boolean(metric.cache_hit),
+    }
+  })
+  return nodes
 }
 
 export default function PipelineDiagram() {
-  const [run, setRun] = useState({ nodes: {}, cacheHit: false, similarity: null, started: false, restored: false })
+  const [run, setRun] = useState({ nodes: {}, cacheHit: false, threshold: null, started: false, restored: false })
+  const { t, n } = useI18n()
 
   useEffect(() => {
     api
       .history(1)
       .then(([last]) => {
         if (!last?.node_metrics?.length) return
-        setRun((current) => {
-          if (current.started) return current
-          const nodes = {}
-          last.node_metrics.forEach((metric) => {
-            nodes[metric.node] = {
-              state: 'done',
-              durationMs: metric.duration_ms,
-              tokens: metric.tokens,
-              tokensSaved: metric.tokens_saved,
-              cacheHit: Boolean(metric.cache_hit),
-            }
-          })
-          const check = last.node_metrics.find((metric) => metric.node === 'check_cache')
-          return {
-            nodes,
-            cacheHit: Boolean(last.cache_hit),
-            similarity: check?.similarity ?? null,
-            started: true,
-            restored: true,
-          }
-        })
+        setRun((current) =>
+          current.started
+            ? current
+            : {
+                nodes: fromMetrics(last.node_metrics),
+                cacheHit: Boolean(last.cache_hit),
+                threshold: null,
+                started: true,
+                restored: true,
+              },
+        )
       })
       .catch(() => {})
   }, [])
@@ -61,13 +50,12 @@ export default function PipelineDiagram() {
       onEvent((event) => {
         if (event.type === 'node_started') {
           setRun((current) => {
-            const fresh =
-              event.node === 'check_cache' ? { nodes: {}, cacheHit: false, similarity: null } : current
+            const base = event.node === 'check_cache' ? { nodes: {}, cacheHit: false, threshold: current.threshold } : current
             return {
-              ...fresh,
+              ...base,
               started: true,
               restored: false,
-              nodes: { ...fresh.nodes, [event.node]: { state: 'running' } },
+              nodes: { ...base.nodes, [event.node]: { state: 'active' } },
             }
           })
         }
@@ -75,7 +63,6 @@ export default function PipelineDiagram() {
           setRun((current) => ({
             ...current,
             cacheHit: current.cacheHit || Boolean(event.cache_hit),
-            similarity: event.node === 'check_cache' ? event.similarity ?? null : current.similarity,
             nodes: {
               ...current.nodes,
               [event.node]: {
@@ -83,100 +70,84 @@ export default function PipelineDiagram() {
                 durationMs: event.duration_ms,
                 tokens: event.tokens,
                 tokensSaved: event.tokens_saved,
+                similarity: event.similarity,
                 cacheHit: Boolean(event.cache_hit),
               },
             },
           }))
         }
+        if (event.type === 'done' && event.cache_threshold) {
+          setRun((current) => ({ ...current, threshold: event.cache_threshold }))
+        }
       }),
     [],
   )
 
-  const totals = Object.values(run.nodes).reduce(
+  const done = NODES.filter((node) => run.nodes[node]?.state === 'done')
+  const totals = done.reduce(
     (sum, node) => ({
-      ms: sum.ms + (node.durationMs ?? 0),
-      tokens: sum.tokens + (node.tokens ?? 0),
-      saved: sum.saved + (node.tokensSaved ?? 0),
+      ms: sum.ms + (run.nodes[node].durationMs ?? 0),
+      tokens: sum.tokens + (run.nodes[node].tokens ?? 0),
     }),
-    { ms: 0, tokens: 0, saved: 0 },
+    { ms: 0, tokens: 0 },
   )
 
-  const colorOf = (node) => {
-    const state = run.nodes[node.id]
-    if (!state) return IDLE
-    if (run.cacheHit) return CACHE
-    return node.llm ? LLM : IDLE
+  const trackState = (node) => {
+    const state = run.nodes[node]?.state
+    if (!state) return run.started ? 'pending' : 'idle'
+    if (state === 'active') return 'active'
+    return run.cacheHit ? 'cached' : 'done'
+  }
+
+  const noteFor = (node) => {
+    if (node !== 'check_cache') return null
+    const similarity = run.nodes.check_cache?.similarity
+    if (similarity === null || similarity === undefined) return null
+    const key = run.cacheHit ? 'pipeline.cacheHitNote' : 'pipeline.cacheNote'
+    return t(key, { similarity: similarity.toFixed(4), threshold: run.threshold ? run.threshold.toFixed(2) : '0.95' })
   }
 
   return (
-    <section className="card diagram">
-      <h2>Pipeline</h2>
-      <ul className="legend">
-        <li><span className="key" style={{ background: LLM }} />LLM call</li>
-        <li><span className="key" style={{ background: CACHE }} />cache hit</li>
-      </ul>
-      <p className="muted run-summary">
-        {run.started
-          ? `${run.restored ? 'Previous query' : 'Last query'}: ${formatDuration(totals.ms)} · ${totals.tokens.toLocaleString()} tokens spent` +
-            (run.cacheHit ? ` · ${totals.saved.toLocaleString()} saved by cache` : '') +
-            (run.similarity !== null ? ` · nearest cached question ${run.similarity.toFixed(4)}` : '')
-          : 'Ask a question to see per-step timings here.'}
-      </p>
-      <div className="diagram-wrap">
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} width={WIDTH} height={HEIGHT} role="img" aria-label="Query pipeline">
-          {NODES.map((node, index) => {
-            const x = index * (BOX.width + BOX.gap)
-            const state = run.nodes[node.id]
-            const color = colorOf(node)
-            const midY = BOX.top + BOX.height / 2
-            return (
-              <g key={node.id}>
-                {index > 0 && (
-                  <g>
-                    <line
-                      x1={x - BOX.gap}
-                      x2={x}
-                      y1={midY}
-                      y2={midY}
-                      stroke={state ? color : '#d8d8d4'}
-                      strokeWidth="2"
-                    />
-                    {state?.state === 'running' && (
-                      <circle r="4" cy={midY} fill={color}>
-                        <animate attributeName="cx" from={x - BOX.gap} to={x} dur="0.9s" repeatCount="indefinite" />
-                      </circle>
-                    )}
-                  </g>
-                )}
-                <rect
-                  x={x}
-                  y={BOX.top}
-                  width={BOX.width}
-                  height={BOX.height}
-                  rx="8"
-                  fill={state ? `${color}14` : '#fff'}
-                  stroke={state ? color : '#d8d8d4'}
-                  strokeWidth={state ? 2 : 1}
-                />
-                <text x={x + BOX.width / 2} y={BOX.top + 19} textAnchor="middle" className="node-label">
-                  {node.label}
-                </text>
-                <text x={x + BOX.width / 2} y={BOX.top + 35} textAnchor="middle" className="node-metric">
-                  {state?.state === 'running' && 'running…'}
-                  {state?.state === 'done' &&
-                    [
-                      formatDuration(state.durationMs ?? 0),
-                      state.tokens ? `${state.tokens.toLocaleString()} tok` : null,
-                      state.tokensSaved ? `${state.tokensSaved.toLocaleString()} saved` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                </text>
-              </g>
-            )
-          })}
-        </svg>
-      </div>
-    </section>
+    <details className="pipeline" open>
+      <summary>
+        <span className="pipeline-summary-row">
+          <span className="kicker">{t('pipeline.title')}</span>
+          <span className="pipeline-toggle">{t('pipeline.steps')}</span>
+        </span>
+        <span className="pipeline-facts">
+          {run.started ? (
+            <>
+              <b>{t('pipeline.stepsOf', { done: done.length, total: NODES.length })}</b>
+              <b>{formatDuration(totals.ms)}</b>
+              <b>{n(totals.tokens)}</b> tok
+              {run.restored && <span className="muted"> · {t('pipeline.previous')}</span>}
+            </>
+          ) : (
+            <span className="muted">{t('pipeline.idle')}</span>
+          )}
+        </span>
+        <span className="pipeline-track" aria-hidden="true">
+          {NODES.map((node) => (
+            <span key={node} data-state={trackState(node)} />
+          ))}
+        </span>
+      </summary>
+      <ol className="pipeline-steps">
+        {NODES.map((node) => {
+          const state = run.nodes[node]
+          const note = noteFor(node)
+          return (
+            <li className="step" key={node} data-state={state?.state ?? 'pending'}>
+              <span className="step-name">{node}</span>
+              <span className="step-time">
+                {state?.state === 'active' ? '…' : formatDuration(state?.durationMs)}
+              </span>
+              <span className="step-tokens">{state?.tokens ? n(state.tokens) : '—'}</span>
+              {note && <span className="step-note">{note}</span>}
+            </li>
+          )
+        })}
+      </ol>
+    </details>
   )
 }
