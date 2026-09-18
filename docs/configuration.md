@@ -1,0 +1,107 @@
+# Configuration
+
+Everything is read from the environment (or a `.env` file) by `app/config.py`. Start from [`.env.example`](../.env.example). Only `JWT_SECRET` has no usable default — the application refuses to start without one of at least 32 characters.
+
+## Core
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `JWT_SECRET` | — (required, ≥ 32 chars) | signs session tokens and HMACs OTP codes. Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Changing it invalidates every session and every pending login code |
+| `DEV_MODE` | `false` | when `true` and `RESEND_API_KEY` is empty, login codes are written to the log instead of emailed. Never enable in production |
+| `DATABASE_URL` | local app role | runtime connection. Must be a role **without** `BYPASSRLS`, otherwise tenant isolation falls back to application filters alone |
+| `MIGRATION_DATABASE_URL` | — | owner connection used by Alembic. If set inside the container, migrations run at start-up |
+
+## Language model
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `GROQ_API_KEY` | — | API key for the LLM |
+| `LLM_MODEL` | `llama-3.3-70b-versatile` | any model of the configured provider |
+| `LLM_BASE_URL` | `https://api.groq.com/openai/v1` | any OpenAI-compatible endpoint works |
+| `LLM_TIMEOUT` | `30` | seconds; also the timeout for the rerank API |
+
+## Embeddings and rerank
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `EMBEDDING_PROVIDER` | `local` | `local` (sentence-transformers in-process) or `api` (OpenAI-compatible embeddings endpoint) |
+| `EMBEDDING_MODEL` | `BAAI/bge-m3` | must match `EMBEDDING_DIM` |
+| `EMBEDDING_DIM` | `1024` | vector column width. Changing it requires a migration and re-indexing every document |
+| `EMBEDDING_BATCH_SIZE` | `16` | texts per call; also the granularity at which ingestion releases the local inference lock |
+| `EMBEDDING_API_BASE_URL` | DeepInfra | hosted bge-m3 endpoint |
+| `EMBEDDING_API_KEY` | — | key for the above |
+| `RERANK_PROVIDER` | `local` | `local` (CrossEncoder in-process) or `api` (Pinecone Inference) |
+| `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` | local reranker weights |
+| `RERANK_API_URL` | `https://api.pinecone.io/rerank` | hosted reranker |
+| `RERANK_API_MODEL` | `bge-reranker-v2-m3` | hosted model name |
+| `RERANK_API_KEY` | — | key for the above |
+| `PRELOAD_MODELS` | `true` | load local models at start-up instead of on the first request. Set `false` when both providers are `api` |
+| `TORCH_NUM_THREADS` | `0` (torch default) | caps intra-op threads for the local models. Set it below the core count when the same instance also serves requests |
+
+Local and hosted bge-m3 produce the same vectors (identical weights), so switching `EMBEDDING_PROVIDER` does **not** require re-indexing.
+
+## Pipeline
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CHUNK_SIZE` | `700` | tokens per chunk |
+| `CHUNK_OVERLAP` | `100` | tokens shared between neighbouring chunks |
+| `RETRIEVAL_CANDIDATES` | `20` | rows fetched by each search and kept after fusion |
+| `RERANK_TOP_K` | `5` | fragments handed to the LLM |
+| `MAX_REWRITES` | `2` | extra search attempts when the sufficiency check says no |
+| `CACHE_SIMILARITY_THRESHOLD` | `0.95` | cosine similarity at which a stored answer is reused. See [tuning](development.md#tuning-the-cache-threshold) |
+
+Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwards; existing chunks are not re-cut.
+
+## Quotas and ingestion
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `MAX_UPLOAD_MB` | `20` | per-file limit, enforced while the upload is being read |
+| `QUERIES_PER_DAY` | `50` | per user, rolling 24 hours; cache hits are not counted |
+| `MAX_DOCUMENTS` | `100` | per user |
+| `MAX_STORAGE_MB` | `200` | total uploaded bytes per user |
+| `INGEST_WORKERS` | `1` | background indexing concurrency. Keep it low on small instances — embedding a large PDF is the memory peak |
+| `INGEST_QUEUE_SIZE` | `100` | queued jobs before `/ingest` blocks |
+
+## Authentication and cookies
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `JWT_TTL_MINUTES` | `10080` (7 days) | session lifetime. Tokens are stateless and cannot be revoked before expiry |
+| `OTP_TTL_MINUTES` | `10` | login code lifetime |
+| `OTP_MAX_ATTEMPTS` | `5` | wrong guesses before a code is dead |
+| `OTP_RESEND_COOLDOWN_SECONDS` | `60` | minimum gap between codes for one address |
+| `OTP_MAX_PER_IP_PER_HOUR` | `20` | code requests per client IP |
+| `COOKIE_NAME` | `groundline_session` | session cookie name |
+| `COOKIE_DOMAIN` | — | e.g. `.example.com` so `app.` and `api.` share the session. Leave empty for localhost |
+| `COOKIE_SECURE` | `true` | set `false` only for plain-HTTP local development |
+| `CORS_ORIGINS` | `http://localhost:5173` | comma-separated list of allowed frontend origins. Credentials are allowed, so this must never be `*` |
+| `RESEND_API_KEY` | — | email delivery; without it and without `DEV_MODE`, login fails with 502 |
+| `RESEND_FROM` | `Groundline <onboarding@resend.dev>` | must use a domain verified in Resend |
+
+## Live events
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `EVENTS_HEARTBEAT_SECONDS` | `15` | comment ping interval that keeps proxies from closing `/events` |
+| `EVENTS_QUEUE_SIZE` | `200` | buffered events per subscriber; a subscriber that overflows loses events instead of blocking the pipeline |
+| `EVENTS_MAX_SUBSCRIBERS` | `5` | concurrent `/events` streams per user |
+
+## Observability
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | — | tracing credentials; tracing is disabled when either is empty |
+| `LANGFUSE_HOST` | `https://cloud.langfuse.com` | self-hosted LangFuse works too |
+
+## Used outside the application
+
+| Variable | Where | Purpose |
+| --- | --- | --- |
+| `POSTGRES_PASSWORD` / `APP_DB_PASSWORD` | `docker-compose.yml` | passwords for the owner and application roles created by `docker/postgres-init.sh` |
+| `DB_PORT` | `docker-compose.yml` | host port for Postgres, `5433` by default so it does not clash with a local server |
+| `INSTALL_LOCAL_MODELS` | `Dockerfile` build arg | `false` skips torch and the local model dependencies. Render builds with `false` |
+| `HF_HOME` | container | where model weights are cached (a Docker volume in compose) |
+| `PORT` | container | port uvicorn binds to; Render sets it |
+| `VITE_API_URL` | frontend build | API base URL. Empty means `/api`, which the nginx image proxies to the backend |
