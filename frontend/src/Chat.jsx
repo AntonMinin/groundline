@@ -165,6 +165,7 @@ export default function Chat({ onAnswered }) {
           onChange={(e) => setQuestion(e.target.value)}
         />
         <button className="btn btn-primary" type="submit" disabled={busy}>
+          {busy && <span className="dot-pulse" aria-hidden="true" />}
           {busy ? t('chat.asking') : t('chat.ask')}
         </button>
       </form>

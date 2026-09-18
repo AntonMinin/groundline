@@ -117,10 +117,11 @@ export default function Login({ onLogin, onLanguage, dialogOpen, onDialogClose }
         <div ref={captcha} hidden={!siteKey || codeSent} />
         {error && <p className="error" role="alert">{error}</p>}
         <button className="btn btn-primary" type="submit" disabled={busy}>
+          {busy && <span className="dot-pulse" aria-hidden="true" />}
           {codeSent ? t('login.signin') : t('login.send')}
         </button>
         {codeSent && (
-          <button type="button" className="link" onClick={() => { setCodeSent(false); setCode('') }}>
+          <button type="button" className="link" disabled={busy} onClick={() => { setCodeSent(false); setCode('') }}>
             {t('login.another')}
           </button>
         )}

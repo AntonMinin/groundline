@@ -28,6 +28,7 @@ export default function App() {
   const [stats, setStats] = useState(null)
   const [resetKey, setResetKey] = useState(0)
   const [languageOpen, setLanguageOpen] = useState(false)
+  const [leaving, setLeaving] = useState(false)
   const { t, locale } = useI18n()
 
   const refreshStats = useCallback(() => {
@@ -50,6 +51,7 @@ export default function App() {
   }, [user, refreshStats])
 
   const logout = async () => {
+    setLeaving(true)
     await api.logout().catch(() => {})
     setUser(null)
   }
@@ -82,7 +84,10 @@ export default function App() {
           <button className="btn-quiet" type="button" onClick={() => setLanguageOpen(true)}>
             {t('nav.language')}: {locale.toUpperCase()}
           </button>
-          <button className="btn-quiet" type="button" onClick={logout}>{t('nav.logout')}</button>
+          <button className="btn-quiet" type="button" onClick={logout} disabled={leaving}>
+            {leaving && <span className="dot-pulse" aria-hidden="true" />}
+            {t('nav.logout')}
+          </button>
         </div>
       </header>
 

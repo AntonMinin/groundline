@@ -9,7 +9,7 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
   const [documents, setDocuments] = useState([])
   const [jobs, setJobs] = useState([])
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState(null)
   const [dragging, setDragging] = useState(false)
   const { t, n, locale } = useI18n()
 
@@ -36,7 +36,8 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
   )
 
   const send = async (files) => {
-    setBusy(true)
+    if (busy || files.length === 0) return
+    setBusy('upload')
     setError('')
     for (const file of files) {
       try {
@@ -49,7 +50,7 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
         setError(`${file.name}: ${err.message}`)
       }
     }
-    setBusy(false)
+    setBusy(null)
   }
 
   const upload = async (event) => {
@@ -65,14 +66,23 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
   }
 
   const remove = async (id) => {
-    await api.deleteDocument(id).catch((err) => setError(err.message))
-    load()
-    onChanged()
+    if (busy) return
+    setBusy(id)
+    setError('')
+    try {
+      await api.deleteDocument(id)
+      await load()
+      onChanged()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(null)
+    }
   }
 
   const resetDemo = async () => {
     if (!window.confirm(t('docs.confirmReset'))) return
-    setBusy(true)
+    setBusy('reset')
     setError('')
     try {
       await api.deleteAllDocuments()
@@ -83,21 +93,29 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
     } catch (err) {
       setError(err.message)
     } finally {
-      setBusy(false)
-      load()
+      await load()
       onChanged()
+      setBusy(null)
     }
   }
 
   const deleteAccount = async () => {
     if (!window.confirm(t('docs.confirmDelete'))) return
-    await api.deleteAccount()
-    onAccountDeleted()
+    setBusy('account')
+    setError('')
+    try {
+      await api.deleteAccount()
+      onAccountDeleted()
+    } catch (err) {
+      setError(err.message)
+      setBusy(null)
+    }
   }
 
   const chunks = documents.reduce((sum, document) => sum + document.chunk_count, 0)
   const size = (bytes) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`)
   const jobLabel = (job) => (job.status === 'error' ? t('job.error', { error: job.error ?? '' }) : t(`job.${job.status}`))
+  const dot = <span className="dot-pulse" aria-hidden="true" />
 
   return (
     <main className="app-main docs" hidden={hidden}>
@@ -116,6 +134,8 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
         className="dropzone"
         htmlFor="upload"
         data-dragging={dragging}
+        data-busy={busy === 'upload'}
+        aria-busy={busy === 'upload'}
         onDragOver={(event) => {
           event.preventDefault()
           setDragging(true)
@@ -124,8 +144,12 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
         onDrop={drop}
       >
         <strong>{t('docs.dropTitle')}</strong>
-        <p>{t('docs.dropHint', { size: stats?.limits?.max_upload_mb ?? 20 })}</p>
-        <input id="upload" type="file" accept=".pdf,.txt,.md" multiple disabled={busy} onChange={upload} />
+        {busy === 'upload' ? (
+          <p className="working" role="status">{dot}{t('docs.uploading')}</p>
+        ) : (
+          <p>{t('docs.dropHint', { size: stats?.limits?.max_upload_mb ?? 20 })}</p>
+        )}
+        <input id="upload" type="file" accept=".pdf,.txt,.md" multiple disabled={busy !== null} onChange={upload} />
       </label>
 
       {error && <p className="error" role="alert">{error}</p>}
@@ -185,7 +209,8 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
                     })}
                   </td>
                   <td className="col-actions">
-                    <button className="btn-quiet" type="button" onClick={() => remove(doc.id)}>
+                    <button className="btn-quiet" type="button" onClick={() => remove(doc.id)} disabled={busy !== null}>
+                      <span className="dot-pulse" aria-hidden="true" data-idle={busy !== doc.id} />
                       {t('docs.delete')}
                     </button>
                   </td>
@@ -197,10 +222,12 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
       </section>
 
       <div className="docs-danger">
-        <button className="btn btn-secondary" type="button" onClick={resetDemo} disabled={busy}>
+        <button className="btn btn-secondary" type="button" onClick={resetDemo} disabled={busy !== null}>
+          {busy === 'reset' && dot}
           {t('docs.reset')}
         </button>
-        <button className="btn btn-secondary btn-danger" type="button" onClick={deleteAccount}>
+        <button className="btn btn-secondary btn-danger" type="button" onClick={deleteAccount} disabled={busy !== null}>
+          {busy === 'account' && dot}
           {t('docs.deleteAccount')}
         </button>
       </div>
