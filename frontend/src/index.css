@@ -280,13 +280,13 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
     transform: translateY(21px) scale(0.3);
     opacity: 0;
   } 33% {
-    transform: translateY(-1.5px) scale(0.5);
+    transform: translateY(-1px) scale(0.5);
     opacity: 1;
   } 66% {
-    transform: translateY(-1.5px) scale(1.5);
+    transform: translateY(-1px) scale(1.5);
     opacity: 1;
   } 90% {
-    transform: translateY(-1.5px) scale(1.5);
+    transform: translateY(-1px) scale(1.5);
     opacity: 0;
   } 100% {
     transform: translateY(21px) scale(0.1);
@@ -528,8 +528,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   }
   .doc-table .col-actions { position: absolute; top: var(--space-3); right: 0; }
 }
-.docs-danger { display: flex; opacity: 0.5; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-4); align-self: flex-start; margin-top: auto; background: var(--color-bg-error); }
-.docs-danger:hover { opacity: 1; }
+.docs-danger { display: flex; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-4); align-self: flex-start; margin-top: auto; background: var(--color-bg-error); }
 .btn-danger { color: var(--color-error); border-color: color-mix(in srgb, var(--color-error) 40%, transparent); }
 .btn-danger:hover { background: color-mix(in srgb, var(--color-error) 10%, transparent); color: var(--color-error); }
 
