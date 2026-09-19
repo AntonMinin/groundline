@@ -112,7 +112,6 @@ export default function PipelineDiagram() {
       <summary>
         <span className="pipeline-summary-row">
           <span className="kicker">{t('pipeline.title')}</span>
-          <span className="pipeline-toggle">{t('pipeline.steps')}</span>
         </span>
         <span className="pipeline-facts">
           {run.started ? (

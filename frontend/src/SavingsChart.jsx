@@ -18,7 +18,6 @@ export default function SavingsChart({ stats }) {
         <figure className="savings-figure">
           <div className="savings-share">
             <strong className="num">{share}%</strong>
-            <span className="muted">{t('savings.share')}</span>
           </div>
           <div
             className="savings-bar"

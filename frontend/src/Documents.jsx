@@ -126,7 +126,7 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
   const chunks = list.reduce((sum, document) => sum + document.chunk_count, 0)
   const size = (bytes) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`)
   const jobLabel = (job) => (job.status === 'error' ? t('job.error', { error: job.error ?? '' }) : t(`job.${job.status}`))
-  const dot = <span className="dot-pulse" aria-hidden="true" />
+  const dot = <span className="dot-pulse down" aria-hidden="true" />
 
   return (
     <main className="app-main docs" hidden={hidden}>
@@ -144,7 +144,7 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
         htmlFor="upload"
         data-dragging={dragging}
         data-busy={busy === 'upload'}
-        data-full={full}
+        data-full={full || jobs.length > 0}
         aria-busy={busy === 'upload'}
         onDragOver={(event) => {
           event.preventDefault()
@@ -173,9 +173,8 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
 
       {error && <p className="error" role="alert">{error}</p>}
 
-      {jobs.length > 0 && (
-        <section aria-labelledby="jobs-h">
-          <h2 className="kicker" id="jobs-h">{t('docs.indexing')}</h2>
+      {jobs.length > 0 && list.length === 0 && (
+        <section aria-label={t('docs.indexing')}>
           <ul className="jobs">
             {jobs.map((job) => (
               <li className="job" key={job.id} data-status={job.status}>
@@ -196,11 +195,8 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
         </section>
       )}
 
-      <section aria-labelledby="docs-h">
-        <h2 className="kicker" id="docs-h">{t('docs.uploaded')}</h2>
-        {documents === null ? null : list.length === 0 ? (
-          <p className="muted">{t('docs.empty')}</p>
-        ) : (
+      <section aria-label={t('docs.uploaded')}>
+        {documents !== null && list.length > 0 && (
           <table className="doc-table">
             <thead>
               <tr>

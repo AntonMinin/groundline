@@ -5,7 +5,6 @@ import { useI18n } from './i18n.jsx'
 import Login from './Login.jsx'
 import Documents from './Documents.jsx'
 import Chat from './Chat.jsx'
-import StatsBar from './StatsBar.jsx'
 import SavingsChart from './SavingsChart.jsx'
 import PipelineDiagram from './PipelineDiagram.jsx'
 import ServiceLimitsBar from './ServiceLimitsBar.jsx'
@@ -65,6 +64,7 @@ export default function App() {
   }, [user])
 
   const logout = async () => {
+    if (!window.confirm(t('nav.confirmLogout'))) return
     setLeaving(true)
     await api.logout().catch(() => {})
     setUser(null)
@@ -111,7 +111,6 @@ export default function App() {
         <aside className="telemetry" aria-label="Telemetry">
           <PipelineDiagram key={`pipeline-${resetKey}`} />
           <SavingsChart stats={stats} />
-          <StatsBar stats={stats} />
         </aside>
       </main>
 

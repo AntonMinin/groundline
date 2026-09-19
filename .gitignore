@@ -10,3 +10,4 @@ frontend/dist/
 landing/node_modules/
 landing/dist/
 landing/.astro/
+design/

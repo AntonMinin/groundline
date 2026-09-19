@@ -9,6 +9,7 @@ const DICT = {
     'nav.chat': 'Chat',
     'nav.documents': 'Documents',
     'nav.logout': 'Log out',
+    'nav.confirmLogout': 'Log out of Groundline? Your documents and history stay.',
     'nav.language': 'Language',
     'lang.title': 'Interface language',
     'lang.close': 'Close',
@@ -38,21 +39,15 @@ const DICT = {
     'step.generate_answer': 'generate_answer — writing the answer…',
     'step.record': 'record — saving…',
     'pipeline.title': 'Pipeline',
-    'pipeline.steps': 'steps',
     'pipeline.stepsOf': '{done}/{total} steps',
     'pipeline.idle': 'Ask a question to see per-step timings.',
     'pipeline.previous': 'Previous query',
     'pipeline.cacheNote': 'nearest cached question {similarity} — below the {threshold} threshold',
     'pipeline.cacheHitNote': 'nearest cached question {similarity} — cache hit',
     'savings.title': 'Token savings',
-    'savings.share': 'of questions answered from cache',
     'savings.saved': 'Saved',
     'savings.spent': 'Spent',
     'savings.empty': 'No questions yet.',
-    'stats.title': 'Your account',
-    'stats.hitRate': 'cache hit rate · {hits}/{total}',
-    'stats.queries': 'LLM queries today',
-    'stats.documents': 'documents',
     'docs.title': 'Documents',
     'docs.summary': '{documents}/{limit} documents · {chunks} chunks',
     'docs.dropTitle': 'Drop files here',
@@ -61,7 +56,6 @@ const DICT = {
     'docs.uploading': 'Uploading…',
     'docs.indexing': 'Indexing',
     'docs.uploaded': 'Uploaded',
-    'docs.empty': 'No documents yet.',
     'docs.file': 'File',
     'docs.status': 'Status',
     'docs.chunks': 'Chunks',
@@ -100,6 +94,7 @@ const DICT = {
     'nav.chat': 'Чат',
     'nav.documents': 'Документы',
     'nav.logout': 'Выйти',
+    'nav.confirmLogout': 'Выйти из Groundline? Документы и история останутся.',
     'nav.language': 'Язык',
     'lang.title': 'Язык интерфейса',
     'lang.close': 'Закрыть',
@@ -129,21 +124,15 @@ const DICT = {
     'step.generate_answer': 'generate_answer — пишет ответ…',
     'step.record': 'record — сохраняет…',
     'pipeline.title': 'Pipeline',
-    'pipeline.steps': 'шаги',
     'pipeline.stepsOf': '{done}/{total} шагов',
     'pipeline.idle': 'Задайте вопрос — здесь появятся шаги с временем и токенами.',
     'pipeline.previous': 'Прошлый запрос',
     'pipeline.cacheNote': 'ближайший вопрос в кэше {similarity} — ниже порога {threshold}',
     'pipeline.cacheHitNote': 'ближайший вопрос в кэше {similarity} — попадание',
     'savings.title': 'Экономия токенов',
-    'savings.share': 'запросов закрыл кэш',
     'savings.saved': 'Сэкономлено',
     'savings.spent': 'Потрачено',
     'savings.empty': 'Запросов пока не было.',
-    'stats.title': 'Ваш аккаунт',
-    'stats.hitRate': 'cache hit rate · {hits}/{total}',
-    'stats.queries': 'LLM-запросов за сутки',
-    'stats.documents': 'документов',
     'docs.title': 'Документы',
     'docs.summary': '{documents}/{limit} документов · {chunks} чанков',
     'docs.dropTitle': 'Перетащите файлы сюда',
@@ -152,7 +141,6 @@ const DICT = {
     'docs.uploading': 'Загрузка…',
     'docs.indexing': 'Индексация',
     'docs.uploaded': 'Загружено',
-    'docs.empty': 'Документов пока нет.',
     'docs.file': 'Файл',
     'docs.status': 'Статус',
     'docs.chunks': 'Чанки',
@@ -213,9 +201,7 @@ export function LocaleProvider({ children }) {
       document.documentElement.lang = next
       try {
         localStorage.setItem(STORAGE_KEY, next)
-      } catch {
-        /* private mode: the choice simply does not persist */
-      }
+      } catch {}
     }
     const t = (key, vars) => {
       const template = DICT[locale][key] ?? DICT[DEFAULT][key] ?? key
