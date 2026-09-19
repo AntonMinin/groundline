@@ -16,7 +16,7 @@ const home = copy.dir === '/ru' ? '/ru' : '/'
     <a href="#auth">{copy.nav.auth}</a>
     <a href="#numbers">{copy.nav.numbers}</a>
     <a href="#faq">{copy.nav.faq}</a>
-    <a href={SITE.repoUrl} rel="noopener">{copy.nav.repo}</a>
+    <a href={SITE.repoUrl} target="_blank" rel="noopener">{copy.nav.repo}</a>
     <a href={copy.otherLocale.href} lang={copy.otherLocale.code} hreflang={copy.otherLocale.code}>
       {copy.otherLocale.label}
     </a>

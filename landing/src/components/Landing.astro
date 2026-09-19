@@ -16,7 +16,7 @@ const { copy } = Astro.props
     <p class="hero-lede">{copy.hero.lede}</p>
     <div class="hero-actions">
       <a class="btn btn-primary" href={SITE.appUrl}>{copy.nav.demo}</a>
-      <a class="btn btn-secondary" href={SITE.repoUrl} rel="noopener">{copy.nav.repo}</a>
+      <a class="btn btn-secondary" href={SITE.repoUrl} target="_blank" rel="noopener">{copy.nav.repo}</a>
     </div>
     <ul class="hero-facts">
       {

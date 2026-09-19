@@ -9,8 +9,8 @@ const base = copy.dir === '/ru' ? '/ru' : ''
   <span>Groundline - {copy.footer.tagline}</span>
   <nav aria-label={copy.lang === 'ru' ? 'Ссылки' : 'Links'}>
     <a href={SITE.appUrl}>{copy.footer.demo}</a>
-    <a href={SITE.repoUrl} rel="noopener">{copy.footer.repo}</a>
-    <a href={SITE.docsUrl} rel="noopener">{copy.footer.docs}</a>
+    <a href={SITE.repoUrl} target="_blank" rel="noopener">{copy.footer.repo}</a>
+    <a href={SITE.docsUrl} target="_blank" rel="noopener">{copy.footer.docs}</a>
     <a href={`${base}/privacy`}>{copy.footer.privacy}</a>
     <a href={`${base}/terms`}>{copy.footer.terms}</a>
   </nav>
