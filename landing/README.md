@@ -34,7 +34,7 @@ A second Vercel project pointing at the same repository:
 
 ## Screenshots
 
-Three images are referenced and **not yet in the repository**. Until a file exists, the page draws a framed placeholder of the same size carrying the same alt text — nothing breaks, but the page is better with the real thing:
+Three images are referenced and **not yet in the repository**. Until a file exists, the page draws a framed placeholder of the same size carrying the same alt text - nothing breaks, but the page is better with the real thing:
 
 | File | Size | What to capture |
 | --- | --- | --- |
@@ -56,13 +56,13 @@ Edit the SVG inside that script and rerun it to change the card.
 
 ## What is generated
 
-- `/` and `/ru` — the landing in both languages, with `hreflang` pairs and matching canonicals.
+- `/` and `/ru` - the landing in both languages, with `hreflang` pairs and matching canonicals.
 - `/privacy`, `/terms` and their `/ru` counterparts.
-- `/sitemap.xml` — hand-rolled in `src/pages/sitemap.xml.js`, with `xhtml:link` alternates.
-- `/robots.txt`, `/llms.txt` — the second one summarises the project for LLM assistants: what it is, the measured numbers, the seven pipeline steps, and links to every page.
+- `/sitemap.xml` - hand-rolled in `src/pages/sitemap.xml.js`, with `xhtml:link` alternates.
+- `/robots.txt`, `/llms.txt` - the second one summarises the project for LLM assistants: what it is, the measured numbers, the seven pipeline steps, and links to every page.
 
 Structured data on the landing: `Organization`, `WebSite`, `SoftwareApplication`, `BreadcrumbList`, `FAQPage`. The legal pages carry `Organization` and `BreadcrumbList`.
 
 ## Numbers on the page
 
-Every figure in the "cache numbers" section comes from `MEASURED` in `src/content.js` — a single run against the demo handbook on 2026-09-18, not a projection. Re-measure and update that object rather than editing the copy; the hero facts and `llms.txt` read the same values.
+Every figure in the "cache numbers" section comes from `MEASURED` in `src/content.js` - a single run against the demo handbook on 2026-09-18, not a projection. Re-measure and update that object rather than editing the copy; the hero facts and `llms.txt` read the same values.

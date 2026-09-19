@@ -129,7 +129,7 @@ Node names, in pipeline order: `check_cache`, `rewrite_query`, `retrieve`, `rera
 }
 ```
 
-`queries_last_24h` counts only queries that were *not* cache hits — a cached answer costs nothing, so it does not consume the daily quota.
+`queries_last_24h` counts only queries that were *not* cache hits - a cached answer costs nothing, so it does not consume the daily quota.
 
 ### GET /limits
 
@@ -155,7 +155,7 @@ Node names, in pipeline order: `check_cache`, `rewrite_query`, `retrieve`, `rera
 
 `degraded: true` at the top level means the usage counters could not be read. Every metered quota then reports `used: null` with `source: "degraded"` rather than `used: 0`, because an unknown number must not be mistaken for an untouched quota. Limits are not enforced while this lasts (a broken counter should not lock people out), the log carries a `limits check degraded` warning, and the flag clears on the next successful read.
 
-`provider_reported: true` marks a number that came from the provider (Groq and Resend headers, the Upstash counter); everything else is counted locally. `source: "dashboard"` services (Render, Supabase, Vercel) carry `used: null` — the application does not meter them. For monthly quotas `daily_budget` is remaining ÷ days left in the month, with no carry-over. The paid service (DeepInfra) reports `unit: "usd"` and `paid: true`, so spend is shown in dollars against `DEEPINFRA_MONTHLY_BUDGET_USD` rather than as a share of a free tier.
+`provider_reported: true` marks a number that came from the provider (Groq and Resend headers, the Upstash counter); everything else is counted locally. `source: "dashboard"` services (Render, Supabase, Vercel) carry `used: null` - the application does not meter them. For monthly quotas `daily_budget` is remaining ÷ days left in the month, with no carry-over. The paid service (DeepInfra) reports `unit: "usd"` and `paid: true`, so spend is shown in dollars against `DEEPINFRA_MONTHLY_BUDGET_USD` rather than as a share of a free tier.
 
 ## Status codes
 

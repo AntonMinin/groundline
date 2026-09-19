@@ -42,5 +42,5 @@ test('a degraded counter is not a healthy zero', () => {
 test('durations switch to seconds at one second', () => {
   assert.equal(formatDuration(940), '940 ms')
   assert.equal(formatDuration(1910), '1.91 s')
-  assert.equal(formatDuration(undefined), '—')
+  assert.equal(formatDuration(undefined), '-')
 })

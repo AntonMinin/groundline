@@ -25,6 +25,6 @@ export function worstOf(services) {
 }
 
 export function formatDuration(ms) {
-  if (ms === null || ms === undefined) return '—'
+  if (ms === null || ms === undefined) return '-'
   return ms >= 1000 ? `${(ms / 1000).toFixed(2)} s` : `${Math.round(ms)} ms`
 }

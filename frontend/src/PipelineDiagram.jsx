@@ -141,7 +141,7 @@ export default function PipelineDiagram() {
               <span className="step-time">
                 {state?.state === 'active' ? '…' : formatDuration(state?.durationMs)}
               </span>
-              <span className="step-tokens">{state?.tokens ? n(state.tokens) : '—'}</span>
+              <span className="step-tokens">{state?.tokens ? n(state.tokens) : '-'}</span>
               {note && <span className="step-note">{note}</span>}
             </li>
           )

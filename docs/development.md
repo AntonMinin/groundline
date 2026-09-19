@@ -51,7 +51,7 @@ alembic revision --autogenerate -m "what changed"
 alembic upgrade head
 ```
 
-Alembic connects with `MIGRATION_DATABASE_URL` (the owner role), not `DATABASE_URL` — the application role cannot create tables. A new tenant table needs three things added by hand in the migration: the grant to `groundline_app`, `ENABLE`/`FORCE ROW LEVEL SECURITY`, and the `tenant_isolation` policy. Copy the block from `0001_initial.py`.
+Alembic connects with `MIGRATION_DATABASE_URL` (the owner role), not `DATABASE_URL` - the application role cannot create tables. A new tenant table needs three things added by hand in the migration: the grant to `groundline_app`, `ENABLE`/`FORCE ROW LEVEL SECURITY`, and the `tenant_isolation` policy. Copy the block from `0001_initial.py`.
 
 A table that is **not** tenant-scoped needs the opposite treatment: a grant plus an explicit `DISABLE ROW LEVEL SECURITY`, as in `0005_non_tenant_tables_rls.py`. Hosted Postgres can turn RLS on for new tables by itself, and RLS without a policy means the application reads nothing. `tests/test_isolation.py` fails on any table caught in between.
 
@@ -86,11 +86,11 @@ The frontend has its own check, run by Node with no test framework:
 cd frontend && npm test          # node --test src/*.test.js
 ```
 
-It covers `telemetry.js` — the limit thresholds behind the colours in the limits bar (green above 50% remaining, yellow 20–50%, red below 20%), which quota the collapsed bar reports, and duration formatting.
+It covers `telemetry.js` - the limit thresholds behind the colours in the limits bar (green above 50% remaining, yellow 20–50%, red below 20%), which quota the collapsed bar reports, and duration formatting.
 
 ## Evaluation with ragas
 
-The evaluation runs against a live API in a **separate** virtualenv — ragas pins LangChain versions that conflict with the application's.
+The evaluation runs against a live API in a **separate** virtualenv - ragas pins LangChain versions that conflict with the application's.
 
 ```bash
 python -m venv .venv-eval && .venv-eval/Scripts/activate
@@ -100,9 +100,9 @@ export GROUNDLINE_SESSION=...   # the groundline_session cookie value after logg
 python app/eval/run_eval.py app/eval/data/dataset.json --docs app/eval/data/handbook.md
 ```
 
-The dataset is a JSON list of `{question, reference}`. The script uploads the documents and **waits for indexing to finish** — `/ingest` only queues the work, so it polls `/jobs/{id}` until the job reports `done` and fails loudly if it reports `error`. Then it sends every question with `use_cache=false` (so it measures the pipeline, not the cache), and reports faithfulness, context precision, context recall and answer correctness per question and on average, writing `eval_results.json`.
+The dataset is a JSON list of `{question, reference}`. The script uploads the documents and **waits for indexing to finish** - `/ingest` only queues the work, so it polls `/jobs/{id}` until the job reports `done` and fails loudly if it reports `error`. Then it sends every question with `use_cache=false` (so it measures the pipeline, not the cache), and reports faithfulness, context precision, context recall and answer correctness per question and on average, writing `eval_results.json`.
 
-What the metrics mean in practice: **faithfulness** drops when the answer states something the retrieved fragments do not support (hallucination), **context recall** drops when retrieval missed the fragment that held the answer, and **context precision** drops when the top-5 is padded with irrelevant chunks — that is, low recall points at search, low precision at the reranker, low faithfulness at the prompt.
+What the metrics mean in practice: **faithfulness** drops when the answer states something the retrieved fragments do not support (hallucination), **context recall** drops when retrieval missed the fragment that held the answer, and **context precision** drops when the top-5 is padded with irrelevant chunks - that is, low recall points at search, low precision at the reranker, low faithfulness at the prompt.
 
 ## Tuning the cache threshold
 
@@ -121,7 +121,7 @@ To collect a batch at once:
 python app/eval/cache_probe.py questions.txt        # one question per line, or a JSON list
 ```
 
-It prints HIT/MISS with the similarity for each question, plus the observed ranges. Those ranges bracket the answer: set the threshold **above** the highest similarity that produced a wrong hit and **below** the lowest that produced a miss you wanted to hit. If the two ranges overlap, no threshold separates them and the fix is elsewhere (different questions really do read alike) — keep the higher value, since a wrong hit is worse than a wasted LLM call.
+It prints HIT/MISS with the similarity for each question, plus the observed ranges. Those ranges bracket the answer: set the threshold **above** the highest similarity that produced a wrong hit and **below** the lowest that produced a miss you wanted to hit. If the two ranges overlap, no threshold separates them and the fix is elsewhere (different questions really do read alike) - keep the higher value, since a wrong hit is worse than a wasted LLM call.
 
 ## Reading the logs
 
@@ -130,8 +130,8 @@ INFO app.graph.pipeline cache lookup user=… hit=False similarity=0.8912 thresh
      ingest_pending=1 inference_waiting=1 question=… nearest=…
 ```
 
-- `ingest_pending` — queued plus running ingest jobs.
-- `inference_waiting` — callers holding or waiting for the local inference lock.
+- `ingest_pending` - queued plus running ingest jobs.
+- `inference_waiting` - callers holding or waiting for the local inference lock.
 
 Together they explain a slow answer after the fact: with local models, a query that coincides with an indexing job waits for the lock. A call that waits more than a second logs its own line, and the wait is attached to the LangFuse span as `lock_wait_ms`. See [Architecture → local model inference](architecture.md#local-model-inference-and-cpu-contention).
 

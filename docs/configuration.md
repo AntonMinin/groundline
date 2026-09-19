@@ -1,21 +1,21 @@
 # Configuration
 
-Everything is read from the environment (or a `.env` file) by `app/config.py`. Start from [`.env.example`](../.env.example). Only `JWT_SECRET` has no usable default — the application refuses to start without one of at least 32 characters.
+Everything is read from the environment (or a `.env` file) by `app/config.py`. Start from [`.env.example`](../.env.example). Only `JWT_SECRET` has no usable default - the application refuses to start without one of at least 32 characters.
 
 ## Core
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `JWT_SECRET` | — (required, ≥ 32 chars) | signs session tokens and HMACs OTP codes. Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Changing it invalidates every session and every pending login code |
+| `JWT_SECRET` | - (required, ≥ 32 chars) | signs session tokens and HMACs OTP codes. Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Changing it invalidates every session and every pending login code |
 | `DEV_MODE` | `false` | when `true` and `RESEND_API_KEY` is empty, login codes are written to the log instead of emailed. Never enable in production |
 | `DATABASE_URL` | local app role | runtime connection. Must be a role **without** `BYPASSRLS`, otherwise tenant isolation falls back to application filters alone |
-| `MIGRATION_DATABASE_URL` | — | owner connection used by Alembic. If set inside the container, migrations run at start-up |
+| `MIGRATION_DATABASE_URL` | - | owner connection used by Alembic. If set inside the container, migrations run at start-up |
 
 ## Language model
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `GROQ_API_KEY` | — | API key for the LLM |
+| `GROQ_API_KEY` | - | API key for the LLM |
 | `LLM_MODEL` | `openai/gpt-oss-120b` | any model of the configured provider. Groq moved `llama-3.3-70b-versatile` to Enterprise-only, so a free-tier key gets a 404 for it |
 | `LLM_BASE_URL` | `https://api.groq.com/openai/v1` | any OpenAI-compatible endpoint works |
 | `LLM_TIMEOUT` | `30` | seconds; also the timeout for the rerank API |
@@ -29,12 +29,12 @@ Everything is read from the environment (or a `.env` file) by `app/config.py`. S
 | `EMBEDDING_DIM` | `1024` | vector column width. Changing it requires a migration and re-indexing every document |
 | `EMBEDDING_BATCH_SIZE` | `16` | texts per call; also the granularity at which ingestion releases the local inference lock |
 | `EMBEDDING_API_BASE_URL` | DeepInfra | hosted bge-m3 endpoint |
-| `EMBEDDING_API_KEY` | — | key for the above |
+| `EMBEDDING_API_KEY` | - | key for the above |
 | `RERANK_PROVIDER` | `local` | `local` (CrossEncoder in-process) or `api` (Pinecone Inference) |
 | `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` | local reranker weights |
 | `RERANK_API_URL` | `https://api.pinecone.io/rerank` | hosted reranker |
 | `RERANK_API_MODEL` | `bge-reranker-v2-m3` | hosted model name |
-| `RERANK_API_KEY` | — | key for the above |
+| `RERANK_API_KEY` | - | key for the above |
 | `PRELOAD_MODELS` | `true` | load local models at start-up instead of on the first request. Set `false` when both providers are `api` |
 | `TORCH_NUM_THREADS` | `0` (torch default) | caps intra-op threads for the local models. Set it below the core count when the same instance also serves requests |
 
@@ -62,7 +62,7 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | `QUERY_MIN_INTERVAL_SECONDS` | `15` | shortest gap between two questions from one user. `0` disables it |
 | `MAX_DOCUMENTS` | `1` | per user. At the limit `/ingest` answers `429` and the document has to be deleted first |
 | `MAX_STORAGE_MB` | `200` | total uploaded bytes per user |
-| `INGEST_WORKERS` | `1` | background indexing concurrency. Keep it low on small instances — embedding a large PDF is the memory peak |
+| `INGEST_WORKERS` | `1` | background indexing concurrency. Keep it low on small instances - embedding a large PDF is the memory peak |
 | `INGEST_QUEUE_SIZE` | `100` | queued jobs before `/ingest` blocks |
 | `RESEND_PER_USER_PER_DAY` | `3` | personal sub-limit: login codes one email address may request per day, under the service-wide Resend quota. `0` disables it |
 
@@ -77,7 +77,7 @@ The free-tier ceilings themselves live in the registry in `app/limits.py` (limit
 | `LIMITS_AUTOCHECK_ENABLED` | `true` | the daily job that re-reads each provider's pricing page and compares the published number with the registry. Never changes a limit by itself. Also skipped when `GROQ_API_KEY` is empty |
 | `LIMITS_CHECK_MODEL` | `openai/gpt-oss-20b` | model used to read a limit out of a pricing page. Groq counts rate limits **per model**, so a model different from `LLM_MODEL` gives the job its own token-per-minute budget instead of competing with people's questions |
 | `LIMITS_CHECK_SPACING_SECONDS` | `60` | pause between pricing pages. The whole set as one burst is around 30K tokens, well over a 8K-per-minute window; one page a minute stays inside it |
-| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | — | alert delivery. Empty means alerts stay in the log and in `/limits` |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | - | alert delivery. Empty means alerts stay in the log and in `/limits` |
 
 See [Architecture → service limits](architecture.md#service-limits) for what is metered where.
 
@@ -91,22 +91,22 @@ See [Architecture → service limits](architecture.md#service-limits) for what i
 | `OTP_RESEND_COOLDOWN_SECONDS` | `60` | minimum gap between codes for one address |
 | `OTP_MAX_PER_IP_PER_HOUR` | `20` | code requests per client IP |
 | `COOKIE_NAME` | `groundline_session` | session cookie name |
-| `COOKIE_DOMAIN` | — | e.g. `.example.com` so `app.` and `api.` share the session. Leave empty for localhost |
+| `COOKIE_DOMAIN` | - | e.g. `.example.com` so `app.` and `api.` share the session. Leave empty for localhost |
 | `COOKIE_SECURE` | `true` | set `false` only for plain-HTTP local development |
 | `CORS_ORIGINS` | `http://localhost:5173` | comma-separated list of allowed frontend origins. Credentials are allowed, so this must never be `*` |
-| `RESEND_API_KEY` | — | email delivery; without it and without `DEV_MODE`, login fails with 502 |
+| `RESEND_API_KEY` | - | email delivery; without it and without `DEV_MODE`, login fails with 502 |
 | `RESEND_FROM` | `Groundline <onboarding@resend.dev>` | must use a domain verified in Resend |
-| `TURNSTILE_SITE_KEY` | — | Cloudflare Turnstile widget key, served to the frontend by `GET /config`. Empty means no widget is rendered |
-| `TURNSTILE_SECRET_KEY` | — | server-side key for `siteverify`. **Empty disables the captcha check entirely** — that is the local-development and test default |
+| `TURNSTILE_SITE_KEY` | - | Cloudflare Turnstile widget key, served to the frontend by `GET /config`. Empty means no widget is rendered |
+| `TURNSTILE_SECRET_KEY` | - | server-side key for `siteverify`. **Empty disables the captcha check entirely** - that is the local-development and test default |
 
 ## Shared rate limiting
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `UPSTASH_REDIS_REST_URL` | — | Upstash Redis REST endpoint. With both variables set, the per-IP OTP limit is counted in Redis and therefore shared across instances |
-| `UPSTASH_REDIS_REST_TOKEN` | — | REST token for the above. Empty (either one) falls back to the per-process and Postgres counters |
+| `UPSTASH_REDIS_REST_URL` | - | Upstash Redis REST endpoint. With both variables set, the per-IP OTP limit is counted in Redis and therefore shared across instances |
+| `UPSTASH_REDIS_REST_TOKEN` | - | REST token for the above. Empty (either one) falls back to the per-process and Postgres counters |
 
-Upstash is failure-tolerant by design: if the REST call errors or times out, the request falls back to the local limit rather than failing. Free-tier budget matters here — each OTP request costs 2 commands out of 500K per month.
+Upstash is failure-tolerant by design: if the REST call errors or times out, the request falls back to the local limit rather than failing. Free-tier budget matters here - each OTP request costs 2 commands out of 500K per month.
 
 ## Live events
 
@@ -120,10 +120,10 @@ Upstash is failure-tolerant by design: if the REST call errors or times out, the
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | — | tracing credentials; tracing is disabled when either is empty |
+| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | - | tracing credentials; tracing is disabled when either is empty |
 | `LANGFUSE_HOST` | `https://cloud.langfuse.com` | must match the region the keys were issued in: `cloud.langfuse.com` for EU, `us.cloud.langfuse.com` for US. A US key pair against the EU host authenticates fine nowhere and fails every span export with `401`. Self-hosted LangFuse works too |
 
-The LangFuse SDK reads these from the process environment, which a `.env` file does not populate on its own — so `app/config.py` exports them at import time, without overwriting variables that are already set. That is what makes tracing work when the backend runs from the host with only a `.env`, the same as it already did in Docker and on Render.
+The LangFuse SDK reads these from the process environment, which a `.env` file does not populate on its own - so `app/config.py` exports them at import time, without overwriting variables that are already set. That is what makes tracing work when the backend runs from the host with only a `.env`, the same as it already did in Docker and on Render.
 
 ## Used outside the application
 

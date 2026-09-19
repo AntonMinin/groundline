@@ -49,7 +49,7 @@ The deployed instance uses `EMBEDDING_PROVIDER=api` and `RERANK_PROVIDER=api`: w
 
    The migration grants table privileges to `groundline_app`, enables and forces RLS, and revokes access from Supabase's `anon` and `authenticated` roles so the tables are not exposed through the Supabase Data API.
 
-   Supabase projects can be configured to enable row-level security on **every** new table in `public`. For a tenant table that is what we want; for `users`, `otp_codes`, `service_usage` and `alembic_version` it is not — RLS with no policy means the application role reads nothing and login fails with "invalid or expired code" even for a correct one. Migration `0005` disables RLS on exactly those four. After running migrations, check the result:
+   Supabase projects can be configured to enable row-level security on **every** new table in `public`. For a tenant table that is what we want; for `users`, `otp_codes`, `service_usage` and `alembic_version` it is not - RLS with no policy means the application role reads nothing and login fails with "invalid or expired code" even for a correct one. Migration `0005` disables RLS on exactly those four. After running migrations, check the result:
 
    ```sql
    SELECT c.relname, c.relrowsecurity AS rls, count(p.polname) AS policies
@@ -67,22 +67,22 @@ The deployed instance uses `EMBEDDING_PROVIDER=api` and `RERANK_PROVIDER=api`: w
 1. Push the repository to GitHub.
 2. Render dashboard → **New → Blueprint** → select the repository. Render reads `render.yaml`: a Docker web service built from `Dockerfile` with `INSTALL_LOCAL_MODELS=false`, health check `GET /health`, and a generated `JWT_SECRET`.
 3. Fill in the secrets Render asks for:
-   - `DATABASE_URL` — the `groundline_app` URL from step 1
+   - `DATABASE_URL` - the `groundline_app` URL from step 1
    - `GROQ_API_KEY`
-   - `EMBEDDING_API_KEY` — [DeepInfra](https://deepinfra.com) key (bge-m3)
-   - `RERANK_API_KEY` — [Pinecone](https://pinecone.io) key (bge-reranker-v2-m3)
+   - `EMBEDDING_API_KEY` - [DeepInfra](https://deepinfra.com) key (bge-m3)
+   - `RERANK_API_KEY` - [Pinecone](https://pinecone.io) key (bge-reranker-v2-m3)
    - `RESEND_API_KEY`, `RESEND_FROM` (e.g. `Groundline <login@example.com>`)
    - `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`
    - `CORS_ORIGINS=https://app.example.com`
    - `COOKIE_DOMAIN=.example.com`
-   - `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` — [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile) widget for `app.example.com`; leaving them empty disables the captcha
-   - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — [Upstash](https://upstash.com) Redis, for rate limits shared across instances; empty falls back to per-process counters
-   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — where quota alerts go (exhausted, under 20% left, a provider limit that changed on its pricing page); empty leaves alerts in the log and in `/limits`
+   - `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` - [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile) widget for `app.example.com`; leaving them empty disables the captcha
+   - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` - [Upstash](https://upstash.com) Redis, for rate limits shared across instances; empty falls back to per-process counters
+   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` - where quota alerts go (exhausted, under 20% left, a provider limit that changed on its pricing page); empty leaves alerts in the log and in `/limits`
 4. **Settings → Custom Domains**: add `api.example.com` and create the CNAME record Render shows.
 
 Setting `MIGRATION_DATABASE_URL` on the service makes the container run `alembic upgrade head` at start-up. Leaving it unset (the safer default) means migrations are applied deliberately, from your machine or from CI.
 
-On the free plan the service sleeps when idle: **the first request after a pause can take 30–50 seconds.** Everything after that is fast. Keep `INGEST_WORKERS=1` there — embedding a large PDF is the memory peak on a small instance.
+On the free plan the service sleeps when idle: **the first request after a pause can take 30–50 seconds.** Everything after that is fast. Keep `INGEST_WORKERS=1` there - embedding a large PDF is the memory peak on a small instance.
 
 ## 3. Frontend: Vercel
 
@@ -112,12 +112,12 @@ Without a verified domain, Resend only delivers to the account owner's address.
 
 ## Self-hosted alternative
 
-`docker compose up --build` brings up the whole thing — Postgres with pgvector, the backend with local models, and the UI behind nginx — with no external dependency except the LLM. That is the deployment to use when document text must not leave your network; point `LLM_BASE_URL` at a local OpenAI-compatible server to remove the last one.
+`docker compose up --build` brings up the whole thing - Postgres with pgvector, the backend with local models, and the UI behind nginx - with no external dependency except the LLM. That is the deployment to use when document text must not leave your network; point `LLM_BASE_URL` at a local OpenAI-compatible server to remove the last one.
 
 ## After deploying, check
 
 - `GET https://api.example.com/health` returns `{"status": "ok"}`.
-- The start-up log says `LangFuse tracing enabled, host …`. If it says the keys were rejected, the spans would otherwise fail with `401 Unauthorized` on every batch: the pair must belong to one project, and `LANGFUSE_HOST` must match that project's region (`cloud.langfuse.com` for EU, `us.cloud.langfuse.com` for US). Verify a pair from a terminal with `curl -u "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" $LANGFUSE_HOST/api/public/projects` — `200` means the pair fits that host, `401` means it does not.
+- The start-up log says `LangFuse tracing enabled, host …`. If it says the keys were rejected, the spans would otherwise fail with `401 Unauthorized` on every batch: the pair must belong to one project, and `LANGFUSE_HOST` must match that project's region (`cloud.langfuse.com` for EU, `us.cloud.langfuse.com` for US). Verify a pair from a terminal with `curl -u "$LANGFUSE_PUBLIC_KEY:$LANGFUSE_SECRET_KEY" $LANGFUSE_HOST/api/public/projects` - `200` means the pair fits that host, `401` means it does not.
 - A login code arrives by email and the cookie is set (DevTools → Application → Cookies, domain `.example.com`).
-- An upload reaches `done` and the document list updates without a refresh — that confirms `/events` is not being buffered by a proxy.
+- An upload reaches `done` and the document list updates without a refresh - that confirms `/events` is not being buffered by a proxy.
 - A question streams token by token, and repeating it as a paraphrase returns a cache hit.

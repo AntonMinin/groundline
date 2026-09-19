@@ -11,13 +11,13 @@ Key facts, measured on 2026-09-18 against the demo corpus (one employee handbook
 
 How a question is answered (seven steps, three of which call the model):
 
-1. check_cache — the question is embedded and compared with previously answered questions; at or above the similarity threshold the stored answer is returned immediately.
-2. rewrite_query (model) — the question is rewritten into a precise search query.
-3. retrieve — hybrid search over the user's chunks: vector search plus Postgres full-text search, merged with reciprocal rank fusion.
-4. rerank — a cross-encoder scores the candidates and keeps the top five.
-5. check_sufficiency (model) — decides whether those fragments can answer the question; if not, the query is rewritten and searched again, at most twice.
-6. generate_answer (model) — the answer is streamed from those fragments only, with inline citations.
-7. record — answer, sources and per-step metrics are stored, and the answer enters the cache when the run was a miss and the context was sufficient.
+1. check_cache - the question is embedded and compared with previously answered questions; at or above the similarity threshold the stored answer is returned immediately.
+2. rewrite_query (model) - the question is rewritten into a precise search query.
+3. retrieve - hybrid search over the user's chunks: vector search plus Postgres full-text search, merged with reciprocal rank fusion.
+4. rerank - a cross-encoder scores the candidates and keeps the top five.
+5. check_sufficiency (model) - decides whether those fragments can answer the question; if not, the query is rewritten and searched again, at most twice.
+6. generate_answer (model) - the answer is streamed from those fragments only, with inline citations.
+7. record - answer, sources and per-step metrics are stored, and the answer enters the cache when the run was a miss and the context was sufficient.
 
 Technical summary:
 

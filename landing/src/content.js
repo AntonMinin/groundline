@@ -36,7 +36,7 @@ export const CONTENT = {
   en: {
     lang: 'en',
     dir: '/',
-    title: 'Groundline — answers from your documents, with a semantic cache',
+    title: 'Groundline - answers from your documents, with a semantic cache',
     description:
       'Groundline answers questions about your own documents and caches answers by meaning, not by query string: a reworded question costs no LLM tokens.',
     nav: { how: 'How it works', auth: 'Why sign in', numbers: 'Numbers', faq: 'FAQ', repo: 'GitHub', demo: 'Open the demo' },
@@ -44,7 +44,7 @@ export const CONTENT = {
     hero: {
       kicker: 'RAG for your documents',
       title: 'Answers from your documents, and never pays twice for the same question',
-      lede: 'Groundline indexes the files you upload and answers with the fragments it used. Answers are cached by the meaning of the question rather than its text, so "what is our SLA?" and "how fast must we respond under the contract?" share one cache entry — and the second one never reaches the language model.',
+      lede: 'Groundline indexes the files you upload and answers with the fragments it used. Answers are cached by the meaning of the question rather than its text, so "what is our SLA?" and "how fast must we respond under the contract?" share one cache entry - and the second one never reaches the language model.',
       facts: [
         [`${MEASURED.cacheHitMs} ms`, 'to answer from cache instead of ~2.6 s through the full pipeline'],
         [`${MEASURED.tokensSavedPerHit}`, 'tokens saved by a single cache hit, measured, not projected'],
@@ -72,7 +72,7 @@ export const CONTENT = {
       lede: 'The demo runs on free tiers of external services. Identifying the person is how that budget is shared fairly and how one person’s documents stay out of another’s answers.',
       items: [
         ['Personal quotas', 'Queries and documents are counted per account, not per service. One busy visitor cannot burn the day’s language-model budget for everyone else.'],
-        ['Data isolation', 'Documents, history and cached answers belong to an account. Search only ever runs over your chunks, and the cache never returns someone else’s answer — enforced by Postgres row-level security, not only by application code.'],
+        ['Data isolation', 'Documents, history and cached answers belong to an account. Search only ever runs over your chunks, and the cache never returns someone else’s answer - enforced by Postgres row-level security, not only by application code.'],
         ['A code instead of a password', 'A six-digit code by email: no password to leak, no OAuth app, no extra personal data stored.'],
         ['Deletion in one step', 'The Documents screen deletes the account with every document, answer and cache entry. No support ticket.'],
       ],
@@ -80,7 +80,7 @@ export const CONTENT = {
     numbers: {
       kicker: 'Cache numbers',
       title: 'What the semantic cache actually saved',
-      lede: `Measured on ${MEASURED.date} against the demo corpus (${MEASURED.corpus}). These are readings from one run, not a benchmark — the same figures appear in the interface while you use it.`,
+      lede: `Measured on ${MEASURED.date} against the demo corpus (${MEASURED.corpus}). These are readings from one run, not a benchmark - the same figures appear in the interface while you use it.`,
       rows: [
         ['Answer from cache', `${MEASURED.cacheHitMs} ms`, 'one embedding and one indexed lookup'],
         ['Answer through the full pipeline', `${(MEASURED.fullPipelineMs / 1000).toFixed(1)} s`, `${MEASURED.llmCallsOnMiss} language-model calls`],
@@ -110,7 +110,7 @@ export const CONTENT = {
         ],
         [
           'Who can see my documents?',
-          'Documents and chunks belong to your account and never enter anyone else’s search. Postgres row-level security enforces that at the database level. Text is sent to external models for embeddings and answer generation — the security notes in the repository list every service and what reaches it.',
+          'Documents and chunks belong to your account and never enter anyone else’s search. Postgres row-level security enforces that at the database level. Text is sent to external models for embeddings and answer generation - the security notes in the repository list every service and what reaches it.',
         ],
         [
           'How many questions can I ask per day?',
@@ -137,7 +137,7 @@ export const CONTENT = {
   ru: {
     lang: 'ru',
     dir: '/ru',
-    title: 'Groundline — ответы по вашим документам с семантическим кэшем',
+    title: 'Groundline - ответы по вашим документам с семантическим кэшем',
     description:
       'Groundline отвечает на вопросы по вашим документам и кэширует ответы по смыслу, а не по строке запроса: перефразированный вопрос не тратит токены LLM.',
     nav: { how: 'Как работает', auth: 'Зачем вход', numbers: 'Цифры', faq: 'FAQ', repo: 'GitHub', demo: 'Открыть демо' },
@@ -148,7 +148,7 @@ export const CONTENT = {
       lede: 'Groundline индексирует загруженные файлы и отвечает со ссылками на фрагменты, из которых собран ответ. Ответы кэшируются по смыслу вопроса, а не по его тексту: «какой у нас SLA?» и «сколько времени на реакцию по договору?» попадают в одну запись кэша, и второй запрос не идёт в языковую модель.',
       facts: [
         [`${MEASURED.cacheHitMs} мс`, 'ответ из кэша вместо ~2.6 с через полный пайплайн'],
-        [`${MEASURED.tokensSavedPerHit}`, 'токенов сэкономило одно попадание в кэш — замер, не обещание'],
+        [`${MEASURED.tokensSavedPerHit}`, 'токенов сэкономило одно попадание в кэш - замер, не обещание'],
         [`${MEASURED.steps}`, 'шагов пайплайна, у каждого видно время и токены'],
       ],
     },
@@ -159,21 +159,21 @@ export const CONTENT = {
       steps: [
         'Вопрос становится вектором и сравнивается с теми, на которые уже отвечали. Выше порога схожести готовый ответ отдаётся сразу.',
         'Формулировка переписывается в точный поисковый запрос: аббревиатуры раскрываются, размытые слова уточняются.',
-        'Гибридный поиск по вашим фрагментам: векторный ловит перефразировки, полнотекстовый — точные термины, результаты объединяются ранговой фузией.',
+        'Гибридный поиск по вашим фрагментам: векторный ловит перефразировки, полнотекстовый - точные термины, результаты объединяются ранговой фузией.',
         'Кросс-энкодер перечитывает кандидатов и оставляет пять, в которых действительно есть ответ.',
-        'Модель проверяет, хватает ли этих фрагментов. Если нет — вопрос переформулируется и поиск повторяется, максимум дважды.',
+        'Модель проверяет, хватает ли этих фрагментов. Если нет - вопрос переформулируется и поиск повторяется, максимум дважды.',
         'Ответ пишется стримом строго по этим фрагментам, с указанием файла и чанка для каждого утверждения.',
-        'Ответ, источники и метрики шагов уходят в историю и в кэш — для следующего похожего вопроса.',
+        'Ответ, источники и метрики шагов уходят в историю и в кэш - для следующего похожего вопроса.',
       ],
       llmNote: 'Шаги с пометкой LLM тратят токены. При попадании в кэш не выполняется ни один из них.',
     },
     auth: {
       kicker: 'Зачем вход',
-      title: 'Вход по email — часть продукта, а не формальность',
-      lede: 'Демо работает на бесплатных тарифах внешних сервисов. Идентификация пользователя — способ честно разделить этот бюджет и не смешивать чужие документы с вашими ответами.',
+      title: 'Вход по email - часть продукта, а не формальность',
+      lede: 'Демо работает на бесплатных тарифах внешних сервисов. Идентификация пользователя - способ честно разделить этот бюджет и не смешивать чужие документы с вашими ответами.',
       items: [
         ['Персональные квоты', 'Запросы и документы считаются на аккаунт, а не на весь сервис. Один активный посетитель не выжигает дневной бюджет модели для остальных.'],
-        ['Изоляция данных', 'Документы, история и кэш ответов привязаны к аккаунту. Поиск идёт только по вашим фрагментам, а кэш не отдаёт чужой ответ — это обеспечивает row-level security в Postgres, а не только код приложения.'],
+        ['Изоляция данных', 'Документы, история и кэш ответов привязаны к аккаунту. Поиск идёт только по вашим фрагментам, а кэш не отдаёт чужой ответ - это обеспечивает row-level security в Postgres, а не только код приложения.'],
         ['Код вместо пароля', 'Шесть цифр на почту: пароль негде утечь, OAuth-приложение не нужно, лишние персональные данные не хранятся.'],
         ['Удаление в один шаг', 'Кнопка на экране «Документы» удаляет аккаунт со всеми файлами, ответами и кэшем. Без переписки с поддержкой.'],
       ],
@@ -181,7 +181,7 @@ export const CONTENT = {
     numbers: {
       kicker: 'Цифры кэша',
       title: 'Что реально сэкономил семантический кэш',
-      lede: `Замер ${MEASURED.date} на демо-корпусе (${MEASURED.corpus}). Это показания одного прогона, а не бенчмарк — те же цифры видны в интерфейсе во время работы.`,
+      lede: `Замер ${MEASURED.date} на демо-корпусе (${MEASURED.corpus}). Это показания одного прогона, а не бенчмарк - те же цифры видны в интерфейсе во время работы.`,
       rows: [
         ['Ответ из кэша', `${MEASURED.cacheHitMs} мс`, 'один эмбеддинг и один индексный поиск'],
         ['Ответ через полный пайплайн', `${(MEASURED.fullPipelineMs / 1000).toFixed(1)} с`, `${MEASURED.llmCallsOnMiss} обращения к языковой модели`],
@@ -211,11 +211,11 @@ export const CONTENT = {
         ],
         [
           'Кто видит мои документы?',
-          'Документы и фрагменты привязаны к аккаунту и в чужой поиск не попадают — это обеспечивает row-level security на уровне базы. Тексты уходят во внешние модели для эмбеддингов и генерации ответа: в разделе security репозитория перечислено, какой сервис что получает.',
+          'Документы и фрагменты привязаны к аккаунту и в чужой поиск не попадают - это обеспечивает row-level security на уровне базы. Тексты уходят во внешние модели для эмбеддингов и генерации ответа: в разделе security репозитория перечислено, какой сервис что получает.',
         ],
         [
           'Сколько вопросов в день можно задать?',
-          'В демо — 50 вопросов в сутки и один документ до 0,3 МБ на аккаунт, между вопросами не меньше 15 секунд. Попадания в кэш бесплатны и в счёт не идут. Текущий расход виден в приложении.',
+          'В демо - 50 вопросов в сутки и один документ до 0,3 МБ на аккаунт, между вопросами не меньше 15 секунд. Попадания в кэш бесплатны и в счёт не идут. Текущий расход виден в приложении.',
         ],
         [
           'Можно развернуть у себя?',
@@ -223,7 +223,7 @@ export const CONTENT = {
         ],
         [
           'Что происходит при попадании в кэш?',
-          'Шаги со второго по шестой не выполняются. Ответ и источники берутся из записи кэша, а в интерфейсе check_cache помечается как попадание — со схожестью и числом сэкономленных токенов.',
+          'Шаги со второго по шестой не выполняются. Ответ и источники берутся из записи кэша, а в интерфейсе check_cache помечается как попадание - со схожестью и числом сэкономленных токенов.',
         ],
       ],
     },

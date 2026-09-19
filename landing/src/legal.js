@@ -3,7 +3,7 @@ export const UPDATED = '2026-09-18'
 export const LEGAL = {
   en: {
     privacy: {
-      title: 'Privacy — Groundline',
+      title: 'Privacy - Groundline',
       heading: 'What Groundline stores, where it goes, and how to delete it',
       description:
         'Plain-language privacy notice for the Groundline demo: what is collected (email, uploaded documents, questions), where it is stored and which external services receive it.',
@@ -20,7 +20,7 @@ export const LEGAL = {
         },
         {
           h: 'Where it is stored',
-          body: 'In a single Postgres database hosted by Supabase in the EU. Every row is tied to an account, and the database itself enforces that one account cannot read another’s rows — not just the application code.',
+          body: 'In a single Postgres database hosted by Supabase in the EU. Every row is tied to an account, and the database itself enforces that one account cannot read another’s rows - not just the application code.',
         },
         {
           h: 'Which services receive what',
@@ -31,7 +31,7 @@ export const LEGAL = {
             ['LangFuse', 'A trace of each request: the question, the answer and the fragments used, for debugging and cost analysis.'],
             ['Resend', 'Your email address and the six-digit login code.'],
             ['Cloudflare Turnstile', 'A challenge token and your IP address, to keep bots from requesting login codes.'],
-            ['Upstash', 'Counters only — how many login codes an IP requested, how many streams an account holds. No document text.'],
+            ['Upstash', 'Counters only - how many login codes an IP requested, how many streams an account holds. No document text.'],
             ['Vercel Analytics and Speed Insights', 'Page views and page-load timings, aggregated. Cookieless, no identifier that follows you to other sites, no document text and no email address.'],
           ],
           after:
@@ -43,7 +43,7 @@ export const LEGAL = {
         },
         {
           h: 'How to delete it',
-          body: 'The Documents screen has two buttons: one clears documents, cache and history; the other deletes the account entirely. Deletion is immediate and cascades to every table — there is no soft delete and no recovery. The same is available over the API as DELETE /me.',
+          body: 'The Documents screen has two buttons: one clears documents, cache and history; the other deletes the account entirely. Deletion is immediate and cascades to every table - there is no soft delete and no recovery. The same is available over the API as DELETE /me.',
         },
         {
           h: 'What is not done',
@@ -60,7 +60,7 @@ export const LEGAL = {
       ],
     },
     terms: {
-      title: 'Terms — Groundline',
+      title: 'Terms - Groundline',
       heading: 'Terms of use',
       description: 'Terms for the Groundline demo: a demonstration service, offered as is, with per-account quotas and no availability guarantee.',
       lede: 'Short version: this is a demonstration project, not a product you should depend on. It can be slow, it can be down, and it can lose your data. Do not upload anything confidential.',
@@ -92,7 +92,7 @@ export const LEGAL = {
         },
         {
           h: 'Answers are not advice',
-          body: 'Answers are generated from your documents by a language model and can be wrong or incomplete. Every answer cites the fragments it used — check them before acting. Nothing here is legal, medical or financial advice.',
+          body: 'Answers are generated from your documents by a language model and can be wrong or incomplete. Every answer cites the fragments it used - check them before acting. Nothing here is legal, medical or financial advice.',
         },
         {
           h: 'Changes and shutdown',
@@ -104,7 +104,7 @@ export const LEGAL = {
 
   ru: {
     privacy: {
-      title: 'Конфиденциальность — Groundline',
+      title: 'Конфиденциальность - Groundline',
       heading: 'Что Groundline хранит, куда это уходит и как всё удалить',
       description:
         'Понятное описание приватности демо Groundline: что собирается (email, загруженные документы, вопросы), где хранится и какие внешние сервисы это получают.',
@@ -114,7 +114,7 @@ export const LEGAL = {
           h: 'Что собирается',
           list: [
             ['Адрес электронной почты', 'единственный идентификатор аккаунта. Пароля нет, профиля нет, слежки по другим сайтам нет.'],
-            ['Загруженные документы', 'хранятся как извлечённый текст, нарезанный на фрагменты, у каждого — числовое представление смысла для поиска.'],
+            ['Загруженные документы', 'хранятся как извлечённый текст, нарезанный на фрагменты, у каждого - числовое представление смысла для поиска.'],
             ['Вопросы и ответы', 'остаются в истории и в кэше, чтобы повторный вопрос не оплачивался заново.'],
             ['Технические записи', 'время и количество токенов по каждому запросу, IP-адрес при запросе кода входа (чтобы ограничивать злоупотребления), серверные логи.'],
           ],
@@ -129,46 +129,46 @@ export const LEGAL = {
             ['Groq', 'Ваш вопрос и отобранные фрагменты документов. Пишет ответ.'],
             ['DeepInfra', 'Текст фрагментов документов и текст вопросов. Превращает текст в векторы, на которых работает поиск.'],
             ['Pinecone', 'Ваш вопрос и фрагменты-кандидаты. Определяет, в каких из них действительно есть ответ.'],
-            ['LangFuse', 'Трассировку запроса: вопрос, ответ и использованные фрагменты — для отладки и анализа расходов.'],
+            ['LangFuse', 'Трассировку запроса: вопрос, ответ и использованные фрагменты - для отладки и анализа расходов.'],
             ['Resend', 'Ваш адрес почты и шестизначный код входа.'],
             ['Cloudflare Turnstile', 'Токен проверки и ваш IP-адрес, чтобы боты не заказывали коды входа.'],
             ['Upstash', 'Только счётчики: сколько кодов запросил IP, сколько потоков держит аккаунт. Текста документов там нет.'],
             ['Vercel Analytics и Speed Insights', 'Просмотры страниц и время их загрузки, в агрегированном виде. Без кук, без идентификатора, который следует за вами на другие сайты, без текста документов и без адреса почты.'],
           ],
           after:
-            'Если развернуть Groundline у себя с локальными моделями, текст документов не покидает вашу инфраструктуру; в размещённом демо — покидает.',
+            'Если развернуть Groundline у себя с локальными моделями, текст документов не покидает вашу инфраструктуру; в размещённом демо - покидает.',
         },
         {
           h: 'Сколько это хранится',
-          body: 'Документы, история и кэш живут, пока вы их не удалите или не удалите аккаунт. Код входа истекает через 10 минут. Сессия — семь дней. LangFuse на бесплатном тарифе хранит трассировки 30 дней.',
+          body: 'Документы, история и кэш живут, пока вы их не удалите или не удалите аккаунт. Код входа истекает через 10 минут. Сессия - семь дней. LangFuse на бесплатном тарифе хранит трассировки 30 дней.',
         },
         {
           h: 'Как удалить',
-          body: 'На экране «Документы» две кнопки: одна очищает документы, кэш и историю, вторая удаляет аккаунт целиком. Удаление немедленное и каскадное по всем таблицам — без «корзины» и без восстановления. То же доступно через API: DELETE /me.',
+          body: 'На экране «Документы» две кнопки: одна очищает документы, кэш и историю, вторая удаляет аккаунт целиком. Удаление немедленное и каскадное по всем таблицам - без «корзины» и без восстановления. То же доступно через API: DELETE /me.',
         },
         {
           h: 'Чего здесь нет',
           list: [
-            ['Ни рекламы, ни сторонних трекеров', 'лендинг и приложение считают просмотры страниц и время загрузки через Vercel — без кук и без профиля, который следует за вами по другим сайтам. Больше ничего не грузится.'],
+            ['Ни рекламы, ни сторонних трекеров', 'лендинг и приложение считают просмотры страниц и время загрузки через Vercel - без кук и без профиля, который следует за вами по другим сайтам. Больше ничего не грузится.'],
             ['Данные не продаются и не передаются', 'уходят только в перечисленные сервисы и только чтобы ответить на ваш вопрос.'],
             ['Обучения на ваших документах нет', 'провайдеры используются через их API; их собственные условия хранения смотрите у них.'],
           ],
         },
         {
           h: 'Связь',
-          body: 'Это личный демонстрационный проект. Вопросы и просьбы об удалении — через issue в репозитории.',
+          body: 'Это личный демонстрационный проект. Вопросы и просьбы об удалении - через issue в репозитории.',
         },
       ],
     },
     terms: {
-      title: 'Условия — Groundline',
+      title: 'Условия - Groundline',
       heading: 'Условия использования',
       description: 'Условия демо Groundline: демонстрационный сервис «как есть», с квотами на аккаунт и без гарантий доступности.',
       lede: 'Коротко: это демонстрационный проект, а не продукт, на который стоит полагаться. Он может тормозить, лежать и терять данные. Не загружайте сюда ничего конфиденциального.',
       sections: [
         {
           h: 'Что это такое',
-          body: 'Groundline — личный проект-портфолио, который отвечает на вопросы по загруженным вами документам. Работает на бесплатных тарифах внешних сервисов и предоставляется бесплатно.',
+          body: 'Groundline - личный проект-портфолио, который отвечает на вопросы по загруженным вами документам. Работает на бесплатных тарифах внешних сервисов и предоставляется бесплатно.',
         },
         {
           h: 'Без гарантий',
@@ -192,8 +192,8 @@ export const LEGAL = {
           body: 'Не используйте сервис для нарушения закона, для загрузки контента, прав на который у вас нет, для атак на инфраструктуру и для обхода квот. Аккаунты, которые этим занимаются, удаляются без предупреждения.',
         },
         {
-          h: 'Ответы — не консультация',
-          body: 'Ответы генерирует языковая модель по вашим документам, и они могут быть неточными или неполными. У каждого ответа указаны использованные фрагменты — проверяйте их, прежде чем действовать. Это не юридическая, не медицинская и не финансовая консультация.',
+          h: 'Ответы - не консультация',
+          body: 'Ответы генерирует языковая модель по вашим документам, и они могут быть неточными или неполными. У каждого ответа указаны использованные фрагменты - проверяйте их, прежде чем действовать. Это не юридическая, не медицинская и не финансовая консультация.',
         },
         {
           h: 'Изменения и закрытие',

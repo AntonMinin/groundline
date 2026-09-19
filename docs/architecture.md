@@ -19,7 +19,7 @@ Technical companion to [How it works](how-it-works.md), which covers the same sy
 
 One FastAPI process, one Postgres database, three external model calls. There is no worker process, no message broker, no vector database and no cache server: background ingestion is an `asyncio` queue inside the API process, the vector index is pgvector, and the answer cache is a Postgres table.
 
-That is a deliberate ceiling — it fits a single-instance deployment and keeps operations to "one container plus a database". [Known limits](#known-limits) lists what has to change to scale out horizontally.
+That is a deliberate ceiling - it fits a single-instance deployment and keeps operations to "one container plus a database". [Known limits](#known-limits) lists what has to change to scale out horizontally.
 
 ## Layers
 
@@ -31,8 +31,8 @@ That is a deliberate ceiling — it fits a single-instance deployment and keeps 
 | Tenancy | `user_id` on every tenant table, explicit filters in every query **and** RLS policies (`app.user_id` set per transaction; the app connects as a non-superuser role without `BYPASSRLS`) |
 | Auth | Passwordless email OTP via Resend, JWT in an httpOnly `Secure` `SameSite=Lax` cookie, CSRF defence via a required `X-Requested-With` header plus a strict CORS allowlist |
 | LLM | Groq `openai/gpt-oss-120b` through the OpenAI-compatible client |
-| Embeddings | `BAAI/bge-m3`, 1024 dimensions — local (sentence-transformers in a threadpool) or a hosted OpenAI-compatible API |
-| Rerank | `BAAI/bge-reranker-v2-m3` — local (CrossEncoder in a threadpool) or Pinecone Inference |
+| Embeddings | `BAAI/bge-m3`, 1024 dimensions - local (sentence-transformers in a threadpool) or a hosted OpenAI-compatible API |
+| Rerank | `BAAI/bge-reranker-v2-m3` - local (CrossEncoder in a threadpool) or Pinecone Inference |
 | Orchestration | LangGraph `StateGraph`, custom stream mode for token and progress events |
 | Observability | LangFuse: every LLM, embedding and rerank call as an observation carrying its step name and `user_id` |
 | Evaluation | ragas: faithfulness, context precision, context recall, answer correctness |
@@ -133,8 +133,8 @@ Routing: `check_cache → record` on a hit, otherwise `→ rewrite_query`. `chec
 
 Two things are layered on top of every node by `_instrumented()`:
 
-- **Live events** — `node_started` on entry, `node_finished` on exit with `duration_ms`, tokens spent in that node, `tokens_saved` and `similarity` (for `check_cache`), and `cache_hit`.
-- **Metrics accumulation** — the same dict is appended to `node_metrics` in the graph state, which `record` persists with the query. That is what lets the UI restore a finished run after a page reload.
+- **Live events** - `node_started` on entry, `node_finished` on exit with `duration_ms`, tokens spent in that node, `tokens_saved` and `similarity` (for `check_cache`), and `cache_hit`.
+- **Metrics accumulation** - the same dict is appended to `node_metrics` in the graph state, which `record` persists with the query. That is what lets the UI restore a finished run after a page reload.
 
 Token counting is deliberate and local: `tiktoken` (`cl100k_base`) counts prompt messages and generated text, so a figure exists even for providers that do not return usage on streamed responses.
 
@@ -154,12 +154,12 @@ Every status change is published to the event channel, so the UI needs no pollin
 
 ## Service limits
 
-`app/limits.py` holds one registry of quotas — limit, period, data source, unit, pricing URL — and one rule: **use the provider's own number where the provider publishes one, count locally where it does not.**
+`app/limits.py` holds one registry of quotas - limit, period, data source, unit, pricing URL - and one rule: **use the provider's own number where the provider publishes one, count locally where it does not.**
 
 | Quota | Limit | Period | Where the number comes from |
 | --- | --- | --- | --- |
 | Groq requests | 1 000 | day | `x-ratelimit-limit-requests` / `-remaining-requests`, captured by an httpx response hook on the OpenAI client |
-| Groq tokens | 200 000 | day | local counter — Groq's headers carry the daily *request* quota and the per-minute token quota, not the daily token one |
+| Groq tokens | 200 000 | day | local counter - Groq's headers carry the daily *request* quota and the per-minute token quota, not the daily token one |
 | DeepInfra spend | `DEEPINFRA_MONTHLY_BUDGET_USD` | month | local: embedding tokens × `DEEPINFRA_PRICE_PER_1M`. The undocumented balance endpoint is read opportunistically and shown alongside, never used for enforcement |
 | Pinecone rerank units | 500 | month | local counter fed by `usage.rerank_units` from each response |
 | Resend emails | 100 / day, 3 000 / month | day, month | `x-resend-daily-quota`, `x-resend-monthly-quota` |
@@ -168,7 +168,7 @@ Every status change is published to the event channel, so the UI needs no pollin
 | Turnstile verifications | unlimited | month | local counter, for visibility only |
 | Render / Supabase / Vercel | 750 h, 5 GB, 100 GB | month | not metered by the application: the registry carries the limit and a dashboard link |
 
-Counters live in `service_usage` (`quota_key`, `period_start`, `used`), incremented with a single upsert at the point of each call. Provider-reported numbers are kept in memory and override the local counter when present. A monthly quota also reports a **daily budget** — remaining ÷ days left in the month — with no carry-over of yesterday's unused share, because providers do not grant one.
+Counters live in `service_usage` (`quota_key`, `period_start`, `used`), incremented with a single upsert at the point of each call. Provider-reported numbers are kept in memory and override the local counter when present. A monthly quota also reports a **daily budget** - remaining ÷ days left in the month - with no carry-over of yesterday's unused share, because providers do not grant one.
 
 Quotas that do not apply to the running configuration are hidden rather than shown at zero: DeepInfra and Pinecone only count with `EMBEDDING_PROVIDER=api` / `RERANK_PROVIDER=api`, Upstash only when configured, Turnstile only when a secret is set.
 
@@ -176,15 +176,15 @@ Quotas that do not apply to the running configuration are hidden rather than sho
 
 Three things keep that job from starving the thing it is supposed to protect:
 
-- **Its own model.** Groq applies rate limits per model, so `LIMITS_CHECK_MODEL` (`openai/gpt-oss-20b`) draws on a different tokens-per-minute budget than `LLM_MODEL` serves questions from. The free-tier numbers happen to be identical — 8K per minute each — but they are separate buckets, which is the point.
+- **Its own model.** Groq applies rate limits per model, so `LIMITS_CHECK_MODEL` (`openai/gpt-oss-20b`) draws on a different tokens-per-minute budget than `LLM_MODEL` serves questions from. The free-tier numbers happen to be identical - 8K per minute each - but they are separate buckets, which is the point.
 - **Spacing.** One page a minute (`LIMITS_CHECK_SPACING_SECONDS`). A pricing page is around 2K tokens after stripping; a dozen of them back to back is roughly 30K tokens inside one minute, which exceeds any 8K window on its own.
 - **Once per calendar day, not once per boot.** The job claims the day with an insert into `service_usage` (`run:limits_check` plus today's date, `ON CONFLICT DO NOTHING`), so two deploys in an afternoon check the pages once between them, and two instances racing produce one winner. A run that dies halfway still counts as the day's run; it resumes tomorrow rather than on the next restart.
 
-**Alerts.** `app/alerts.py` delivers to Telegram (a no-op when the token or chat id is empty, so the log and the `/limits` flag remain the fallback) and covers three events: a limit that looks outdated, a quota below 20% remaining, and a quota at zero. The red-zone and exhaustion checks ride on the counter upsert — it returns the new total, so no extra query is needed. Each (quota, event) pair is sent at most once per 24 hours; that dedup lives in memory, so a restart may repeat one alert.
+**Alerts.** `app/alerts.py` delivers to Telegram (a no-op when the token or chat id is empty, so the log and the `/limits` flag remain the fallback) and covers three events: a limit that looks outdated, a quota below 20% remaining, and a quota at zero. The red-zone and exhaustion checks ride on the counter upsert - it returns the new total, so no extra query is needed. Each (quota, event) pair is sent at most once per 24 hours; that dedup lives in memory, so a restart may repeat one alert.
 
-**When the counters themselves fail.** An unreadable `service_usage` table must not take the application down, so the read falls back to zeros — but zeros are then reported as *unknown*, never as a healthy empty quota: the log gets a `limits check degraded` warning, `/limits` and the live event carry `degraded: true`, each metered quota reports `used: null` with `source: "degraded"`, and the bar in the UI says so instead of showing full meters. Enforcement is suspended while this lasts and resumes on the next successful read.
+**When the counters themselves fail.** An unreadable `service_usage` table must not take the application down, so the read falls back to zeros - but zeros are then reported as *unknown*, never as a healthy empty quota: the log gets a `limits check degraded` warning, `/limits` and the live event carry `degraded: true`, each metered quota reports `used: null` with `source: "degraded"`, and the bar in the UI says so instead of showing full meters. Enforcement is suspended while this lasts and resumes on the next successful read.
 
-**Enforcement.** `limits.ensure()` raises `LimitExceeded`, which the app turns into `429` with the exhausted quota and its reset time. It runs in `rewrite_query` — the first node that calls the LLM — rather than at the route, so a question that the semantic cache can answer is still served when Groq is exhausted, and at `/ingest` and `/auth/request-otp` before any work starts. Personal sub-limits (`RESEND_PER_USER_PER_DAY`) share the table, keyed by subject.
+**Enforcement.** `limits.ensure()` raises `LimitExceeded`, which the app turns into `429` with the exhausted quota and its reset time. It runs in `rewrite_query` - the first node that calls the LLM - rather than at the route, so a question that the semantic cache can answer is still served when Groq is exhausted, and at `/ingest` and `/auth/request-otp` before any work starts. Personal sub-limits (`RESEND_PER_USER_PER_DAY`) share the table, keyed by subject.
 
 ## Live event channel
 
@@ -235,7 +235,7 @@ Both hosts must be subdomains of one domain: the session cookie is `SameSite=Lax
 
 | Limit | Why | What it would take |
 | --- | --- | --- |
-| One backend instance | the event channel and the ingest queue are in-process; a second instance would serve `/events` from a process that never sees the other's events | a shared bus — Postgres `LISTEN`/`NOTIFY` needs no extra infrastructure and changes only `app/events.py`; the ingest queue would move to a table or a broker |
+| One backend instance | the event channel and the ingest queue are in-process; a second instance would serve `/events` from a process that never sees the other's events | a shared bus - Postgres `LISTEN`/`NOTIFY` needs no extra infrastructure and changes only `app/events.py`; the ingest queue would move to a table or a broker |
 | Ingest jobs are lost on restart | the queue is in memory, and a `processing` job stays `processing` | requeue `queued`/`processing` rows on startup |
 | Cache invalidation is whole-account | correctness over granularity: a new document can change any answer | per-document source tracking, invalidating only affected entries |
 | Sessions cannot be revoked | JWTs are stateless; logout only clears the cookie | a token version column on `users`, checked per request |

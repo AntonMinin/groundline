@@ -25,7 +25,7 @@ export default function ServiceLimitsBar({ initial }) {
   const worst = worstOf(services)
   const status = degraded ? 'warn' : stateOf(worst ? worst.share : null)
   const time = (value) =>
-    value ? new Date(value).toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
+    value ? new Date(value).toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'
 
   const amount = (service) => {
     if (isDegraded(service)) return t('limits.unknown')

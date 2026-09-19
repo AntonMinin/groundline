@@ -1,10 +1,10 @@
 # Groundline
 
-Groundline answers questions about **your own documents**. Upload PDF, TXT or Markdown files, ask in plain language, and get an answer that quotes the exact fragments it came from — never the model's imagination.
+Groundline answers questions about **your own documents**. Upload PDF, TXT or Markdown files, ask in plain language, and get an answer that quotes the exact fragments it came from - never the model's imagination.
 
 On top of the usual RAG pipeline it keeps a **semantic answer cache**: ask the same thing in different words and the answer comes back instantly, without a single call to the language model.
 
-**Live demo: [groundline.antonmb.com](https://groundline.antonmb.com)** — log in with a code sent to your email, upload a file, ask a question.
+**Live demo: [groundline.antonmb.com](https://groundline.antonmb.com)** - log in with a code sent to your email, upload a file, ask a question.
 The API runs on a free Render instance that sleeps when idle, so the first request after a pause can take 30–50 seconds. Everything after that is fast.
 
 ## What you get
@@ -23,7 +23,7 @@ The API runs on a free Render instance that sleeps when idle, so the first reque
 1. **Log in.** Enter your email, receive a 6-digit code, enter it. No password.
 2. **Upload.** *Documents* tab → pick a `.pdf`, `.txt` or `.md` file. Indexing runs in the background; the status updates itself.
 3. **Ask.** *Chat* tab → type a question. The answer streams in word by word, with sources underneath.
-4. **Ask again, differently.** A paraphrase of an earlier question is served from the cache — marked *cache hit*, with the tokens it saved.
+4. **Ask again, differently.** A paraphrase of an earlier question is served from the cache - marked *cache hit*, with the tokens it saved.
 5. **Watch the counters.** The bar at the top shows the cache hit rate, tokens saved and how much of your quota is used.
 
 ## Run it locally
