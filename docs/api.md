@@ -13,7 +13,7 @@ Two rules apply to every request from a browser:
 | --- | --- | --- |
 | GET | `/config` | public frontend configuration: `{"turnstile_site_key": "…"}`, no authentication |
 | POST | `/auth/request-otp` | `{email, accepted_terms, turnstile_token?}` → 202, sends a 6-digit code (422 without `accepted_terms: true` or for an address over 178 characters, 403 captcha, 429 on cooldown or IP limit) |
-| POST | `/auth/verify-otp` | `{email, code}` → sets the session cookie (401 on an invalid or expired code) |
+| POST | `/auth/verify-otp` | `{email, code, terms_accepted}` → sets the session cookie (401 on an invalid or expired code; 422 when a new account is created without `terms_accepted: true`, and the code stays usable) |
 | POST | `/auth/logout` | clears the session cookie |
 | GET | `/me` | the current user, with `terms_required` when the accepted terms are missing or out of date |
 | POST | `/me/accept-terms` | records acceptance of `CURRENT_TERMS_VERSION`; the version comes from the server, never from the client |

@@ -19,7 +19,7 @@ async def test_otp_login_flow(client, sent_codes):
     assert (await client.post("/auth/request-otp", json={"email": email, "accepted_terms": True})).status_code == 202
     code = sent_codes[email.lower()]
 
-    response = await client.post("/auth/verify-otp", json={"email": email, "code": code})
+    response = await client.post("/auth/verify-otp", json={"email": email, "code": code, "terms_accepted": True})
     assert response.status_code == 200
     set_cookie = response.headers["set-cookie"].lower()
     assert "groundline_session=" in set_cookie and "httponly" in set_cookie and "samesite=lax" in set_cookie
@@ -30,7 +30,7 @@ async def test_otp_login_flow(client, sent_codes):
     assert (await client.post("/auth/logout")).status_code == 204
     assert (await client.get("/me")).status_code == 401
 
-    reused = await client.post("/auth/verify-otp", json={"email": email, "code": code})
+    reused = await client.post("/auth/verify-otp", json={"email": email, "code": code, "terms_accepted": True})
     assert reused.status_code == 401
 
 

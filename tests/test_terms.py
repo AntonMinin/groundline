@@ -36,7 +36,9 @@ async def _clear_resend_cooldown(email: str) -> None:
 
 async def _register(client, sent_codes, email: str) -> User:
     assert (await client.post("/auth/request-otp", json={"email": email, "accepted_terms": True})).status_code == 202
-    response = await client.post("/auth/verify-otp", json={"email": email, "code": sent_codes[email.lower()]})
+    response = await client.post(
+        "/auth/verify-otp", json={"email": email, "code": sent_codes[email.lower()], "terms_accepted": True}
+    )
     assert response.status_code == 200
     return response
 
@@ -124,3 +126,32 @@ async def test_idempotency_key_length_is_validated_not_crashed_on(client, make_u
         files={"file": ("doc.md", b"hello there", "text/markdown")},
     )
     assert response.status_code == expected
+
+
+@pytest.mark.parametrize("body", [{}, {"terms_accepted": False}])
+async def test_registration_without_consent_is_refused_and_keeps_the_code_usable(client, sent_codes, body):
+    email = f"terms-{uuid.uuid4().hex}@example.com"
+    assert (await client.post("/auth/request-otp", json={"email": email, "accepted_terms": True})).status_code == 202
+    code = sent_codes[email.lower()]
+
+    refused = await client.post("/auth/verify-otp", json={"email": email, "code": code, **body})
+    assert refused.status_code == 422
+    assert await _stored(email) is None
+
+    accepted = await client.post(
+        "/auth/verify-otp", json={"email": email, "code": code, "terms_accepted": True}
+    )
+    assert accepted.status_code == 200
+    user = await _stored(email)
+    assert user.terms_accepted_at is not None and user.terms_version == CURRENT_TERMS_VERSION
+
+
+async def test_an_existing_account_signs_in_without_resending_consent(client, sent_codes, make_user):
+    user = await make_user()
+    await _clear_resend_cooldown(user.email)
+    assert (await client.post("/auth/request-otp", json={"email": user.email, "accepted_terms": True})).status_code == 202
+
+    response = await client.post(
+        "/auth/verify-otp", json={"email": user.email, "code": sent_codes[user.email]}
+    )
+    assert response.status_code == 200 and response.json()["terms_required"] is False

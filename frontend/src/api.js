@@ -55,7 +55,11 @@ export const api = {
       method: 'POST',
       json: { email, turnstile_token: turnstileToken || null, accepted_terms: Boolean(acceptedTerms) },
     }),
-  verifyOtp: (email, code) => request('/auth/verify-otp', { method: 'POST', json: { email, code } }).then((r) => r.json()),
+  verifyOtp: (email, code, acceptedTerms) =>
+    request('/auth/verify-otp', {
+      method: 'POST',
+      json: { email, code, terms_accepted: Boolean(acceptedTerms) },
+    }).then((r) => r.json()),
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/me').then((r) => r.json()),
   acceptTerms: () => request('/me/accept-terms', { method: 'POST' }).then((r) => r.json()),

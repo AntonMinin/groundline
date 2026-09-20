@@ -29,6 +29,10 @@ class CaptchaError(Exception):
     pass
 
 
+class TermsNotAcceptedError(Exception):
+    pass
+
+
 TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
 
@@ -131,7 +135,7 @@ async def request_otp(session: AsyncSession, email: str, ip: str | None) -> None
     await send_otp_email(email, code)
 
 
-async def verify_otp(session: AsyncSession, email: str, code: str) -> User:
+async def verify_otp(session: AsyncSession, email: str, code: str, terms_accepted: bool = False) -> User:
     email = normalize_email(email)
     otp = await session.scalar(
         select(OtpCode)
@@ -145,8 +149,10 @@ async def verify_otp(session: AsyncSession, email: str, code: str) -> User:
         otp.attempts += 1
         await session.commit()
         raise AuthError("Invalid or expired code")
-    otp.used = True
     user = await session.scalar(select(User).where(User.email == email))
+    if user is None and not terms_accepted:
+        raise TermsNotAcceptedError("The terms of use and the privacy notice have to be accepted")
+    otp.used = True
     if user is None:
         user = User(email=email, terms_accepted_at=datetime.now(UTC), terms_version=CURRENT_TERMS_VERSION)
         session.add(user)

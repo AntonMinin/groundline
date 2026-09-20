@@ -46,6 +46,7 @@ class EmailIn(BaseModel):
 class VerifyIn(BaseModel):
     email: Email
     code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+    terms_accepted: bool = False
 
 
 class UserOut(BaseModel):
@@ -120,7 +121,10 @@ async def request_otp(body: EmailIn, request: Request, session: Session) -> dict
 
 @router.post("/auth/verify-otp")
 async def verify_otp(body: VerifyIn, session: Session, response: Response) -> UserOut:
-    user = await auth.verify_otp(session, body.email, body.code)
+    try:
+        user = await auth.verify_otp(session, body.email, body.code, body.terms_accepted)
+    except auth.TermsNotAcceptedError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     response.set_cookie(
         settings.cookie_name, auth.create_token(user.id), max_age=settings.jwt_ttl_minutes * 60, **_cookie_options()
     )

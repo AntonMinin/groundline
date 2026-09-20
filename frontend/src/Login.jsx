@@ -83,7 +83,7 @@ export default function Login({ onLogin, onLanguage, dialogOpen, onDialogClose }
 
   const verifyCode = (event) => {
     event.preventDefault()
-    run(async () => onLogin(await api.verifyOtp(email, code)))
+    run(async () => onLogin(await api.verifyOtp(email, code, accepted)))
   }
 
   return (
