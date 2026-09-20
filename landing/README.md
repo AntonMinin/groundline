@@ -1,6 +1,6 @@
 # Groundline landing
 
-The public page in front of the app: what Groundline is, how the pipeline works, why signing in exists, the measured cache numbers, an FAQ, and the privacy and terms pages. Static Astro, no client-side JavaScript, English at `/` and Russian at `/ru`.
+The public page in front of the app: what Groundline is, how the pipeline works, why signing in exists, the measured cache numbers, an FAQ, and the privacy and terms pages. Static Astro, English at `/` and Russian at `/ru`. The only client-side JavaScript is the Vercel Analytics and Speed Insights pair, which Astro inlines into every page; each inline bundle is allowed by a `sha256` hash in the Content-Security-Policy, so updating either package means regenerating the headers (see [security notes](../docs/security.md#response-headers)).
 
 ```bash
 npm install

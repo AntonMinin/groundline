@@ -12,6 +12,6 @@
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
-    "astro": "^5.14.0"
+    "astro": "^7.3.3"
   }
 }

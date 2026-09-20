@@ -72,6 +72,8 @@ jobs:
           cache-dependency-path: landing/package-lock.json
       - run: npm ci
       - run: npm run build
+      - name: Response headers match the build
+        run: node ../scripts/headers.mjs && git diff --exit-code ../frontend/vercel.json ../landing/vercel.json
 
   migrate:
     if: github.event_name == 'workflow_dispatch' && inputs.migrate
