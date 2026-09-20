@@ -1,6 +1,6 @@
 import { useI18n } from './i18n.jsx'
 
-export default function SavingsChart({ stats }) {
+export default function SavingsChart({ stats, pending }) {
   const { t, n } = useI18n()
   if (!stats) return null
 
@@ -10,12 +10,17 @@ export default function SavingsChart({ stats }) {
   const share = Math.round((stats.cache_hit_rate || 0) * 100)
 
   return (
-    <section className="panel">
-      <div className="panel-head"><h2 className="kicker">{t('savings.title')}</h2></div>
+    <section className="panel" aria-busy={pending || undefined}>
+      <div className="panel-head">
+        <h2 className="kicker">
+          {t('savings.title')}
+          {pending && <span className="dot-pulse" aria-hidden="true" />}
+        </h2>
+      </div>
       {total === 0 ? (
         <p className="muted">{t('savings.empty')}</p>
       ) : (
-        <figure className="savings-figure">
+        <figure className="savings-figure" data-pending={pending || undefined}>
           <div className="savings-share">
             <strong className="num">{share}%</strong>
           </div>

@@ -58,10 +58,16 @@ export default function App() {
   const [languageOpen, setLanguageOpen] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const [serviceLimits, setServiceLimits] = useState(null)
+  const [statsPending, setStatsPending] = useState(false)
   const { t, locale } = useI18n()
 
   const refreshStats = useCallback(() => {
-    api.stats().then(setStats).catch(() => {})
+    setStatsPending(true)
+    api
+      .stats()
+      .then(setStats)
+      .catch(() => {})
+      .finally(() => setStatsPending(false))
   }, [])
 
   useEffect(() => {
@@ -159,7 +165,7 @@ export default function App() {
         <Chat key={resetKey} initial={data.history} onAnswered={refreshStats} />
         <aside className="telemetry" aria-label="Telemetry">
           <PipelineDiagram key={`pipeline-${resetKey}`} />
-          <SavingsChart stats={stats} />
+          <SavingsChart stats={stats} pending={statsPending} />
         </aside>
       </main>
 

@@ -348,7 +348,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .telemetry > * + * { border-top: 1px dashed var(--color-hairline); }
 .panel { padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
 .panel-head { display: flex; align-items: baseline; gap: var(--space-2); }
-.panel-head .kicker { margin-right: auto; }
+.panel-head .kicker { margin-right: auto; display: inline-flex; align-items: center; gap: var(--space-2); }
 
 .pipeline > summary {
   display: flex; flex-direction: column; gap: var(--space-2);
@@ -384,7 +384,8 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .step[data-state='active'] .step-time { color: var(--color-accent-text); }
 .step-note { grid-column: 1 / -1; font-size: 11px; color: var(--color-muted); }
 
-.savings-figure { display: flex; flex-direction: column; gap: var(--space-2); }
+.savings-figure { display: flex; flex-direction: column; gap: var(--space-2); transition: opacity 150ms ease; }
+.savings-figure[data-pending] { opacity: 0.3; }
 .savings-share { display: flex; align-items: baseline; gap: var(--space-2); }
 .savings-share strong { font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 26px; line-height: 1; }
 .savings-bar { display: flex; height: 8px; background: var(--color-neutral-200); }
