@@ -19,7 +19,9 @@ RUN pip install -r requirements.txt \
 RUN useradd --create-home app && mkdir -p /models && chown app /models
 COPY alembic.ini .
 COPY app app
+COPY scripts/start.sh scripts/start.sh
+RUN chmod +x scripts/start.sh
 USER app
 
 EXPOSE 8000
-CMD ["sh", "-c", "if [ -n \"$MIGRATION_DATABASE_URL\" ]; then alembic upgrade head; fi && exec uvicorn app.api.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips '*'"]
+CMD ["./scripts/start.sh"]

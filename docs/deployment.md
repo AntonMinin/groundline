@@ -39,7 +39,7 @@ The deployed instance uses `EMBEDDING_PROVIDER=api` and `RERANK_PROVIDER=api`: w
 
    Use the **session** pooler (port 5432), not the transaction pooler (6543): asyncpg's prepared statements are incompatible with transaction pooling.
 
-5. Apply the migrations with the owner URL, either locally:
+5. Apply the migrations. The Render service does this on every start, so this step only matters before the first deploy - either locally:
 
    ```bash
    MIGRATION_DATABASE_URL=... JWT_SECRET=placeholder-placeholder-placeholder-00 alembic upgrade head
@@ -80,7 +80,32 @@ The deployed instance uses `EMBEDDING_PROVIDER=api` and `RERANK_PROVIDER=api`: w
    - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` - where quota alerts go (exhausted, under 20% left, a provider limit that changed on its pricing page); empty leaves alerts in the log and in `/limits`
 4. **Settings → Custom Domains**: add `api.example.com` and create the CNAME record Render shows.
 
-Setting `MIGRATION_DATABASE_URL` on the service makes the container run `alembic upgrade head` at start-up. Leaving it unset (the safer default) means migrations are applied deliberately, from your machine or from CI.
+### Migrations run at start-up
+
+The image's command is [`scripts/start.sh`](../scripts/start.sh):
+
+```sh
+set -e
+alembic upgrade head
+exec uvicorn app.api.main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers --forwarded-allow-ips '*'
+```
+
+`set -e` is the point: a migration that fails ends the script, `uvicorn` never starts, the new instance never passes its health check, and Render keeps the previous version serving. The schema is therefore always at `head` before the process takes its first request.
+
+Alembic reads its URL through the same `app.config.settings` the application uses - `MIGRATION_DATABASE_URL` when set, otherwise the app's own `DATABASE_URL`. **Set `MIGRATION_DATABASE_URL` on the service**: DDL needs the owner role, and the restricted `groundline_app` role the application connects with cannot run it.
+
+The manual **CI** workflow (`migrate = true`) still exists for applying a migration ahead of a deploy, or to a database no service is pointed at yet.
+
+### Every migration has to be backward compatible
+
+The old version keeps serving until the new one passes its health check, and the migration has already run by then. **For a while, the previous release is talking to the new schema.** So a migration must never break the code that is still running:
+
+- **Adding a column**: make it `nullable`, or give it a server default. Never `NOT NULL` without a default.
+- **Dropping a column or a table**: two deploys. First ship code that stops reading and writing it, then drop it in a later release.
+- **Renaming**: two deploys as well, and it is really add-plus-backfill-plus-drop. Never a bare `ALTER ... RENAME`.
+- **Changing a type or adding a constraint**: only if the currently deployed code already satisfies it.
+
+`0006` is the example to copy: `terms_accepted_at` and `terms_version` are both nullable, so the release running before it saw neither column and did not care, and `NULL` is what the application already treats as "has not accepted".
 
 On the free plan the service sleeps when idle: **the first request after a pause can take 30–50 seconds.** Everything after that is fast. Keep `INGEST_WORKERS=1` there - embedding a large PDF is the memory peak on a small instance.
 

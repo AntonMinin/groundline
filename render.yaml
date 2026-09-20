@@ -32,6 +32,8 @@ services:
         generateValue: true
       - key: DATABASE_URL
         sync: false
+      - key: MIGRATION_DATABASE_URL
+        sync: false
       - key: GROQ_API_KEY
         sync: false
       - key: EMBEDDING_API_KEY
