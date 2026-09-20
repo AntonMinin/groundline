@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { onEvent } from './events.js'
 import { useI18n } from './i18n.jsx'
 import { isDegraded, shareLeft, stateOf, worstOf } from './telemetry.js'
+import LegalNote from './LegalNote.jsx'
 
 export default function ServiceLimitsBar({ initial }) {
   const [services, setServices] = useState(initial?.services ?? [])
@@ -91,6 +92,7 @@ export default function ServiceLimitsBar({ initial }) {
       <p className="limits-foot">
         {degraded ? t('limits.degradedFoot') : t('limits.checked', { time: time(checkedAt) })}
       </p>
+      <LegalNote className="limits-foot legal-note" />
     </details>
   )
 }

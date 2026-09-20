@@ -5,8 +5,8 @@ import { useI18n } from './i18n.jsx'
 
 const ACTIVE = ['queued', 'processing']
 
-export default function Documents({ hidden, stats, onChanged, onAccountDeleted, onReset }) {
-  const [documents, setDocuments] = useState(null)
+export default function Documents({ hidden, initial, stats, onChanged, onAccountDeleted, onReset }) {
+  const [documents, setDocuments] = useState(initial)
   const [jobs, setJobs] = useState([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(null)
@@ -19,10 +19,6 @@ export default function Documents({ hidden, stats, onChanged, onAccountDeleted, 
   const full = maxDocuments > 0 && list.length >= maxDocuments
 
   const load = () => api.documents().then(setDocuments).catch((err) => setError(err.message))
-
-  useEffect(() => {
-    load()
-  }, [])
 
   useEffect(
     () =>

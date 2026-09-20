@@ -12,12 +12,13 @@ Two rules apply to every request from a browser:
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/config` | public frontend configuration: `{"turnstile_site_key": "…"}`, no authentication |
-| POST | `/auth/request-otp` | `{email, turnstile_token?}` → 202, sends a 6-digit code (403 captcha, 429 on cooldown or IP limit) |
+| POST | `/auth/request-otp` | `{email, accepted_terms, turnstile_token?}` → 202, sends a 6-digit code (422 without `accepted_terms: true` or for an address over 178 characters, 403 captcha, 429 on cooldown or IP limit) |
 | POST | `/auth/verify-otp` | `{email, code}` → sets the session cookie (401 on an invalid or expired code) |
 | POST | `/auth/logout` | clears the session cookie |
-| GET | `/me` | the current user |
-| DELETE | `/me` | deletes the account with all documents, cache and history |
-| POST | `/ingest` | multipart `file` (pdf/txt/md) → 202 with a job id; processing runs in the background |
+| GET | `/me` | the current user, with `terms_required` when the accepted terms are missing or out of date |
+| POST | `/me/accept-terms` | records acceptance of `CURRENT_TERMS_VERSION`; the version comes from the server, never from the client |
+| DELETE | `/me` | deletes the account with all documents, cache, history and the personal counters keyed by the address |
+| POST | `/ingest` | multipart `file` (pdf/txt/md) → 202 with a job id; processing runs in the background. File name over 512 characters or `Idempotency-Key` over 128 → 422 |
 | GET | `/jobs/{id}` | ingest job status (`queued`, `processing`, `done`, `error`) |
 | GET | `/documents` | the user's documents |
 | DELETE | `/documents/{id}` | deletes one document (also clears the answer cache) |
@@ -176,7 +177,7 @@ Node names, in pipeline order: `check_cache`, `rewrite_query`, `retrieve`, `rera
 
 ```bash
 H='X-Requested-With: groundline'
-curl -X POST localhost:8000/auth/request-otp -H "$H" -H 'Content-Type: application/json' -d '{"email":"me@example.com"}'
+curl -X POST localhost:8000/auth/request-otp -H "$H" -H 'Content-Type: application/json'      -d '{"email":"me@example.com","accepted_terms":true}'
 # with DEV_MODE=true and no RESEND_API_KEY the code is printed in the backend log
 curl -c cookies.txt -X POST localhost:8000/auth/verify-otp -H "$H" -H 'Content-Type: application/json' \
      -d '{"email":"me@example.com","code":"123456"}'

@@ -33,6 +33,8 @@ class User(Base):
     id: Mapped[uuid.UUID] = _uuid_pk()
     email: Mapped[str] = mapped_column(String(320), unique=True)
     created_at: Mapped[datetime] = _created_at()
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    terms_version: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class OtpCode(Base):

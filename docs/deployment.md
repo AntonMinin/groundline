@@ -86,7 +86,7 @@ On the free plan the service sleeps when idle: **the first request after a pause
 
 ## 3. Frontend: Vercel
 
-No `vercel.json` is needed: the UI is a plain Vite SPA with no client-side routes.
+`frontend/vercel.json` only sets response headers (`X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `frame-ancestors 'none'`); routing needs no configuration, the UI is a plain Vite SPA with no client-side routes.
 
 1. Vercel dashboard → **Add New → Project** → import the repository.
 2. **Root Directory**: `frontend` (the Vite preset is detected automatically).

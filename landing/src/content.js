@@ -15,7 +15,7 @@ export const MEASURED = {
   fullPipelineMs: 2620,
   tokensSavedPerHit: 849,
   hitSimilarity: 0.9916,
-  threshold: 0.95,
+  threshold: 0.9,
   indexingMs: 2300,
   steps: 7,
   llmCallsOnMiss: 3,
@@ -94,7 +94,7 @@ export const CONTENT = {
       kicker: 'Limits',
       title: 'What Groundline does not do',
       items: [
-        ['Not a corporate search engine', 'The demo is sized for dozens of documents per account, not a company-wide archive.'],
+        ['Not a corporate search engine', 'The demo gives each account one document of up to 0.3 MB, not a company-wide archive.'],
         ['Answers only from what you uploaded', 'When the documents do not contain the answer, the sufficiency step stops the model from inventing one.'],
         ['PDF, TXT and MD only', 'Scans without a text layer, spreadsheets and slide decks are not parsed.'],
         ['Free provider tiers', 'When the daily quota of a provider runs out, requests are refused until it resets. The bar at the bottom of the app shows how much is left.'],
@@ -131,7 +131,13 @@ export const CONTENT = {
       documents: 'The documents screen: the upload area, the indexing queue and the list of indexed files.',
       limits: 'The service limits bar expanded: every external quota with how much is left and where the number came from.',
     },
-    footer: { tagline: 'RAG for your documents', demo: 'Demo', repo: 'GitHub', docs: 'Documentation', privacy: 'Privacy', terms: 'Terms' },
+    footer: {
+      tagline: 'RAG for your documents',
+      demo: 'Demo', repo: 'GitHub', docs: 'Documentation', privacy: 'Privacy', terms: 'Terms',
+      made: 'Made with ❤️ by',
+      rights:
+        'All rights reserved. Automated data collection, content extraction and unauthorised redistribution are strictly prohibited.',
+    },
   },
 
   ru: {
@@ -195,7 +201,7 @@ export const CONTENT = {
       kicker: 'Ограничения',
       title: 'Чего Groundline не делает',
       items: [
-        ['Это не корпоративный поиск', 'Демо рассчитано на десятки документов на аккаунт, а не на архив компании.'],
+        ['Это не корпоративный поиск', 'В демо на аккаунт даётся один документ до 0,3 МБ, а не архив компании.'],
         ['Отвечает только по загруженному', 'Если ответа в документах нет, шаг проверки достаточности не даёт модели его выдумать.'],
         ['Форматы PDF, TXT и MD', 'Сканы без текстового слоя, таблицы и презентации не разбираются.'],
         ['Бесплатные тарифы провайдеров', 'Когда дневная квота провайдера кончается, запросы отклоняются до сброса. Полоса внизу приложения показывает остаток.'],
@@ -232,7 +238,13 @@ export const CONTENT = {
       documents: 'Экран документов: зона загрузки, очередь индексации и список проиндексированных файлов.',
       limits: 'Раскрытая полоса лимитов: каждая внешняя квота с остатком и пометкой, откуда взята цифра.',
     },
-    footer: { tagline: 'RAG по вашим документам', demo: 'Демо', repo: 'GitHub', docs: 'Документация', privacy: 'Конфиденциальность', terms: 'Условия' },
+    footer: {
+      tagline: 'RAG по вашим документам',
+      demo: 'Демо', repo: 'GitHub', docs: 'Документация', privacy: 'Конфиденциальность', terms: 'Условия',
+      made: 'Сделано с ❤️',
+      rights:
+        'Все права защищены. Автоматический сбор данных, извлечение содержимого и несанкционированное распространение строго запрещены.',
+    },
   },
 }
 

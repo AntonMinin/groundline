@@ -4,6 +4,7 @@ import { useI18n } from './i18n.jsx'
 import LanguageDialog from './LanguageDialog.jsx'
 
 const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+const SITE_URL = (import.meta.env.VITE_SITE_URL || 'https://groundline.antonmb.com').replace(/\/$/, '')
 
 function loadTurnstile() {
   if (window.turnstile) return Promise.resolve()
@@ -30,6 +31,7 @@ export default function Login({ onLogin, onLanguage, dialogOpen, onDialogClose }
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [siteKey, setSiteKey] = useState('')
+  const [accepted, setAccepted] = useState(false)
   const captcha = useRef(null)
   const widgetId = useRef(null)
   const token = useRef('')
@@ -68,7 +70,7 @@ export default function Login({ onLogin, onLanguage, dialogOpen, onDialogClose }
     event.preventDefault()
     run(async () => {
       try {
-        await api.requestOtp(email, token.current)
+        await api.requestOtp(email, token.current, accepted)
         setCodeSent(true)
       } finally {
         token.current = ''
@@ -76,6 +78,8 @@ export default function Login({ onLogin, onLanguage, dialogOpen, onDialogClose }
       }
     })
   }
+
+  const legalHref = (page) => `${SITE_URL}${locale === 'ru' ? '/ru' : ''}/${page}`
 
   const verifyCode = (event) => {
     event.preventDefault()
@@ -87,6 +91,11 @@ export default function Login({ onLogin, onLanguage, dialogOpen, onDialogClose }
       <form className="card" onSubmit={codeSent ? verifyCode : requestCode}>
         <h1>Groundline</h1>
         <p className="muted">{t('login.tagline')}</p>
+        <section className="why">
+          <h2>{t('login.whyTitle')}</h2>
+          <p className="why-lede">{t('login.whyLede')}</p>
+          <p>{t('login.whyBody')}</p>
+        </section>
         <label>
           {t('login.email')}
           <input
@@ -115,6 +124,17 @@ export default function Login({ onLogin, onLanguage, dialogOpen, onDialogClose }
           </label>
         )}
         <div ref={captcha} hidden={!siteKey || codeSent} />
+        {!codeSent && (
+          <label className="consent">
+            <input type="checkbox" required checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
+            <span>
+              {t('login.agree')}{' '}
+              <a href={legalHref('terms')} target="_blank" rel="noopener">{t('login.terms')}</a>{' '}
+              {t('login.and')}{' '}
+              <a href={legalHref('privacy')} target="_blank" rel="noopener">{t('login.privacy')}</a>
+            </span>
+          </label>
+        )}
         {error && <p className="error" role="alert">{error}</p>}
         <button className="btn btn-primary" type="submit" disabled={busy}>
           {busy && <span className="dot-pulse" aria-hidden="true" />}

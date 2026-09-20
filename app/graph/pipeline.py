@@ -57,14 +57,17 @@ async def check_cache(state: QueryState, writer: StreamWriter) -> QueryState:
     cached = nearest if nearest and nearest.similarity >= threshold else None
 
     log.info(
-        "cache lookup user=%s hit=%s similarity=%s threshold=%.4f ingest_pending=%d inference_waiting=%d "
-        "question=%r nearest=%r",
+        "cache lookup user=%s hit=%s similarity=%s threshold=%.4f ingest_pending=%d inference_waiting=%d",
         state["user_id"],
         cached is not None,
         f"{similarity:.4f}" if similarity is not None else "no-entries",
         threshold,
         jobs.pending(),
         inference.waiting(),
+    )
+    log.debug(
+        "cache lookup user=%s question=%r nearest=%r",
+        state["user_id"],
         state["question"],
         nearest.question if nearest else None,
     )

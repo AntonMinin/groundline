@@ -52,6 +52,15 @@ const updatedLabel = copy.lang === 'ru' ? 'Обновлено' : 'Last updated'
             </table>
           )}
           {section.after && <p class="muted">{section.after}</p>}
+          {section.links && (
+            <p class="doc-links">
+              {section.links.map(([label, href]) => (
+                <a href={href} target={href.startsWith('mailto:') ? undefined : '_blank'} rel="noopener">
+                  {label}
+                </a>
+              ))}
+            </p>
+          )}
         </div>
       ))
     }

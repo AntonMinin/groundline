@@ -3,6 +3,8 @@ import { SITE } from '../content.js'
 
 const { copy } = Astro.props
 const base = copy.dir === '/ru' ? '/ru' : ''
+const home = 'https://www.antonmb.com'
+const year = new Date().getFullYear()
 ---
 
 <footer class="site-footer">
@@ -14,4 +16,9 @@ const base = copy.dir === '/ru' ? '/ru' : ''
     <a href={`${base}/privacy`}>{copy.footer.privacy}</a>
     <a href={`${base}/terms`}>{copy.footer.terms}</a>
   </nav>
+  <div class="site-footer-legal">
+    <p>© {year} <a href={home} target="_blank" rel="noopener">antonmb.com</a> · Groundline</p>
+    <p>{copy.footer.made} <a href={home} target="_blank" rel="noopener">antonmb.com</a></p>
+    <p>{copy.footer.rights}</p>
+  </div>
 </footer>

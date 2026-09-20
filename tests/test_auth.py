@@ -10,24 +10,13 @@ from app.db.session import SessionLocal
 from tests.conftest import auth_headers
 
 
-@pytest.fixture
-def sent_codes(monkeypatch):
-    codes: dict[str, str] = {}
-
-    async def capture(email, code):
-        codes[email] = code
-
-    monkeypatch.setattr(service, "send_otp_email", capture)
-    return codes
-
-
 def _email() -> str:
     return f"Auth-{uuid.uuid4().hex}@Example.com"
 
 
 async def test_otp_login_flow(client, sent_codes):
     email = _email()
-    assert (await client.post("/auth/request-otp", json={"email": email})).status_code == 202
+    assert (await client.post("/auth/request-otp", json={"email": email, "accepted_terms": True})).status_code == 202
     code = sent_codes[email.lower()]
 
     response = await client.post("/auth/verify-otp", json={"email": email, "code": code})
@@ -47,7 +36,7 @@ async def test_otp_login_flow(client, sent_codes):
 
 async def test_wrong_code_is_401_and_attempts_are_limited(client, sent_codes):
     email = _email()
-    await client.post("/auth/request-otp", json={"email": email})
+    await client.post("/auth/request-otp", json={"email": email, "accepted_terms": True})
     code = sent_codes[email.lower()]
     wrong = "000000" if code != "000000" else "111111"
     for _ in range(5):
@@ -57,7 +46,7 @@ async def test_wrong_code_is_401_and_attempts_are_limited(client, sent_codes):
 
 async def test_expired_code_is_401(client, sent_codes):
     email = _email()
-    await client.post("/auth/request-otp", json={"email": email})
+    await client.post("/auth/request-otp", json={"email": email, "accepted_terms": True})
     async with SessionLocal() as session:
         await session.execute(
             update(OtpCode)
@@ -71,8 +60,8 @@ async def test_expired_code_is_401(client, sent_codes):
 
 async def test_resend_cooldown_is_429(client, sent_codes):
     email = _email()
-    assert (await client.post("/auth/request-otp", json={"email": email})).status_code == 202
-    assert (await client.post("/auth/request-otp", json={"email": email})).status_code == 429
+    assert (await client.post("/auth/request-otp", json={"email": email, "accepted_terms": True})).status_code == 202
+    assert (await client.post("/auth/request-otp", json={"email": email, "accepted_terms": True})).status_code == 429
 
 
 async def test_requests_from_one_ip_are_limited(client, sent_codes, monkeypatch):
@@ -82,15 +71,15 @@ async def test_requests_from_one_ip_are_limited(client, sent_codes, monkeypatch)
         await session.execute(delete(OtpCode))
         await session.commit()
     monkeypatch.setattr(settings, "otp_max_per_ip_per_hour", 1)
-    assert (await client.post("/auth/request-otp", json={"email": _email()})).status_code == 202
-    assert (await client.post("/auth/request-otp", json={"email": _email()})).status_code == 429
+    assert (await client.post("/auth/request-otp", json={"email": _email(), "accepted_terms": True})).status_code == 202
+    assert (await client.post("/auth/request-otp", json={"email": _email(), "accepted_terms": True})).status_code == 429
 
 
 async def test_turnstile_rejects_a_request_without_a_token(client, sent_codes, monkeypatch):
     from app.config import settings
 
     monkeypatch.setattr(settings, "turnstile_secret_key", "secret")
-    response = await client.post("/auth/request-otp", json={"email": _email()})
+    response = await client.post("/auth/request-otp", json={"email": _email(), "accepted_terms": True})
     assert response.status_code == 403
     assert not sent_codes
 
@@ -104,7 +93,7 @@ async def test_turnstile_rejects_a_token_cloudflare_refuses(client, sent_codes, 
         return {"success": False, "error-codes": ["invalid-input-response"]}
 
     monkeypatch.setattr(service, "_siteverify", refuse)
-    response = await client.post("/auth/request-otp", json={"email": _email(), "turnstile_token": "bad"})
+    response = await client.post("/auth/request-otp", json={"email": _email(), "turnstile_token": "bad", "accepted_terms": True})
     assert response.status_code == 403
     assert not sent_codes
 
@@ -121,7 +110,7 @@ async def test_turnstile_accepts_a_valid_token(client, sent_codes, monkeypatch):
 
     monkeypatch.setattr(service, "_siteverify", accept)
     email = _email()
-    response = await client.post("/auth/request-otp", json={"email": email, "turnstile_token": "good"})
+    response = await client.post("/auth/request-otp", json={"email": email, "turnstile_token": "good", "accepted_terms": True})
     assert response.status_code == 202
     assert seen["secret"] == "secret" and seen["response"] == "good"
     assert email.lower() in sent_codes
@@ -129,7 +118,7 @@ async def test_turnstile_accepts_a_valid_token(client, sent_codes, monkeypatch):
 
 async def test_turnstile_is_skipped_without_a_secret(client, sent_codes):
     assert (await client.get("/config")).json() == {"turnstile_site_key": ""}
-    assert (await client.post("/auth/request-otp", json={"email": _email()})).status_code == 202
+    assert (await client.post("/auth/request-otp", json={"email": _email(), "accepted_terms": True})).status_code == 202
 
 
 async def test_protected_routes_require_valid_token(client, make_user):
@@ -137,3 +126,10 @@ async def test_protected_routes_require_valid_token(client, make_user):
     assert (await client.get("/me", headers={"Cookie": "groundline_session=garbage"})).status_code == 401
     user = await make_user()
     assert (await client.get("/me", headers=auth_headers(user.id))).status_code == 200
+
+
+async def test_login_code_is_refused_without_accepting_the_terms(client, sent_codes):
+    email = _email()
+    response = await client.post("/auth/request-otp", json={"email": email})
+    assert response.status_code == 422
+    assert email.lower() not in sent_codes

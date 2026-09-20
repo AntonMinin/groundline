@@ -265,6 +265,10 @@ def report_resend_headers(headers) -> None:
             log.debug("Unparsable Resend quota header %s: %s", header, value)
 
 
+SUBJECT_KEYS = ("resend.emails_per_day",)
+MAX_SUBJECT_CHARS = ServiceUsage.quota_key.type.length - max(len(key) for key in SUBJECT_KEYS) - 1
+
+
 def _key_with_subject(key: str, subject: str | None) -> str:
     return f"{key}|{subject}" if subject else key
 

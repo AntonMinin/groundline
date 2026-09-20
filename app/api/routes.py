@@ -17,9 +17,9 @@ from sqlalchemy import delete, func, select
 
 from app import events, limits, ratelimit
 from app.auth import service as auth
-from app.auth.deps import CurrentUser, Session, require_csrf
+from app.auth.deps import ConsentedUser, CurrentUser, Session, require_csrf
 from app.config import settings
-from app.db.models import Document, IngestJob, OtpCode, QueryCache, QueryLog, User
+from app.db.models import Document, IngestJob, OtpCode, QueryCache, QueryLog, ServiceUsage, User
 from app.db.session import tenant_session
 from app.graph import store
 from app.graph.pipeline import run_query
@@ -30,15 +30,21 @@ from app.retrieval.search import user_has_chunks
 log = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(require_csrf)])
 UPLOAD_CHUNK_BYTES = 1024 * 1024
+MAX_FILENAME_CHARS = Document.filename.type.length
+MAX_IDEMPOTENCY_KEY_CHARS = IngestJob.idempotency_key.type.length
+MAX_EMAIL_CHARS = limits.MAX_SUBJECT_CHARS
+
+Email = Annotated[EmailStr, Field(max_length=MAX_EMAIL_CHARS)]
 
 
 class EmailIn(BaseModel):
-    email: EmailStr
+    email: Email
     turnstile_token: str | None = None
+    accepted_terms: bool = False
 
 
 class VerifyIn(BaseModel):
-    email: EmailStr
+    email: Email
     code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
 
 
@@ -46,6 +52,7 @@ class UserOut(BaseModel):
     id: UUID
     email: str
     created_at: datetime
+    terms_required: bool
 
 
 class DocumentOut(BaseModel):
@@ -70,6 +77,12 @@ class QueryIn(BaseModel):
     use_cache: bool = True
 
 
+def _user_out(user: User) -> UserOut:
+    return UserOut(
+        id=user.id, email=user.email, created_at=user.created_at, terms_required=auth.terms_required(user)
+    )
+
+
 def _cookie_options() -> dict:
     return {"domain": settings.cookie_domain or None, "path": "/", "secure": settings.cookie_secure, "httponly": True, "samesite": "lax"}
 
@@ -86,6 +99,10 @@ async def public_config() -> dict:
 
 @router.post("/auth/request-otp", status_code=status.HTTP_202_ACCEPTED)
 async def request_otp(body: EmailIn, request: Request, session: Session) -> dict:
+    if not body.accepted_terms:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "The terms of use and the privacy notice have to be accepted"
+        )
     ip = request.client.host if request.client else None
     try:
         await auth.verify_turnstile(body.turnstile_token, ip)
@@ -107,7 +124,7 @@ async def verify_otp(body: VerifyIn, session: Session, response: Response) -> Us
     response.set_cookie(
         settings.cookie_name, auth.create_token(user.id), max_age=settings.jwt_ttl_minutes * 60, **_cookie_options()
     )
-    return UserOut(id=user.id, email=user.email, created_at=user.created_at)
+    return _user_out(user)
 
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -117,19 +134,27 @@ async def logout(response: Response) -> None:
 
 @router.get("/me")
 async def me(user: CurrentUser) -> UserOut:
-    return UserOut(id=user.id, email=user.email, created_at=user.created_at)
+    return _user_out(user)
+
+
+@router.post("/me/accept-terms")
+async def accept_terms(user: CurrentUser, session: Session) -> UserOut:
+    return _user_out(await auth.accept_terms(session, user))
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_account(user: CurrentUser, session: Session, response: Response) -> None:
     await session.execute(delete(OtpCode).where(OtpCode.email == user.email))
+    await session.execute(
+        delete(ServiceUsage).where(ServiceUsage.quota_key.endswith(f"|{user.email}", autoescape=True))
+    )
     await session.execute(delete(User).where(User.id == user.id))
     await session.commit()
     response.delete_cookie(settings.cookie_name, **_cookie_options())
 
 
 @router.get("/stats")
-async def stats(user: CurrentUser) -> dict:
+async def stats(user: ConsentedUser) -> dict:
     return {
         **await store.query_stats(user.id),
         "usage": await store.usage(user.id),
@@ -143,7 +168,7 @@ async def stats(user: CurrentUser) -> dict:
 
 
 @router.get("/limits")
-async def service_limits(user: CurrentUser) -> dict:
+async def service_limits(user: ConsentedUser) -> dict:
     usage = await store.usage(user.id)
     emails = await limits.used(("resend.emails_per_day",), subject=user.email)
     personal = [
@@ -204,12 +229,17 @@ async def _spool_upload(file: UploadFile, extension: str) -> tuple[str, int]:
 
 @router.post("/ingest", status_code=status.HTTP_202_ACCEPTED)
 async def ingest(
-    user: CurrentUser,
+    user: ConsentedUser,
     file: Annotated[UploadFile, File()],
     response: Response,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=MAX_IDEMPOTENCY_KEY_CHARS)] = None,
 ) -> JobOut:
-    extension = check_extension(file.filename or "upload")
+    filename = file.filename or "upload"
+    if len(filename) > MAX_FILENAME_CHARS:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"File name is longer than {MAX_FILENAME_CHARS} characters"
+        )
+    extension = check_extension(filename)
     if idempotency_key:
         existing = await jobs.find_by_key(user.id, idempotency_key)
         if existing is not None:
@@ -232,7 +262,7 @@ async def ingest(
             os.unlink(path)
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Storage limit of {settings.max_storage_mb} MB reached")
 
-    job, created = await jobs.enqueue(user.id, file.filename or "upload", path, idempotency_key)
+    job, created = await jobs.enqueue(user.id, filename, path, idempotency_key)
     if not created:
         with contextlib.suppress(OSError):
             os.unlink(path)
@@ -241,7 +271,7 @@ async def ingest(
 
 
 @router.get("/jobs/{job_id}")
-async def get_job(job_id: UUID, user: CurrentUser) -> JobOut:
+async def get_job(job_id: UUID, user: ConsentedUser) -> JobOut:
     async with tenant_session(user.id) as session:
         job = await session.get(IngestJob, job_id)
         if job is None or job.user_id != user.id:
@@ -250,7 +280,7 @@ async def get_job(job_id: UUID, user: CurrentUser) -> JobOut:
 
 
 @router.get("/documents")
-async def list_documents(user: CurrentUser) -> list[DocumentOut]:
+async def list_documents(user: ConsentedUser) -> list[DocumentOut]:
     async with tenant_session(user.id) as session:
         documents = await session.scalars(
             select(Document).where(Document.user_id == user.id).order_by(Document.created_at.desc())
@@ -259,7 +289,7 @@ async def list_documents(user: CurrentUser) -> list[DocumentOut]:
 
 
 @router.delete("/documents", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_all_documents(user: CurrentUser) -> None:
+async def delete_all_documents(user: ConsentedUser) -> None:
     async with tenant_session(user.id) as session:
         await session.execute(delete(Document).where(Document.user_id == user.id))
         await session.execute(delete(QueryCache).where(QueryCache.user_id == user.id))
@@ -267,21 +297,21 @@ async def delete_all_documents(user: CurrentUser) -> None:
 
 
 @router.delete("/cache", status_code=status.HTTP_204_NO_CONTENT)
-async def clear_cache(user: CurrentUser) -> None:
+async def clear_cache(user: ConsentedUser) -> None:
     async with tenant_session(user.id) as session:
         await session.execute(delete(QueryCache).where(QueryCache.user_id == user.id))
         await session.commit()
 
 
 @router.delete("/history", status_code=status.HTTP_204_NO_CONTENT)
-async def clear_history(user: CurrentUser) -> None:
+async def clear_history(user: ConsentedUser) -> None:
     async with tenant_session(user.id) as session:
         await session.execute(delete(QueryLog).where(QueryLog.user_id == user.id))
         await session.commit()
 
 
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_document(document_id: UUID, user: CurrentUser) -> None:
+async def delete_document(document_id: UUID, user: ConsentedUser) -> None:
     async with tenant_session(user.id) as session:
         result = await session.execute(
             delete(Document).where(Document.id == document_id, Document.user_id == user.id)
@@ -293,7 +323,7 @@ async def delete_document(document_id: UUID, user: CurrentUser) -> None:
 
 
 @router.get("/history")
-async def history(user: CurrentUser, limit: int = 50) -> list[dict]:
+async def history(user: ConsentedUser, limit: int = 50) -> list[dict]:
     async with tenant_session(user.id) as session:
         rows = await session.scalars(
             select(QueryLog)
@@ -333,7 +363,7 @@ def _stream_error(exc: Exception) -> dict:
 
 
 @router.get("/events")
-async def events_stream(user: CurrentUser) -> StreamingResponse:
+async def events_stream(user: ConsentedUser) -> StreamingResponse:
     try:
         queue = events.subscribe(user.id)
     except events.TooManySubscribers as exc:
@@ -381,7 +411,7 @@ async def _ensure_question_spacing(user_id: UUID) -> None:
 
 
 @router.post("/query")
-async def query(body: QueryIn, user: CurrentUser) -> StreamingResponse:
+async def query(body: QueryIn, user: ConsentedUser) -> StreamingResponse:
     async with tenant_session(user.id) as session:
         if not await user_has_chunks(session, user.id):
             raise HTTPException(status.HTTP_409_CONFLICT, "No documents uploaded yet")

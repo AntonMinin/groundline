@@ -102,6 +102,8 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+CURRENT_TERMS_VERSION = "2026-09-20"
+
 SDK_ENV_VARS = ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST")
 
 

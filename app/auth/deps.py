@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.service import AuthError, decode_token
+from app.auth.service import AuthError, decode_token, terms_required
 from app.config import settings
 from app.db.models import User
 from app.db.session import get_session
@@ -35,4 +35,11 @@ async def current_user(request: Request, session: Session) -> User:
     return user
 
 
+async def consented_user(user: Annotated[User, Depends(current_user)]) -> User:
+    if terms_required(user):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "The current terms of use have to be accepted")
+    return user
+
+
 CurrentUser = Annotated[User, Depends(current_user)]
+ConsentedUser = Annotated[User, Depends(consented_user)]

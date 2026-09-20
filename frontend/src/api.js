@@ -50,11 +50,15 @@ async function* parseEvents(response) {
 
 export const api = {
   config: () => request('/config').then((r) => r.json()),
-  requestOtp: (email, turnstileToken) =>
-    request('/auth/request-otp', { method: 'POST', json: { email, turnstile_token: turnstileToken || null } }),
+  requestOtp: (email, turnstileToken, acceptedTerms) =>
+    request('/auth/request-otp', {
+      method: 'POST',
+      json: { email, turnstile_token: turnstileToken || null, accepted_terms: Boolean(acceptedTerms) },
+    }),
   verifyOtp: (email, code) => request('/auth/verify-otp', { method: 'POST', json: { email, code } }).then((r) => r.json()),
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/me').then((r) => r.json()),
+  acceptTerms: () => request('/me/accept-terms', { method: 'POST' }).then((r) => r.json()),
   deleteAccount: () => request('/me', { method: 'DELETE' }),
   stats: () => request('/stats').then((r) => r.json()),
   limits: () => request('/limits').then((r) => r.json()),

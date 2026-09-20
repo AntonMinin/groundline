@@ -11,7 +11,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import limits, ratelimit
-from app.config import settings
+from app.config import CURRENT_TERMS_VERSION, settings
 from app.db.models import OtpCode, User
 
 log = logging.getLogger(__name__)
@@ -148,8 +148,19 @@ async def verify_otp(session: AsyncSession, email: str, code: str) -> User:
     otp.used = True
     user = await session.scalar(select(User).where(User.email == email))
     if user is None:
-        user = User(email=email)
+        user = User(email=email, terms_accepted_at=datetime.now(UTC), terms_version=CURRENT_TERMS_VERSION)
         session.add(user)
+    await session.commit()
+    return user
+
+
+def terms_required(user: User) -> bool:
+    return user.terms_accepted_at is None or user.terms_version != CURRENT_TERMS_VERSION
+
+
+async def accept_terms(session: AsyncSession, user: User) -> User:
+    user.terms_accepted_at = datetime.now(UTC)
+    user.terms_version = CURRENT_TERMS_VERSION
     await session.commit()
     return user
 

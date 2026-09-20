@@ -6,7 +6,7 @@ Key facts, measured on 2026-09-18 against the demo corpus (one employee handbook
 
 - Answer served from cache: 439 ms, 0 language-model calls, 849 tokens saved.
 - Same answer through the full pipeline: about 2.6 seconds, 3 language-model calls.
-- The cache hit came from a similarity of 0.9916 against a threshold of 0.95.
+- The cache hit came from a similarity of 0.9916 against a threshold of 0.90.
 - Indexing the document took about 2.3 seconds.
 
 How a question is answered (seven steps, three of which call the model):
@@ -25,7 +25,7 @@ Technical summary:
 - Models: Groq openai/gpt-oss-120b for generation, BAAI bge-m3 for embeddings, BAAI bge-reranker-v2-m3 for reranking. Embeddings and reranking run either locally or through hosted APIs, chosen by configuration.
 - Tenant isolation: every row carries a user id, and Postgres row-level security enforces separation at the database level, not only in application code.
 - Authentication: passwordless email codes, session in an httpOnly cookie, Cloudflare Turnstile on the code request.
-- Quotas: 50 questions per account per day (cache hits are free), 100 documents, 200 MB per account, 20 MB per file.
+- Quotas: 50 questions per account per day (cache hits are free), at least 15 seconds between questions, 1 document of up to 0.3 MB per account, 200 MB of storage per account.
 - External free tiers are metered inside the application and shown in the interface, with a daily job that re-reads each provider's pricing page and flags a limit that changed.
 
 ## Pages

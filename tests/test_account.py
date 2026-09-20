@@ -1,6 +1,7 @@
 from sqlalchemy import func, select
 
 from app.config import settings
+from app import limits
 from app.db.models import Chunk, Document
 from app.db.session import tenant_session
 from app.graph import store
@@ -18,7 +19,7 @@ async def test_unsafe_requests_require_csrf_header(client, make_user):
 async def test_unauthenticated_unsafe_requests_require_csrf_header(client):
     assert (await client.post("/auth/logout", headers={"X-Requested-With": ""})).status_code == 403
     response = await client.post(
-        "/auth/request-otp", json={"email": "csrf@example.com"}, headers={"X-Requested-With": ""}
+        "/auth/request-otp", json={"email": "csrf@example.com", "accepted_terms": True}, headers={"X-Requested-With": ""}
     )
     assert response.status_code == 403
 
@@ -43,6 +44,15 @@ async def test_delete_account_removes_all_user_data(client, make_user):
         assert await session.scalar(select(func.count()).select_from(Document)) == 0
         assert await session.scalar(select(func.count()).select_from(Chunk)) == 0
     assert (await store.query_stats(user.id))["total_queries"] == 0
+
+
+async def test_delete_account_removes_the_personal_counters_keyed_by_email(client, make_user):
+    user = await make_user()
+    await limits.add("resend.emails_per_day", subject=user.email)
+    assert (await limits.used(("resend.emails_per_day",), subject=user.email))["resend.emails_per_day"] == 1
+
+    assert (await client.delete("/me", headers=auth_headers(user.id))).status_code == 204
+    assert (await limits.used(("resend.emails_per_day",), subject=user.email))["resend.emails_per_day"] == 0
 
 
 async def _record(user_id, cache_embedding=None):
@@ -168,7 +178,7 @@ async def test_database_outage_is_503_not_500(client, monkeypatch):
         raise OperationalError("SELECT 1", {}, Exception("connection refused"))
 
     monkeypatch.setattr(auth, "request_otp", unavailable)
-    response = await client.post("/auth/request-otp", json={"email": "outage@example.com"})
+    response = await client.post("/auth/request-otp", json={"email": "outage@example.com", "accepted_terms": True})
     assert response.status_code == 503
     assert response.json()["detail"] == "Database unavailable"
 

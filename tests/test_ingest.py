@@ -9,17 +9,6 @@ from tests.conftest import auth_headers
 HANDBOOK = b"# Handbook\n\nRemote work is allowed up to three days per week.\n"
 
 
-@pytest.fixture
-async def workers(migrated_db, monkeypatch):
-    async def fake_embed(texts, name="embed"):
-        return [[0.001 * (index + 1)] * 1024 for index, _ in enumerate(texts)]
-
-    monkeypatch.setattr(service, "embed", fake_embed)
-    await jobs.start_workers()
-    yield
-    await jobs.stop_workers()
-
-
 async def wait_for_job(client, user_id, job_id, expected: str) -> dict:
     for _ in range(100):
         job = (await client.get(f"/jobs/{job_id}", headers=auth_headers(user_id))).json()

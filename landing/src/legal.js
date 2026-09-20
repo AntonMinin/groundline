@@ -1,4 +1,4 @@
-export const UPDATED = '2026-09-18'
+export const UPDATED = '2026-09-20'
 
 export const LEGAL = {
   en: {
@@ -25,6 +25,8 @@ export const LEGAL = {
         {
           h: 'Which services receive what',
           table: [
+            ['Render', 'Runs the backend, so every request passes through it: your questions, your uploads and your email address. Its logs keep the technical records above.'],
+            ['Vercel', 'Serves the pages, so it sees the IP address and browser of every visit. No document text and no email address.'],
             ['Groq', 'Your question and the document fragments chosen to answer it. Used to write the answer.'],
             ['DeepInfra', 'The text of your document fragments and of your questions. Used to turn text into the vectors that make search work.'],
             ['Pinecone', 'Your question and the candidate fragments. Used to rank which fragments actually answer it.'],
@@ -55,7 +57,14 @@ export const LEGAL = {
         },
         {
           h: 'Contact',
-          body: 'This is a personal demonstration project. Questions and deletion requests: open an issue in the repository.',
+          body: 'Data controller: Anton Minin Baranovskii (a private individual). Enquiries about personal data: hi@antonmb.com.',
+          after:
+            'Write if you want to talk about the product, an engineering problem, a consultation or working together. Open to conversations about the book as well: interviews, publications, talks.',
+          links: [
+            ['hi@antonmb.com', 'mailto:hi@antonmb.com'],
+            ['Telegram', 'https://t.me/AntonMinin'],
+            ['LinkedIn', 'https://www.linkedin.com/in/antonmininbaranovskii/'],
+          ],
         },
       ],
     },
@@ -81,7 +90,8 @@ export const LEGAL = {
           h: 'Limits',
           list: [
             ['50 questions per account per day', 'answers served from cache are free and do not count.'],
-            ['100 documents and 200 MB per account', 'with a 20 MB cap per file.'],
+            ['At least 15 seconds between questions', 'the demo runs on one small instance.'],
+            ['1 document per account, up to 0.3 MB', 'delete it to upload another; 200 MB of storage per account.'],
             ['3 login codes per address per day', 'and a limit per IP address.'],
             ['PDF, TXT and MD only', 'other formats are rejected.'],
           ],
@@ -97,6 +107,15 @@ export const LEGAL = {
         {
           h: 'Changes and shutdown',
           body: 'The service can change or disappear at any time, including permanent deletion of stored data. Export anything you care about.',
+        },
+        {
+          h: 'Who runs this',
+          body: 'Data controller: Anton Minin Baranovskii (a private individual). Enquiries about personal data: hi@antonmb.com.',
+          links: [
+            ['hi@antonmb.com', 'mailto:hi@antonmb.com'],
+            ['Telegram', 'https://t.me/AntonMinin'],
+            ['LinkedIn', 'https://www.linkedin.com/in/antonmininbaranovskii/'],
+          ],
         },
       ],
     },
@@ -126,6 +145,8 @@ export const LEGAL = {
         {
           h: 'Какой сервис что получает',
           table: [
+            ['Render', 'На нём работает бэкенд, поэтому через него проходит каждый запрос: вопросы, загруженные файлы и адрес почты. В его логах лежат технические записи, перечисленные выше.'],
+            ['Vercel', 'Отдаёт страницы, поэтому видит IP-адрес и браузер каждого визита. Без текста документов и без адреса почты.'],
             ['Groq', 'Ваш вопрос и отобранные фрагменты документов. Пишет ответ.'],
             ['DeepInfra', 'Текст фрагментов документов и текст вопросов. Превращает текст в векторы, на которых работает поиск.'],
             ['Pinecone', 'Ваш вопрос и фрагменты-кандидаты. Определяет, в каких из них действительно есть ответ.'],
@@ -156,7 +177,14 @@ export const LEGAL = {
         },
         {
           h: 'Связь',
-          body: 'Это личный демонстрационный проект. Вопросы и просьбы об удалении - через issue в репозитории.',
+          body: 'Контролёр данных: Антон Минин-Барановский (физическое лицо). Обращения по вопросам персональных данных: hi@antonmb.com.',
+          after:
+            'Напишите, если хотите обсудить продукт, инженерную задачу, консультацию или сотрудничество. Открыт и к разговорам о книге: интервью, публикации, выступления.',
+          links: [
+            ['hi@antonmb.com', 'mailto:hi@antonmb.com'],
+            ['Telegram', 'https://t.me/AntonMinin'],
+            ['LinkedIn', 'https://www.linkedin.com/in/antonmininbaranovskii/'],
+          ],
         },
       ],
     },
@@ -182,7 +210,8 @@ export const LEGAL = {
           h: 'Лимиты',
           list: [
             ['50 вопросов на аккаунт в сутки', 'ответы из кэша бесплатны и в счёт не идут.'],
-            ['100 документов и 200 МБ на аккаунт', 'не больше 20 МБ на файл.'],
+            ['Не чаще одного вопроса в 15 секунд', 'демо работает на одном небольшом инстансе.'],
+            ['1 документ на аккаунт, до 0,3 МБ', 'удалите его, чтобы загрузить другой; 200 МБ хранилища на аккаунт.'],
             ['3 кода входа на адрес в сутки', 'плюс ограничение по IP-адресу.'],
             ['Только PDF, TXT и MD', 'остальные форматы отклоняются.'],
           ],
@@ -198,6 +227,15 @@ export const LEGAL = {
         {
           h: 'Изменения и закрытие',
           body: 'Сервис может измениться или исчезнуть в любой момент, включая безвозвратное удаление хранимых данных. Сохраняйте у себя всё, что вам важно.',
+        },
+        {
+          h: 'Кто этим занимается',
+          body: 'Контролёр данных: Антон Минин-Барановский (физическое лицо). Обращения по вопросам персональных данных: hi@antonmb.com.',
+          links: [
+            ['hi@antonmb.com', 'mailto:hi@antonmb.com'],
+            ['Telegram', 'https://t.me/AntonMinin'],
+            ['LinkedIn', 'https://www.linkedin.com/in/antonmininbaranovskii/'],
+          ],
         },
       ],
     },

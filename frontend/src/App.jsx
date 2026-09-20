@@ -9,6 +9,9 @@ import SavingsChart from './SavingsChart.jsx'
 import PipelineDiagram from './PipelineDiagram.jsx'
 import ServiceLimitsBar from './ServiceLimitsBar.jsx'
 import LanguageDialog from './LanguageDialog.jsx'
+import AcceptTerms from './AcceptTerms.jsx'
+
+const BOOT_STEPS = ['me', 'limits', 'stats', 'documents', 'history']
 
 function BrandMark() {
   return (
@@ -21,27 +24,41 @@ function BrandMark() {
   )
 }
 
-function Splash() {
+function Splash({ loaded }) {
+  const { t } = useI18n()
   return (
     <main className="center">
-      <p className="brand" role="status">
-        <BrandMark />
-        Groundline
-        <span className="dot-pulse" aria-hidden="true" />
-      </p>
+      <div className="splash" role="status">
+        <p className="brand">
+          <BrandMark />
+          Groundline
+          <span className="dot-pulse" aria-hidden="true" />
+        </p>
+        <ul className="boot">
+          {BOOT_STEPS.map((key) => (
+            <li key={key} data-done={loaded[key] === true}>
+              <span>{t(`boot.${key}`)}</span>
+              <span className="boot-mark" aria-hidden="true" />
+              <span className="visually-hidden">{loaded[key] ? t('boot.done') : t('boot.loading')}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </main>
   )
 }
 
 export default function App() {
   const [user, setUser] = useState(undefined)
+  const [boot, setBoot] = useState(null)
+  const [loaded, setLoaded] = useState({})
+  const [bootKey, setBootKey] = useState(0)
   const [tab, setTab] = useState('chat')
   const [stats, setStats] = useState(null)
   const [resetKey, setResetKey] = useState(0)
   const [languageOpen, setLanguageOpen] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const [serviceLimits, setServiceLimits] = useState(null)
-  const [ready, setReady] = useState(false)
   const { t, locale } = useI18n()
 
   const refreshStats = useCallback(() => {
@@ -53,15 +70,36 @@ export default function App() {
   }, [locale])
 
   useEffect(() => {
-    api.me().then(setUser).catch(() => setUser(null))
-  }, [])
+    const calls = BOOT_STEPS.map((key) =>
+      api[key]().then(
+        (value) => {
+          setLoaded((current) => ({ ...current, [key]: true }))
+          return value
+        },
+        () => null,
+      ),
+    )
+    calls[0].then(setUser)
+    Promise.all(calls).then((results) => {
+      const data = Object.fromEntries(BOOT_STEPS.map((key, index) => [key, results[index]]))
+      setStats(data.stats)
+      setServiceLimits(data.limits)
+      setBoot(data)
+    })
+  }, [bootKey])
 
   useEffect(() => {
     if (!user) return undefined
-    Promise.allSettled([api.stats().then(setStats), api.limits().then(setServiceLimits)]).then(() => setReady(true))
     connectEvents()
     return disconnectEvents
   }, [user])
+
+  const reboot = (account) => {
+    setUser(account)
+    setBoot(null)
+    setLoaded({})
+    setBootKey((key) => key + 1)
+  }
 
   const logout = async () => {
     if (!window.confirm(t('nav.confirmLogout'))) return
@@ -70,9 +108,10 @@ export default function App() {
     setUser(null)
   }
 
-  if (user === undefined) return <Splash />
+  if (user === undefined) return <Splash loaded={loaded} />
   if (user === null) return <Login onLogin={setUser} onLanguage={() => setLanguageOpen(true)} dialogOpen={languageOpen} onDialogClose={() => setLanguageOpen(false)} />
-  if (!ready) return <Splash />
+  if (user.terms_required) return <AcceptTerms email={user.email} onAccepted={reboot} onLogout={logout} />
+  if (!boot) return <Splash loaded={loaded} />
 
   return (
     <div className="app">
@@ -107,7 +146,7 @@ export default function App() {
       </header>
 
       <main className="app-main chat-layout" hidden={tab !== 'chat'}>
-        <Chat key={resetKey} onAnswered={refreshStats} />
+        <Chat key={resetKey} initial={boot.history} onAnswered={refreshStats} />
         <aside className="telemetry" aria-label="Telemetry">
           <PipelineDiagram key={`pipeline-${resetKey}`} />
           <SavingsChart stats={stats} />
@@ -116,10 +155,14 @@ export default function App() {
 
       <Documents
         hidden={tab !== 'documents'}
+        initial={boot.documents}
         stats={stats}
         onChanged={refreshStats}
         onAccountDeleted={() => setUser(null)}
-        onReset={() => setResetKey((key) => key + 1)}
+        onReset={() => {
+          setBoot((current) => ({ ...current, history: [] }))
+          setResetKey((key) => key + 1)
+        }}
       />
 
       <ServiceLimitsBar initial={serviceLimits} />

@@ -49,8 +49,21 @@ function Meta({ message }) {
   )
 }
 
-export default function Chat({ onAnswered }) {
-  const [messages, setMessages] = useState(null)
+function toMessage(row) {
+  return {
+    question: row.question,
+    answer: row.answer,
+    sources: row.sources,
+    cacheHit: row.cache_hit,
+    tokensUsed: row.tokens_used,
+    tokensSaved: row.tokens_saved,
+    similarity: row.node_metrics?.find((metric) => metric.node === 'check_cache')?.similarity,
+    durationMs: row.node_metrics?.reduce((sum, metric) => sum + (metric.duration_ms ?? 0), 0),
+  }
+}
+
+export default function Chat({ initial, onAnswered }) {
+  const [messages, setMessages] = useState(() => [...(initial ?? [])].reverse().map(toMessage))
   const [question, setQuestion] = useState('')
   const [busy, setBusy] = useState(false)
   const [step, setStep] = useState(null)
@@ -66,26 +79,6 @@ export default function Chat({ onAnswered }) {
       }),
     [],
   )
-
-  useEffect(() => {
-    api
-      .history()
-      .then((rows) =>
-        setMessages(
-          rows.reverse().map((row) => ({
-            question: row.question,
-            answer: row.answer,
-            sources: row.sources,
-            cacheHit: row.cache_hit,
-            tokensUsed: row.tokens_used,
-            tokensSaved: row.tokens_saved,
-            similarity: row.node_metrics?.find((metric) => metric.node === 'check_cache')?.similarity,
-            durationMs: row.node_metrics?.reduce((sum, metric) => sum + (metric.duration_ms ?? 0), 0),
-          })),
-        ),
-      )
-      .catch(() => setMessages([]))
-  }, [])
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' })
@@ -104,7 +97,7 @@ export default function Chat({ onAnswered }) {
     setQuestion('')
     setBusy(true)
     started.current = performance.now()
-    setMessages((current) => [...(current ?? []), { question: text, answer: '', sources: [], pending: true }])
+    setMessages((current) => [...current, { question: text, answer: '', sources: [], pending: true }])
     try {
       for await (const evt of api.query(text)) {
         if (evt.type === 'token') update((m) => ({ answer: m.answer + evt.text }))
@@ -131,8 +124,8 @@ export default function Chat({ onAnswered }) {
   return (
     <div className="thread-col">
       <ol className="thread">
-        {messages !== null && messages.length === 0 && <p className="muted">{t('chat.empty')}</p>}
-        {(messages ?? []).map((message, index) => (
+        {messages.length === 0 && <p className="muted">{t('chat.empty')}</p>}
+        {messages.map((message, index) => (
           <li className="msg" key={index}>
             <p className="msg-question">{message.question}</p>
             <div className="msg-answer">

@@ -48,17 +48,50 @@ async def migrated_db():
 
 @pytest.fixture
 async def make_user(migrated_db):
+    from datetime import UTC, datetime
+
+    from app.config import CURRENT_TERMS_VERSION
     from app.db.models import User
     from app.db.session import SessionLocal
 
-    async def factory() -> User:
+    async def factory(terms_version: str | None = CURRENT_TERMS_VERSION) -> User:
         async with SessionLocal() as session:
-            user = User(email=f"user-{uuid.uuid4().hex}@example.com")
+            user = User(
+                email=f"user-{uuid.uuid4().hex}@example.com",
+                terms_accepted_at=datetime.now(UTC) if terms_version else None,
+                terms_version=terms_version,
+            )
             session.add(user)
             await session.commit()
             return user
 
     return factory
+
+
+@pytest.fixture
+def sent_codes(monkeypatch):
+    from app.auth import service
+
+    codes: dict[str, str] = {}
+
+    async def capture(email, code):
+        codes[email] = code
+
+    monkeypatch.setattr(service, "send_otp_email", capture)
+    return codes
+
+
+@pytest.fixture
+async def workers(migrated_db, monkeypatch):
+    from app.ingestion import jobs, service
+
+    async def fake_embed(texts, name="embed"):
+        return [[0.001 * (index + 1)] * 1024 for index, _ in enumerate(texts)]
+
+    monkeypatch.setattr(service, "embed", fake_embed)
+    await jobs.start_workers()
+    yield
+    await jobs.stop_workers()
 
 
 @pytest.fixture
