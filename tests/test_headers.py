@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import json
 import os
 import re
@@ -65,24 +67,36 @@ def test_connect_src_carries_the_api_origin():
     assert "'self'" in policy["connect-src"]
 
 
-def test_the_landing_allows_exactly_the_inline_scripts_it_builds():
-    dist = ROOT / "landing" / "dist"
-    if not dist.exists():
-        pytest.skip("landing/dist is not built")
-    import base64
-    import hashlib
+def inline_scripts(dist: Path) -> dict[str, list[str]]:
+    """Executable inline scripts in the built HTML, as {sha256 source expression: [pages]}.
 
-    built = set()
-    for page in dist.rglob("*.html"):
+    JSON-LD blocks are excluded: the browser never executes them, so script-src does not
+    govern them - production confirmed this by not blocking any of them.
+    """
+    found: dict[str, list[str]] = {}
+    for page in sorted(dist.rglob("*.html")):
         html = page.read_text(encoding="utf-8")
         for attributes, body in re.findall(r"<script((?:(?!\ssrc=)[^>])*)>([\s\S]*?)</script>", html):
-            if 'type="application/ld+json"' in attributes or not body.strip():
+            if "ld+json" in attributes or not body.strip():
                 continue
             digest = base64.b64encode(hashlib.sha256(body.encode("utf-8")).digest()).decode()
-            built.add(f"'sha256-{digest}'")
+            found.setdefault(f"'sha256-{digest}'", []).append(str(page.relative_to(dist)))
+    return found
 
-    allowed = directives(response_headers("landing")["Content-Security-Policy"])["script-src"]
-    assert built <= set(allowed), f"inline scripts not in script-src: {built - set(allowed)}"
+
+@pytest.mark.parametrize("project", PROJECTS)
+def test_script_src_matches_the_inline_scripts_in_the_build_exactly(project):
+    dist = ROOT / project / "dist"
+    if not dist.exists():
+        pytest.skip(f"{project}/dist is not built")
+
+    found = inline_scripts(dist)
+    hashes = {value for value in directives(response_headers(project)["Content-Security-Policy"])["script-src"]
+              if value.startswith("'sha256-")}
+
+    unallowed = {h: found[h] for h in found if h not in hashes}
+    assert not unallowed, f"{project}: inline scripts the policy would block: {unallowed}"
+    assert not hashes - set(found), f"{project}: script-src carries hashes nothing builds: {hashes - set(found)}"
 
 
 @pytest.mark.parametrize("project", PROJECTS)

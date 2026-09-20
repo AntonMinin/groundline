@@ -59,7 +59,7 @@ Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY
 | Directive | App (`frontend/`) | Landing (`landing/`) |
 | --- | --- | --- |
 | `default-src` | `'self'` | `'self'` |
-| `script-src` | `'self'` + Turnstile | `'self'` + a `sha256` hash per inline script |
+| `script-src` | `'self'` + Turnstile | `'self'` |
 | `style-src` | `'self' 'unsafe-inline'` + Google Fonts | same |
 | `img-src` | `'self' data:` | `'self' data:` |
 | `font-src` | `'self'` + Google Fonts | same |
@@ -67,7 +67,11 @@ Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY
 | `frame-src` | Turnstile | - |
 | `object-src`, `base-uri`, `form-action`, `frame-ancestors` | `'none'`, `'self'`, `'self'`, `'none'` | same |
 
-`script-src` never contains `'unsafe-inline'`. The app has no inline scripts at all; the landing has two, the Vercel Analytics and Speed Insights bundles that Astro inlines, and each is allowed by its own hash. Those hashes change whenever either package is updated - the CI check is what catches that before it reaches production. `style-src` does need `'unsafe-inline'`: React sets inline `style` attributes on the meters and progress bars.
+`script-src` contains neither `'unsafe-inline'` nor any hash, because **neither site has an executable inline script**. It once did: the landing used the `@vercel/analytics` and `@vercel/speed-insights` Astro components, which inline their bundle into every page, and the policy allowed them by `sha256`. That broke in production the moment the policy started enforcing - the bundle Vercel's builder emits is 279 bytes longer than the one a local build emits, so hashes computed here never matched what was served. The components are gone; both pages now load `/_vercel/insights/script.js` and `/_vercel/speed-insights/script.js` by `src` from their own origin, which `'self'` covers and no build difference can invalidate. Hash-pinning a bundle that a different machine compiles is not worth repeating.
+
+The JSON-LD blocks Astro writes are `type="application/ld+json"`. Browsers never execute them, so `script-src` does not govern them and they need no hashes - production confirmed this by not blocking a single one.
+
+`style-src` does need `'unsafe-inline'`: React sets inline `style` attributes on the meters and progress bars.
 
 The `connect-src` origin is derived from `VITE_API_URL`, not written by hand, so the policy cannot drift away from the API the app actually calls.
 

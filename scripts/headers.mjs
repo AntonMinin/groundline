@@ -92,9 +92,6 @@ const write = (project, policy) => {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const hashes = inlineScriptHashes(join(ROOT, 'landing', 'dist'))
-  if (hashes.length === 0) {
-    console.warn('no inline scripts found in landing/dist - build the landing first, or it genuinely has none')
-  }
   console.log(write('frontend', appPolicy()), `connect-src includes ${apiOrigin()}`)
   console.log(write('landing', landingPolicy(hashes)), `${hashes.length} inline script hash(es)`)
 }
