@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { formatDuration, isDegraded, shareLeft, stateOf, worstOf } from './telemetry.js'
 
 const quota = (used, limit) => ({ key: `q${used}`, service: 'Groq', used, limit })

@@ -49,7 +49,7 @@ function Splash({ loaded }) {
 
 export default function App() {
   const [user, setUser] = useState(undefined)
-  const [boot, setBoot] = useState(null)
+  const [data, setData] = useState(null)
   const [loaded, setLoaded] = useState({})
   const [bootKey, setBootKey] = useState(0)
   const [tab, setTab] = useState('chat')
@@ -80,7 +80,7 @@ export default function App() {
       setStats(result.data.stats)
       setServiceLimits(result.data.limits)
       setUser(result.data.me)
-      setBoot(result.data)
+      setData(result.data)
     })
     return () => {
       live = false
@@ -95,7 +95,7 @@ export default function App() {
 
   const reboot = (account) => {
     setUser(account)
-    setBoot(null)
+    setData(null)
     setLoaded({})
     setBootKey((key) => key + 1)
   }
@@ -120,7 +120,7 @@ export default function App() {
   if (user === undefined) return <Splash loaded={loaded} />
   if (user === null) return <Login onLogin={signIn} onLanguage={() => setLanguageOpen(true)} dialogOpen={languageOpen} onDialogClose={() => setLanguageOpen(false)} />
   if (user.terms_required) return <AcceptTerms email={user.email} onAccepted={reboot} onLogout={logout} />
-  if (!boot) return <Splash loaded={loaded} />
+  if (!data) return <Splash loaded={loaded} />
 
   return (
     <div className="app">
@@ -155,7 +155,7 @@ export default function App() {
       </header>
 
       <main className="app-main chat-layout" hidden={tab !== 'chat'}>
-        <Chat key={resetKey} initial={boot.history} onAnswered={refreshStats} />
+        <Chat key={resetKey} initial={data.history} onAnswered={refreshStats} />
         <aside className="telemetry" aria-label="Telemetry">
           <PipelineDiagram key={`pipeline-${resetKey}`} />
           <SavingsChart stats={stats} />
@@ -164,12 +164,12 @@ export default function App() {
 
       <Documents
         hidden={tab !== 'documents'}
-        initial={boot.documents}
+        initial={data.documents}
         stats={stats}
         onChanged={refreshStats}
         onAccountDeleted={signOut}
         onReset={() => {
-          setBoot((current) => ({ ...current, history: [] }))
+          setData((current) => ({ ...current, history: [] }))
           setResetKey((key) => key + 1)
         }}
       />

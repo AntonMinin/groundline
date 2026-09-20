@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { BOOT_STEPS, boot } from './session.js'
 
 function fakeApi(handler = async () => ({})) {
