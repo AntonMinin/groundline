@@ -40,6 +40,21 @@ function stubApi() {
 
 const unique = (calls) => [...new Set(calls)].sort()
 
+const VALUE = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+
+async function type(input, value) {
+  await act(async () => {
+    VALUE.call(input, value)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+}
+
+async function submit(form) {
+  await act(async () => {
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+}
+
 let container
 let root
 
@@ -115,4 +130,41 @@ test('a 401 during boot drops the session hint and returns to the login screen',
 
   assert.equal(localStorage.getItem(SESSION_KEY), null, 'the session hint survived a 401')
   assert.ok(screen.querySelector('input[type="email"]'))
+})
+
+
+test('signing in loads the data without a page reload', async () => {
+  const calls = stubApi()
+  vi.spyOn(api, 'requestOtp').mockResolvedValue(undefined)
+  vi.spyOn(api, 'verifyOtp').mockResolvedValue(account(false))
+
+  const screen = await render()
+  assert.deepEqual(calls, [], 'requests went out before signing in')
+
+  await type(screen.querySelector('input[type="email"]'), 'reader@example.com')
+  await act(async () => screen.querySelector('input[type="checkbox"]').click())
+  await submit(screen.querySelector('form'))
+
+  await type(screen.querySelector('input[inputmode="numeric"]'), '123456')
+  await submit(screen.querySelector('form'))
+
+  assert.equal(localStorage.getItem(SESSION_KEY), '1', 'the session hint was not stored')
+  assert.deepEqual(unique(calls), [...BOOT_STEPS].sort(), 'the boot never ran after signing in')
+  assert.ok(screen.querySelector('.app-tabs'), 'stuck on the splash instead of showing the app')
+})
+
+test('signing in with stale terms shows the consent screen and asks for nothing else', async () => {
+  const calls = stubApi()
+  vi.spyOn(api, 'requestOtp').mockResolvedValue(undefined)
+  vi.spyOn(api, 'verifyOtp').mockResolvedValue(account(true))
+
+  const screen = await render()
+  await type(screen.querySelector('input[type="email"]'), 'reader@example.com')
+  await act(async () => screen.querySelector('input[type="checkbox"]').click())
+  await submit(screen.querySelector('form'))
+  await type(screen.querySelector('input[inputmode="numeric"]'), '123456')
+  await submit(screen.querySelector('form'))
+
+  assert.ok(screen.textContent.includes('The terms have changed'))
+  assert.deepEqual(calls, [], 'requested data that consent would have blocked anyway')
 })

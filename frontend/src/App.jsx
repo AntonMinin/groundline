@@ -102,7 +102,8 @@ export default function App() {
 
   const signIn = (account) => {
     rememberSession()
-    setUser(account)
+    if (account.terms_required) setUser(account)
+    else reboot(account)
   }
 
   const signOut = () => {
