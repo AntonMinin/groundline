@@ -4,6 +4,7 @@ import { SITE } from '../content.js'
 
 const { copy } = Astro.props
 const home = copy.dir === '/ru' ? '/ru' : '/'
+const section = (id) => `${home}#${id}`
 ---
 
 <header class="site-header">
@@ -12,10 +13,10 @@ const home = copy.dir === '/ru' ? '/ru' : '/'
     Groundline
   </a>
   <nav class="site-nav" aria-label={copy.lang === 'ru' ? 'Разделы' : 'Sections'}>
-    <a href="#how">{copy.nav.how}</a>
-    <a href="#auth">{copy.nav.auth}</a>
-    <a href="#numbers">{copy.nav.numbers}</a>
-    <a href="#faq">{copy.nav.faq}</a>
+    <a href={section('how')}>{copy.nav.how}</a>
+    <a href={section('auth')}>{copy.nav.auth}</a>
+    <a href={section('numbers')}>{copy.nav.numbers}</a>
+    <a href={section('faq')}>{copy.nav.faq}</a>
     <a href={SITE.repoUrl} target="_blank" rel="noopener">{copy.nav.repo}</a>
     <a href={copy.otherLocale.href} lang={copy.otherLocale.code} hreflang={copy.otherLocale.code}>
       {copy.otherLocale.label}
