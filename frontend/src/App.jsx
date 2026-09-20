@@ -10,8 +10,7 @@ import PipelineDiagram from './PipelineDiagram.jsx'
 import ServiceLimitsBar from './ServiceLimitsBar.jsx'
 import LanguageDialog from './LanguageDialog.jsx'
 import AcceptTerms from './AcceptTerms.jsx'
-
-const BOOT_STEPS = ['me', 'limits', 'stats', 'documents', 'history']
+import { BOOT_STEPS, boot, forgetSession, rememberSession } from './session.js'
 
 function BrandMark() {
   return (
@@ -70,22 +69,22 @@ export default function App() {
   }, [locale])
 
   useEffect(() => {
-    const calls = BOOT_STEPS.map((key) =>
-      api[key]().then(
-        (value) => {
-          setLoaded((current) => ({ ...current, [key]: true }))
-          return value
-        },
-        () => null,
-      ),
-    )
-    calls[0].then(setUser)
-    Promise.all(calls).then((results) => {
-      const data = Object.fromEntries(BOOT_STEPS.map((key, index) => [key, results[index]]))
-      setStats(data.stats)
-      setServiceLimits(data.limits)
-      setBoot(data)
+    let live = true
+    const onLoaded = (step) => setLoaded((current) => ({ ...current, [step]: true }))
+    boot(api, { onLoaded }).then((result) => {
+      if (!live) return
+      if (!result || result.unauthorized || !result.data.me) {
+        setUser(null)
+        return
+      }
+      setStats(result.data.stats)
+      setServiceLimits(result.data.limits)
+      setUser(result.data.me)
+      setBoot(result.data)
     })
+    return () => {
+      live = false
+    }
   }, [bootKey])
 
   useEffect(() => {
@@ -101,15 +100,25 @@ export default function App() {
     setBootKey((key) => key + 1)
   }
 
+  const signIn = (account) => {
+    rememberSession()
+    setUser(account)
+  }
+
+  const signOut = () => {
+    forgetSession()
+    setUser(null)
+  }
+
   const logout = async () => {
     if (!window.confirm(t('nav.confirmLogout'))) return
     setLeaving(true)
     await api.logout().catch(() => {})
-    setUser(null)
+    signOut()
   }
 
   if (user === undefined) return <Splash loaded={loaded} />
-  if (user === null) return <Login onLogin={setUser} onLanguage={() => setLanguageOpen(true)} dialogOpen={languageOpen} onDialogClose={() => setLanguageOpen(false)} />
+  if (user === null) return <Login onLogin={signIn} onLanguage={() => setLanguageOpen(true)} dialogOpen={languageOpen} onDialogClose={() => setLanguageOpen(false)} />
   if (user.terms_required) return <AcceptTerms email={user.email} onAccepted={reboot} onLogout={logout} />
   if (!boot) return <Splash loaded={loaded} />
 
@@ -158,7 +167,7 @@ export default function App() {
         initial={boot.documents}
         stats={stats}
         onChanged={refreshStats}
-        onAccountDeleted={() => setUser(null)}
+        onAccountDeleted={signOut}
         onReset={() => {
           setBoot((current) => ({ ...current, history: [] }))
           setResetKey((key) => key + 1)
