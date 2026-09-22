@@ -4,6 +4,7 @@ from functools import lru_cache
 import tiktoken
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from app import guard
 from app.config import settings
 
 ENCODING = "cl100k_base"
@@ -36,6 +37,7 @@ def chunk_pages(
     chunks: list[TextChunk] = []
     for page, text in pages:
         for piece in splitter.split_text(text):
-            if piece.strip():
-                chunks.append(TextChunk(chunk_index=len(chunks), page=page, content=piece.strip()))
+            content = guard.clean(piece).strip()
+            if content:
+                chunks.append(TextChunk(chunk_index=len(chunks), page=page, content=content))
     return chunks

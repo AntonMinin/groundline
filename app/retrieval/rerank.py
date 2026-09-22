@@ -4,7 +4,7 @@ from functools import lru_cache
 import httpx
 from langfuse import get_client
 
-from app import limits
+from app import guard, limits
 from app.config import settings
 from app.inference import run_inference
 from app.retrieval.fusion import RetrievedChunk
@@ -62,7 +62,7 @@ async def rerank(query: str, chunks: list[RetrievedChunk], top_k: int = settings
     with get_client().start_as_current_observation(
         name="rerank",
         as_type="retriever",
-        input={"query": query, "candidates": len(chunks)},
+        input={"query": guard.redact(query), "candidates": len(chunks)},
         metadata={"provider": settings.rerank_provider},
     ) as observation:
         if settings.rerank_provider == "api":

@@ -101,6 +101,27 @@ The `connect-src` origin is derived from `VITE_API_URL`, not written by hand, so
 
 External service quotas are enforced on top of these: when a provider's free tier (or the DeepInfra budget) is spent, the affected endpoint answers `429` naming the service and its reset time, instead of failing at the provider. See [Architecture → service limits](architecture.md#service-limits).
 
+## Untrusted text reaching the model
+
+Three kinds of text reach a prompt, and none of them are trusted: the question, the fragments retrieved from the user's own documents, and the model's own output when it is fed back into the next prompt. `app/guard.py` is the single place that normalises them.
+
+- **Invisible instructions are removed.** `guard.clean()` deletes zero-width, soft-hyphen, bidi-override and isolate characters and the Unicode tag block `U+E0000-E007F` - the "ASCII smuggling" range, which renders as nothing in the browser and as plain text to the model - then applies NFKC, so fullwidth and lookalike forms cannot slip a keyword past a filter. Questions are cleaned in the `QueryIn` validator, so a body that is only invisible characters answers `422` instead of reaching the pipeline. **Document text is cleaned at chunking time**, so what is embedded, searched, prompted with and shown as a source are the same string.
+- **Length is re-checked after normalisation.** NFKC expands: one `U+FDFA` becomes 18 characters. The 2000-character cap is enforced again on the normalised text, not only on the bytes that arrived.
+- **Prompt regions are fenced.** The question goes inside `<user_question>` and the fragments inside `<context>` as `<fragment n="1" source="...">` elements. Those five tag names are neutralised inside every piece of untrusted text (`guard.neutralize`), so neither a question nor a PDF can close the block it sits in and open a forged one. Citation numbers come from the `n=` attribute, which nothing in the data can write. The file name goes in the `source=` attribute with quotes and newlines stripped - it is attacker-controlled on upload, and was previously interpolated raw.
+- **The system prompts say the fenced regions are data.** Delimiting alone is not a control; the instruction that text inside them is never to be obeyed is what the model acts on. Treat the pair as best-effort mitigation, not a boundary: an LLM has no privilege separation, which is why nothing downstream of the answer executes anything.
+- **Model output fed back into a prompt is clamped.** The rewritten query and the `missing` field of the sufficiency verdict are model-generated, document-influenced strings that go straight into the next prompt. Both are cleaned, tag-neutralised and cut to 500 / 200 characters, so a document cannot make the loop grow a prompt without bound or re-inject through the retry path.
+- **Uploaded file names are sanitised** to their last path segment, without control characters, before the extension check or any database write.
+
+`tests/test_guard.py` covers each of these with the forged payload it is meant to defeat, and needs no database.
+
+## PII and third-party telemetry
+
+The question, the retrieved fragments and the answer *must* reach the LLM provider - that is the product, and [Data handling](#data-handling) says so plainly. Observability is different: it is optional, it is a second vendor, and it retains.
+
+`guard.redact()` masks email addresses, card-shaped digit runs, IBANs, US SSNs, international phone numbers and the common API-key shapes (`sk-`/`pk-`, `ghp_`, `AKIA...`, JWTs) in everything sent to LangFuse - the trace input and output, the nearest cached question, the rerank query, the ingest file name - and in the `DEBUG` log line that prints the question. Set `TELEMETRY_REDACTION=false` to see raw text in traces while debugging; it defaults to on.
+
+Redaction is pattern-based, so it is a reduction, not a guarantee: free-form names, addresses and account numbers in an unusual format pass through. A deployment that cannot accept that leaves the LangFuse keys empty, which disables the export entirely.
+
 ## Data handling
 
 - `DELETE /documents/{id}` and `DELETE /documents` also clear the answer cache, so deleted content cannot be served from a cached answer.

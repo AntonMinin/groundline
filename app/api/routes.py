@@ -12,10 +12,10 @@ import httpx
 import openai
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import delete, func, select
 
-from app import events, limits, ratelimit
+from app import events, guard, limits, ratelimit
 from app.auth import service as auth
 from app.auth.deps import ConsentedUser, CurrentUser, Session, require_csrf
 from app.config import settings
@@ -74,8 +74,13 @@ class JobOut(BaseModel):
 
 
 class QueryIn(BaseModel):
-    question: str = Field(min_length=1, max_length=2000)
+    question: str = Field(min_length=1, max_length=guard.MAX_QUESTION_CHARS)
     use_cache: bool = True
+
+    @field_validator("question")
+    @classmethod
+    def _sanitize(cls, value: str) -> str:
+        return guard.sanitize_question(value)
 
 
 def _user_out(user: User) -> UserOut:
@@ -238,7 +243,10 @@ async def ingest(
     response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=MAX_IDEMPOTENCY_KEY_CHARS)] = None,
 ) -> JobOut:
-    filename = file.filename or "upload"
+    try:
+        filename = guard.sanitize_filename(file.filename or "upload")
+    except guard.UnsafeInput as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     if len(filename) > MAX_FILENAME_CHARS:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, f"File name is longer than {MAX_FILENAME_CHARS} characters"

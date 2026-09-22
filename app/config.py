@@ -82,6 +82,8 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5173"
 
+    telemetry_redaction: bool = True
+
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"

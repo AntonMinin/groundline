@@ -12,7 +12,7 @@ from langfuse import get_client, propagate_attributes
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import StreamWriter
 
-from app import events, inference, limits, llm
+from app import events, guard, inference, limits, llm
 from app.config import settings
 from app.embeddings import embed
 from app.graph import prompts, store
@@ -68,19 +68,21 @@ async def check_cache(state: QueryState, writer: StreamWriter) -> QueryState:
     log.debug(
         "cache lookup user=%s question=%r nearest=%r",
         state["user_id"],
-        state["question"],
-        nearest.question if nearest else None,
+        guard.redact(state["question"]),
+        guard.redact(nearest.question) if nearest else None,
     )
 
     langfuse = get_client()
-    with langfuse.start_as_current_observation(name="check_cache", input={"question": state["question"]}) as span:
+    with langfuse.start_as_current_observation(
+        name="check_cache", input={"question": guard.redact(state["question"])}
+    ) as span:
         span.update(
             output={"cache_hit": cached is not None},
             metadata={
                 "cache_hit": cached is not None,
                 "tokens_saved": cached.tokens_used if cached else 0,
                 "similarity": round(similarity, 4) if similarity is not None else None,
-                "nearest_question": nearest.question if nearest else None,
+                "nearest_question": guard.redact(nearest.question) if nearest else None,
                 "threshold": threshold,
             },
         )
@@ -108,7 +110,7 @@ async def check_cache(state: QueryState, writer: StreamWriter) -> QueryState:
 async def rewrite_query(state: QueryState) -> QueryState:
     await limits.ensure(*limits.QUERY_KEYS)
     messages = prompts.rewrite_messages(state["question"], state.get("query"), state.get("missing"))
-    rewritten = (await llm.complete("rewrite_query", messages)).strip() or state["question"]
+    rewritten = guard.clamp(await llm.complete("rewrite_query", messages)) or state["question"]
     return {
         "query": rewritten,
         "attempt": state["attempt"] + 1,
@@ -142,7 +144,7 @@ async def check_sufficiency(state: QueryState) -> QueryState:
         verdict = json.loads(raw)
         return {
             "sufficient": bool(verdict.get("sufficient")),
-            "missing": str(verdict.get("missing") or ""),
+            "missing": guard.clamp(str(verdict.get("missing") or ""), guard.MAX_MISSING_CHARS),
             "tokens_used": tokens_used,
         }
     except (json.JSONDecodeError, AttributeError):
@@ -266,7 +268,7 @@ async def run_query(user_id: UUID, question: str, use_cache: bool = True) -> Asy
             with (
                 propagate_attributes(user_id=str(user_id), trace_name="query"),
                 get_client().start_as_current_observation(
-                    name="query", as_type="chain", input={"question": question}
+                    name="query", as_type="chain", input={"question": guard.redact(question)}
                 ) as root,
             ):
                 answer = ""
@@ -277,7 +279,7 @@ async def run_query(user_id: UUID, question: str, use_cache: bool = True) -> Asy
                         answer += event["text"]
                     elif event["type"] == "done":
                         root.update(
-                            output={"answer": answer},
+                            output={"answer": guard.redact(answer)},
                             metadata={"cache_hit": event["cache_hit"], "tokens_saved": event["tokens_saved"]},
                         )
                     await queue.put(event)

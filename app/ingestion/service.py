@@ -5,6 +5,7 @@ from fastapi.concurrency import run_in_threadpool
 from langfuse import get_client, propagate_attributes
 from sqlalchemy import delete
 
+from app import guard
 from app.db.models import Chunk, Document, QueryCache
 from app.db.session import tenant_session
 from app.embeddings import embed
@@ -41,7 +42,7 @@ async def _store(user_id: UUID, filename: str, size_bytes: int, pages: list[tupl
 async def ingest_file(user_id: UUID, filename: str, data: bytes) -> Document:
     with (
         propagate_attributes(user_id=str(user_id), trace_name="ingest"),
-        get_client().start_as_current_observation(name="ingest", input={"filename": filename, "bytes": len(data)}),
+        get_client().start_as_current_observation(name="ingest", input={"filename": guard.redact(filename), "bytes": len(data)}),
     ):
         pages = await run_in_threadpool(extract_pages, filename, data)
         return await _store(user_id, filename, len(data), pages)
@@ -51,7 +52,7 @@ async def ingest_from_path(user_id: UUID, filename: str, path: str) -> Document:
     size_bytes = Path(path).stat().st_size
     with (
         propagate_attributes(user_id=str(user_id), trace_name="ingest"),
-        get_client().start_as_current_observation(name="ingest", input={"filename": filename, "bytes": size_bytes}),
+        get_client().start_as_current_observation(name="ingest", input={"filename": guard.redact(filename), "bytes": size_bytes}),
     ):
         pages = await run_in_threadpool(extract_pages_from_path, filename, path)
         return await _store(user_id, filename, size_bytes, pages)
