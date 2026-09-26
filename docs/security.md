@@ -85,7 +85,7 @@ The `connect-src` origin is derived from `VITE_API_URL`, not written by hand, so
 - The body is spooled to a temporary file that is deleted on every path: success, failure and rejection.
 - PDF parsing failures and non-UTF-8 text produce `422`, not a stack trace.
 - The size limit is on the file, and a PDF's text can be far larger than the file: pypdf caps a single decompressed stream at 75 MB, but not the sum over streams and pages. Extraction therefore refuses a PDF with more than `MAX_PDF_PAGES` pages before reading any page, and stops as soon as the text passes `MAX_DOCUMENT_CHARS`, so no oversized document reaches chunking or the embedding model.
-- Per-user document count and total storage quotas are checked before the file is accepted.
+- Per-user document count and total storage quotas are checked before the file is accepted. A document row exists only once its job has been indexed, so on their own these checks would let one account queue many files behind a single pending one. An account therefore has at most one unfinished ingest job: a new upload while one is `queued` or `processing` gets `429`, and the check itself runs for one upload per account at a time. The job queue lives in the API process, so jobs left `queued` or `processing` by a restart never finish; one older than an hour no longer counts as unfinished and stops blocking the account.
 
 ## Abuse limits
 
@@ -96,6 +96,7 @@ The `connect-src` origin is derived from `VITE_API_URL`, not written by hand, so
 | Questions being answered at once, per user | 1 | fixed |
 | Gap between two questions from one user | 15 s | `QUERY_MIN_INTERVAL_SECONDS` |
 | Documents per user | 1 | `MAX_DOCUMENTS` |
+| Uploads being indexed at once, per user | 1 | fixed |
 | Storage per user | 200 MB | `MAX_STORAGE_MB` |
 | Upload size | 0.3 MB | `MAX_UPLOAD_MB` |
 | Concurrent `/events` streams per user | 5 | `EVENTS_MAX_SUBSCRIBERS` |

@@ -37,7 +37,10 @@ MAX_EMAIL_CHARS = limits.MAX_SUBJECT_CHARS
 TRUSTED_ROLES = {"eval", "admin"}
 ANSWERING_STALE_SECONDS = 600
 
+UPLOAD_BUSY = "The previous upload is still being indexed, try again when it finishes."
+
 _answering: dict[UUID, float] = {}
+_receiving: set[UUID] = set()
 
 Email = Annotated[EmailStr, Field(max_length=MAX_EMAIL_CHARS)]
 
@@ -241,6 +244,33 @@ async def _spool_upload(file: UploadFile, extension: str) -> tuple[str, int]:
     return path, size
 
 
+async def _accept_upload(
+    user: User, file: UploadFile, filename: str, extension: str, idempotency_key: str | None
+) -> tuple[IngestJob, bool]:
+    await limits.ensure(*limits.INGEST_KEYS)
+    if await jobs.unfinished(user.id):
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, UPLOAD_BUSY)
+    usage = await store.usage(user.id)
+    if usage["documents"] >= settings.max_documents:
+        kept = settings.max_documents
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Document limit of {kept} reached. "
+            f"Delete {'the current document' if kept == 1 else 'one'} to upload another.",
+        )
+
+    path, size = await _spool_upload(file, extension)
+    if usage["storage_bytes"] + size > settings.max_storage_mb * 1024 * 1024:
+        with contextlib.suppress(OSError):
+            os.unlink(path)
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Storage limit of {settings.max_storage_mb} MB reached")
+    job, created = await jobs.enqueue(user.id, filename, path, idempotency_key)
+    if not created:
+        with contextlib.suppress(OSError):
+            os.unlink(path)
+    return job, created
+
+
 @router.post("/ingest", status_code=status.HTTP_202_ACCEPTED)
 async def ingest(
     user: ConsentedUser,
@@ -263,26 +293,14 @@ async def ingest(
             response.status_code = status.HTTP_200_OK
             return JobOut.model_validate(existing, from_attributes=True)
 
-    await limits.ensure(*limits.INGEST_KEYS)
-    usage = await store.usage(user.id)
-    if usage["documents"] >= settings.max_documents:
-        kept = settings.max_documents
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            f"Document limit of {kept} reached. "
-            f"Delete {'the current document' if kept == 1 else 'one'} to upload another.",
-        )
-
-    path, size = await _spool_upload(file, extension)
-    if usage["storage_bytes"] + size > settings.max_storage_mb * 1024 * 1024:
-        with contextlib.suppress(OSError):
-            os.unlink(path)
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Storage limit of {settings.max_storage_mb} MB reached")
-
-    job, created = await jobs.enqueue(user.id, filename, path, idempotency_key)
+    if user.id in _receiving:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, UPLOAD_BUSY)
+    _receiving.add(user.id)
+    try:
+        job, created = await _accept_upload(user, file, filename, extension, idempotency_key)
+    finally:
+        _receiving.discard(user.id)
     if not created:
-        with contextlib.suppress(OSError):
-            os.unlink(path)
         response.status_code = status.HTTP_200_OK
     return JobOut.model_validate(job, from_attributes=True)
 

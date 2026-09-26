@@ -3,10 +3,10 @@ import contextlib
 import logging
 import os
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app import events, limits
@@ -17,6 +17,8 @@ from app.ingestion.extract import InvalidFileError, UnsupportedFileError
 from app.ingestion.service import ingest_from_path
 
 log = logging.getLogger(__name__)
+
+ABANDONED_AFTER_SECONDS = 3600
 
 
 @dataclass
@@ -105,6 +107,17 @@ async def stop_workers() -> None:
         worker.cancel()
     await asyncio.gather(*_workers, return_exceptions=True)
     _workers.clear()
+
+
+async def unfinished(user_id: UUID) -> int:
+    async with tenant_session(user_id) as session:
+        return await session.scalar(
+            select(func.count()).where(
+                IngestJob.user_id == user_id,
+                IngestJob.status.in_(("queued", "processing")),
+                IngestJob.created_at > func.now() - timedelta(seconds=ABANDONED_AFTER_SECONDS),
+            )
+        )
 
 
 async def find_by_key(user_id: UUID, idempotency_key: str) -> IngestJob | None:
