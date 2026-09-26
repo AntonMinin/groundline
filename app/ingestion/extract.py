@@ -4,6 +4,8 @@ from pathlib import Path
 from pypdf import PdfReader
 from pypdf.errors import PyPdfError
 
+from app.config import settings
+
 SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".md"}
 
 
@@ -22,19 +24,35 @@ def check_extension(filename: str) -> str:
     return extension
 
 
+def _too_long() -> InvalidFileError:
+    return InvalidFileError(f"The document holds more than {settings.max_document_chars:,} characters of text")
+
+
 def _read_pdf(source) -> list[tuple[int | None, str]]:
     try:
         reader = PdfReader(source)
-        return [(number, page.extract_text() or "") for number, page in enumerate(reader.pages, start=1)]
+        if len(reader.pages) > settings.max_pdf_pages:
+            raise InvalidFileError(f"The PDF has more than {settings.max_pdf_pages} pages")
+        pages, total = [], 0
+        for number, page in enumerate(reader.pages, start=1):
+            text = page.extract_text() or ""
+            total += len(text)
+            if total > settings.max_document_chars:
+                raise _too_long()
+            pages.append((number, text))
+        return pages
     except (PyPdfError, ValueError, KeyError, OSError) as exc:
         raise InvalidFileError(f"Cannot parse PDF: {exc}") from exc
 
 
 def _decode(data: bytes) -> list[tuple[int | None, str]]:
     try:
-        return [(None, data.decode("utf-8-sig"))]
+        text = data.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise InvalidFileError("Text file must be UTF-8 encoded") from exc
+    if len(text) > settings.max_document_chars:
+        raise _too_long()
+    return [(None, text)]
 
 
 def extract_pages(filename: str, data: bytes) -> list[tuple[int | None, str]]:

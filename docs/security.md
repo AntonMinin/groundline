@@ -84,6 +84,7 @@ The `connect-src` origin is derived from `VITE_API_URL`, not written by hand, so
 - The size limit is enforced **while reading** the stream in 1 MB pieces, so an oversized upload is rejected without being buffered in full, in memory or on disk.
 - The body is spooled to a temporary file that is deleted on every path: success, failure and rejection.
 - PDF parsing failures and non-UTF-8 text produce `422`, not a stack trace.
+- The size limit is on the file, and a PDF's text can be far larger than the file: pypdf caps a single decompressed stream at 75 MB, but not the sum over streams and pages. Extraction therefore refuses a PDF with more than `MAX_PDF_PAGES` pages before reading any page, and stops as soon as the text passes `MAX_DOCUMENT_CHARS`, so no oversized document reaches chunking or the embedding model.
 - Per-user document count and total storage quotas are checked before the file is accepted.
 
 ## Abuse limits

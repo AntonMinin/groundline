@@ -79,6 +79,8 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `MAX_UPLOAD_MB` | `0.3` | per-file limit in megabytes, enforced while the upload is being read. Fractions are allowed, so `0.3` caps a file at about 300 KB |
+| `MAX_DOCUMENT_CHARS` | `1000000` | characters of extracted text per document. A small compressed PDF can expand to tens of megabytes of text; extraction stops and the upload fails with `422` once the text passes this size, before any chunk is embedded |
+| `MAX_PDF_PAGES` | `500` | pages per PDF, checked before any text is extracted |
 | `QUERIES_PER_DAY` | `50` | per user, rolling 24 hours; cache hits are not counted |
 | `USER_TOKENS_PER_DAY` | `20000` | language-model tokens per user, rolling 24 hours, summed from `query_log.tokens_used`. Keeps one account from spending the shared Groq daily quota for everyone. `0` disables it. Accounts with the `eval` or `admin` role are exempt |
 | `QUERY_MIN_INTERVAL_SECONDS` | `15` | shortest gap between two questions from one user. `0` disables it |

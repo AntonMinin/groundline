@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     chunk_size: int = 700
     chunk_overlap: int = 100
     max_upload_mb: float = 0.3
+    max_document_chars: int = 1_000_000
+    max_pdf_pages: int = 500
 
     retrieval_candidates: int = 20
     rerank_top_k: int = 5
