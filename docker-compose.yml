@@ -17,12 +17,23 @@ services:
       timeout: 3s
       retries: 20
 
-  backend:
+  migrate:
     build: .
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://groundline_app:${APP_DB_PASSWORD:-groundline_app}@db:5432/groundline
       MIGRATION_DATABASE_URL: postgresql+asyncpg://groundline:${POSTGRES_PASSWORD:-groundline}@db:5432/groundline
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://groundline_app:${APP_DB_PASSWORD:-groundline_app}@db:5432/groundline
+      MIGRATION_DATABASE_URL: ""
       HF_HOME: /models
       COOKIE_SECURE: "false"
       COOKIE_DOMAIN: ""
@@ -32,8 +43,8 @@ services:
     volumes:
       - models:/models
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     healthcheck:

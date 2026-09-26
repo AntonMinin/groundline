@@ -7,9 +7,12 @@ on:
   workflow_dispatch:
     inputs:
       migrate:
-        description: Apply Alembic migrations to the production database
+        description: Apply Alembic migrations to the production database, then deploy the backend
         type: boolean
         default: false
+
+permissions:
+  contents: read
 
 jobs:
   backend:
@@ -29,8 +32,8 @@ jobs:
           --health-timeout 5s
           --health-retries 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.11"
           cache: pip
@@ -48,8 +51,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24
           cache: npm
@@ -64,8 +67,8 @@ jobs:
       run:
         working-directory: landing
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24
           cache: npm
@@ -76,13 +79,16 @@ jobs:
         run: node ../scripts/headers.mjs && git diff --exit-code ../frontend/vercel.json ../landing/vercel.json
 
   migrate:
-    if: github.event_name == 'workflow_dispatch' && inputs.migrate
-    needs: backend
+    if: github.event_name == 'workflow_dispatch' && inputs.migrate && github.ref == 'refs/heads/main'
+    needs: [backend, frontend, landing]
     runs-on: ubuntu-latest
     environment: production
+    concurrency:
+      group: production-migrations
+      cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.11"
           cache: pip
@@ -91,3 +97,12 @@ jobs:
         env:
           MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
           JWT_SECRET: migration-only-placeholder-secret-not-used-at-runtime
+      - name: Deploy the backend now that the schema is at head
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is not set: deploy the backend from the Render dashboard"
+            exit 0
+          fi
+          curl --fail --silent --show-error -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}

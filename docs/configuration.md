@@ -9,7 +9,7 @@ Everything is read from the environment (or a `.env` file) by `app/config.py`. S
 | `JWT_SECRET` | - (required, ≥ 32 chars) | signs session tokens and HMACs OTP codes. Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Changing it invalidates every session and every pending login code |
 | `DEV_MODE` | `false` | when `true` and `RESEND_API_KEY` is empty, login codes are written to the log instead of emailed. Never enable in production |
 | `DATABASE_URL` | local app role | runtime connection. Must be a role **without** `BYPASSRLS`, otherwise tenant isolation falls back to application filters alone |
-| `MIGRATION_DATABASE_URL` | - | owner connection used by Alembic. If set inside the container, migrations run at start-up |
+| `MIGRATION_DATABASE_URL` | - | owner connection used by Alembic. Set only where migrations run - the CI `migrate` job, the compose `migrate` service, a developer shell - never on the web service. The service checks the schema version at start-up and refuses to start when the database is behind the code |
 
 ## Language model
 

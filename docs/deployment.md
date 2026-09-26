@@ -39,13 +39,7 @@ The deployed instance uses `EMBEDDING_PROVIDER=api` and `RERANK_PROVIDER=api`: w
 
    Use the **session** pooler (port 5432), not the transaction pooler (6543): asyncpg's prepared statements are incompatible with transaction pooling.
 
-5. Apply the migrations. The Render service does this on every start, so this step only matters before the first deploy - either locally:
-
-   ```bash
-   MIGRATION_DATABASE_URL=... JWT_SECRET=placeholder-placeholder-placeholder-00 alembic upgrade head
-   ```
-
-   or from CI: add `MIGRATION_DATABASE_URL` as a secret of the `production` environment on GitHub and run the **CI** workflow manually with `migrate = true`.
+5. Apply the migrations from CI, never from the running service (see [Migrations run from CI, then the code deploys](#migrations-run-from-ci-then-the-code-deploys)): add `MIGRATION_DATABASE_URL` as a secret of the `production` environment on GitHub and run the **CI** workflow on `main` with `migrate = true`. The owner URL lives only in that secret.
 
    The migration grants table privileges to `groundline_app`, enables and forces RLS, and revokes access from Supabase's `anon` and `authenticated` roles so the tables are not exposed through the Supabase Data API.
 
@@ -65,7 +59,7 @@ The deployed instance uses `EMBEDDING_PROVIDER=api` and `RERANK_PROVIDER=api`: w
 ## 2. Backend: Render
 
 1. Push the repository to GitHub.
-2. Render dashboard → **New → Blueprint** → select the repository. Render reads `render.yaml`: a Docker web service built from `Dockerfile` with `INSTALL_LOCAL_MODELS=false`, health check `GET /health`, and a generated `JWT_SECRET`.
+2. Render dashboard → **New → Blueprint** → select the repository. Render reads `render.yaml`: a Docker web service built from `Dockerfile` with `INSTALL_LOCAL_MODELS=false`, health check `GET /health`, automatic deploys off, and a generated `JWT_SECRET`. **Settings → Deploy Hook**: copy the URL into the `RENDER_DEPLOY_HOOK_URL` secret of the GitHub `production` environment.
 3. Fill in the secrets Render asks for:
    - `DATABASE_URL` - the `groundline_app` URL from step 1
    - `GROQ_API_KEY`
@@ -80,21 +74,32 @@ The deployed instance uses `EMBEDDING_PROVIDER=api` and `RERANK_PROVIDER=api`: w
    - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` - where quota alerts go (exhausted, under 20% left, a provider limit that changed on its pricing page); empty leaves alerts in the log and in `/limits`
 4. **Settings → Custom Domains**: add `api.example.com` and create the CNAME record Render shows.
 
-### Migrations run at start-up
+### Migrations run from CI, then the code deploys
 
-The image's command is [`scripts/start.sh`](../scripts/start.sh):
+The web service never holds the owner role. `MIGRATION_DATABASE_URL` is not set on Render; it exists only as a secret of the GitHub `production` environment. A process that serves requests therefore cannot bypass row-level security even if it is compromised.
 
-```sh
-set -e
-alembic upgrade head
-exec uvicorn app.api.main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers --forwarded-allow-ips '*'
-```
+A release goes out in one order: **migration, then code.**
 
-`set -e` is the point: a migration that fails ends the script, `uvicorn` never starts, the new instance never passes its health check, and Render keeps the previous version serving. The schema is therefore always at `head` before the process takes its first request.
+1. Merge to `main`. `render.yaml` sets `autoDeploy: false`, so nothing is deployed yet.
+2. GitHub → Actions → **CI** → Run workflow on `main` with `migrate = true`. The `migrate` job waits for the backend, frontend and landing jobs, runs only when the workflow was started on `refs/heads/main`, and runs in the `production` environment. It applies `alembic upgrade head` with the owner URL, then calls the Render deploy hook (`RENDER_DEPLOY_HOOK_URL`, a secret of the same environment). Without the hook secret it stops after the migration and the deploy is started from the Render dashboard.
+3. Render builds the image and starts [`scripts/start.sh`](../scripts/start.sh):
 
-Alembic reads its URL through the same `app.config.settings` the application uses - `MIGRATION_DATABASE_URL` when set, otherwise the app's own `DATABASE_URL`. **Set `MIGRATION_DATABASE_URL` on the service**: DDL needs the owner role, and the restricted `groundline_app` role the application connects with cannot run it.
+   ```sh
+   set -e
+   python -m app.db.schema_check
+   exec uvicorn app.api.main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers --forwarded-allow-ips '*'
+   ```
 
-The manual **CI** workflow (`migrate = true`) still exists for applying a migration ahead of a deploy, or to a database no service is pointed at yet.
+   `app.db.schema_check` reads `alembic_version` with the application role and compares it with the newest migration the image contains. If the database is behind the code, the script exits, `uvicorn` never starts, the new instance fails its health check and Render keeps the previous version serving. A database *newer* than the code is accepted: that is a rollback of the code, and every migration is written to keep the previous release working (next section).
+
+The `production` environment has to be protected in GitHub → Settings → Environments → `production`:
+
+- **Deployment branches and tags → Selected branches**: `main` only, so a workflow started from another branch cannot read the secrets even if its YAML were edited to skip the branch check.
+- **Required reviewers**: at least one person other than the author of the change, so running migrations against production needs an approval.
+
+The workflow sets `permissions: contents: read` at the top, and its actions are pinned to commit SHAs.
+
+Locally, `docker compose up` runs the same order: a one-shot `migrate` service applies `alembic upgrade head` with the owner role, and `backend` starts only after it completes successfully, with `MIGRATION_DATABASE_URL` empty.
 
 ### Every migration has to be backward compatible
 

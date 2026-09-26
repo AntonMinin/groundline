@@ -143,4 +143,4 @@ Together they explain a slow answer after the fact: with local models, a query t
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every push and pull request: backend tests against a pgvector service container with the restricted role created up front, and a frontend `npm ci && npm run build`. A manual `workflow_dispatch` with `migrate = true` applies Alembic migrations to the production database using the `production` environment's `MIGRATION_DATABASE_URL` secret.
+`.github/workflows/ci.yml` runs on every push and pull request: backend tests against a pgvector service container with the restricted role created up front, and a frontend `npm ci && npm run build`. A manual `workflow_dispatch` on `main` with `migrate = true` applies Alembic migrations to the production database using the `production` environment's `MIGRATION_DATABASE_URL` secret, then triggers the Render deploy hook - see [Deployment → Migrations run from CI, then the code deploys](deployment.md#migrations-run-from-ci-then-the-code-deploys).
