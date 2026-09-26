@@ -111,6 +111,8 @@ class Settings(BaseSettings):
 
     telemetry_redaction: bool = True
 
+    eval_write_token_sha256: str = "d63f05f2c6099b973cd10992e260496ac80d326d3c447d0ab6bb5605365bc8bb"
+
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"

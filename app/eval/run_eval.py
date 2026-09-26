@@ -27,6 +27,7 @@ TRANSIENT_RETRIES = 5
 TRANSIENT_WAIT_SECONDS = 60.0
 JUDGE_ATTEMPTS = 3
 DAILY_LIMIT_MARKERS = ("tokens per day", "requests per day")
+DAILY_LIMIT_EXIT_CODE = 75
 
 
 JUDGE_ENDPOINTS = {
@@ -76,6 +77,20 @@ class JudgeMeter:
 
 class TransientError(RuntimeError):
     pass
+
+
+class Progress:
+    def __init__(self, url: str | None, token: str | None, name: str) -> None:
+        self.url = f"{url.rstrip('/')}/eval/runs/{name}" if url and token else None
+        self.headers = {"Authorization": f"Bearer {token}", "X-Requested-With": "groundline"}
+
+    def push(self, result: dict) -> None:
+        if not self.url:
+            return
+        try:
+            httpx.put(self.url, headers=self.headers, json=result, timeout=60).raise_for_status()
+        except httpx.HTTPError as exc:
+            print(f"could not push progress to {self.url}: {exc}")
 
 
 def read_env(path: Path) -> dict[str, str]:
@@ -485,6 +500,7 @@ async def main() -> None:
         "context_recall": ContextRecall(llm=judge),
         "answer_correctness": AnswerCorrectness(llm=judge, weights=[1.0, 0.0]),
     }
+    progress = Progress(config.get("EVAL_SYNC_URL"), config.get("EVAL_WRITE_TOKEN"), args.out.stem)
     dataset = json.loads(args.dataset.read_text(encoding="utf-8"))
     questions = [item for item in dataset if item.get("kind") != "cache_pair"]
     previous = {}
@@ -538,12 +554,14 @@ async def main() -> None:
                 "settings": run_settings,
                 "pair_settings": pair_settings,
                 "complete": complete,
+                "total_questions": len(questions),
                 "jev_cost_usd": round(spent, 6) if with_jev else None,
                 "summary": summary_of(rows, pairs),
                 "cache_pairs": pairs,
                 "rows": rows,
             }
             args.out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+            progress.push(result)
 
         await ensure_documents(client, args.docs)
         (await client.delete("/cache")).raise_for_status()
@@ -606,7 +624,8 @@ async def main() -> None:
                 await cache_pairs(client, dataset, pairs, save_pairs)
         except DailyLimitReached as exc:
             save()
-            raise SystemExit(f"stopped: {exc}\nrun the same command again after the reset to continue from here")
+            print(f"stopped: {exc}\nrun the same command again after the reset to continue from here")
+            raise SystemExit(DAILY_LIMIT_EXIT_CODE)
         save(complete=True)
 
     summary = summary_of(rows, pairs)

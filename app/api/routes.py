@@ -1,5 +1,7 @@
 import asyncio
 import contextlib
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -11,16 +13,17 @@ from uuid import UUID
 
 import httpx
 import openai
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Path, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert
 
 from app import events, guard, jev, limits, ratelimit
 from app.auth import service as auth
 from app.auth.deps import ConsentedUser, CurrentUser, Session, require_csrf
 from app.config import settings
-from app.db.models import Document, IngestJob, OtpCode, QueryCache, QueryLog, ServiceUsage, User
+from app.db.models import Document, EvalRun, IngestJob, OtpCode, QueryCache, QueryLog, ServiceUsage, User
 from app.db.session import tenant_session
 from app.graph import store
 from app.graph.pipeline import node_names, run_query
@@ -36,6 +39,7 @@ MAX_IDEMPOTENCY_KEY_CHARS = IngestJob.idempotency_key.type.length
 MAX_EMAIL_CHARS = limits.MAX_SUBJECT_CHARS
 TRUSTED_ROLES = {"eval", "admin"}
 ANSWERING_STALE_SECONDS = 600
+MAX_EVAL_RUN_BYTES = 5 * 1024 * 1024
 
 UPLOAD_BUSY = "The previous upload is still being indexed, try again when it finishes."
 
@@ -109,6 +113,68 @@ async def health() -> dict:
 @router.get("/config")
 async def public_config() -> dict:
     return {"turnstile_site_key": settings.turnstile_site_key, "pipeline_nodes": node_names(jev.enabled())}
+
+
+def _require_eval_token(authorization: Annotated[str, Header()] = "") -> None:
+    token = authorization.removeprefix("Bearer ")
+    expected = settings.eval_write_token_sha256
+    if not expected or not hmac.compare_digest(hashlib.sha256(token.encode()).hexdigest(), expected):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not Found")
+
+
+def _eval_run_public(run: EvalRun) -> dict:
+    data = run.data
+    summary = data.get("summary") or {}
+    pairs = data.get("cache_pairs") or []
+    return {
+        "name": run.name,
+        "label": data.get("label"),
+        "jev": data.get("jev"),
+        "complete": data.get("complete", False),
+        "done": len(data.get("rows") or []),
+        "total": data.get("total_questions"),
+        "updated_at": run.updated_at.isoformat(),
+        "jev_cost_usd": data.get("jev_cost_usd"),
+        "summary": {key: summary.get(key) for key in ("all", "kind", "node_latency")},
+        "cache_pairs": {"total": len(pairs), "correct": sum(1 for pair in pairs if pair.get("correct"))},
+    }
+
+
+@router.get("/eval/status")
+async def eval_status(response: Response, session: Session) -> dict:
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Cache-Control"] = "public, max-age=300"
+    runs = await session.scalars(select(EvalRun).order_by(EvalRun.name))
+    return {"runs": [_eval_run_public(run) for run in runs]}
+
+
+@router.get("/eval/runs/{name}", dependencies=[Depends(_require_eval_token)])
+async def eval_run(name: Annotated[str, Path(max_length=100)], session: Session) -> dict:
+    run = await session.get(EvalRun, name)
+    if run is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not Found")
+    return run.data
+
+
+@router.put("/eval/runs/{name}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(_require_eval_token)])
+async def save_eval_run(name: Annotated[str, Path(max_length=100)], request: Request, session: Session) -> None:
+    body = bytearray()
+    async for chunk in request.stream():
+        body += chunk
+        if len(body) > MAX_EVAL_RUN_BYTES:
+            raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Evaluation run is too large")
+    try:
+        data = json.loads(body)
+    except ValueError:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Evaluation run must be JSON")
+    if not isinstance(data, dict):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Evaluation run must be a JSON object")
+    await session.execute(
+        insert(EvalRun)
+        .values(name=name, data=data)
+        .on_conflict_do_update(index_elements=[EvalRun.name], set_={"data": data, "updated_at": func.now()})
+    )
+    await session.commit()
 
 
 @router.post("/auth/request-otp", status_code=status.HTTP_202_ACCEPTED)

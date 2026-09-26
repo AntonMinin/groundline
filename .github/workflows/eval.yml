@@ -1,0 +1,120 @@
+name: Eval
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval
+  cancel-in-progress: false
+
+env:
+  EVAL_SYNC_URL: https://api.groundline.antonmb.com
+  RUNS: eval_gitlab_baseline eval_gitlab_jev
+
+jobs:
+  eval:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: groundline
+          POSTGRES_PASSWORD: groundline
+          POSTGRES_DB: groundline
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U groundline -d groundline"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+asyncpg://groundline_app:groundline_app@localhost:5433/groundline
+      MIGRATION_DATABASE_URL: postgresql+asyncpg://groundline:groundline@localhost:5433/groundline
+      HF_HOME: ${{ github.workspace }}/.hf
+      COOKIE_SECURE: "false"
+      LANGFUSE_TRACING_ENABLED: "false"
+      PYTHONUTF8: "1"
+      GROQ_API_KEY: ${{ secrets.EVAL_GROQ_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.EVAL_OPENROUTER_API_KEY }}
+      EVAL_WRITE_TOKEN: ${{ secrets.EVAL_WRITE_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Pull saved progress
+        id: progress
+        run: |
+          pending=false
+          for run in $RUNS; do
+            code=$(curl -s -o "$run.json" -w '%{http_code}' -H "Authorization: Bearer $EVAL_WRITE_TOKEN" "$EVAL_SYNC_URL/eval/runs/$run")
+            case "$code" in
+              200) echo "$run: pulled" ;;
+              404) rm -f "$run.json"; echo "$run: not started" ;;
+              *) echo "$run: the API answered $code"; exit 1 ;;
+            esac
+            python3 app/eval/stage.py "$run.json" finished || pending=true
+          done
+          echo "pending=$pending" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        if: steps.progress.outputs.pending == 'true'
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        if: steps.progress.outputs.pending == 'true'
+        with:
+          path: .hf
+          key: hf-${{ hashFiles('app/config.py') }}
+      - name: Install
+        if: steps.progress.outputs.pending == 'true'
+        run: |
+          pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt -r requirements-local.txt -r requirements-eval.txt
+      - name: Prepare the database, the corpus and the eval account
+        if: steps.progress.outputs.pending == 'true'
+        run: |
+          psql postgresql://groundline:groundline@localhost:5433/groundline -c \
+            "CREATE ROLE groundline_app LOGIN PASSWORD 'groundline_app' NOSUPERUSER NOBYPASSRLS;
+             GRANT CONNECT ON DATABASE groundline TO groundline_app;"
+          secret=$(openssl rand -hex 32)
+          echo "::add-mask::$secret"
+          echo "JWT_SECRET=$secret" >> "$GITHUB_ENV"
+          export JWT_SECRET=$secret
+          alembic upgrade head
+          python app/eval/corpus/fetch_gitlab.py
+          grep -v '^GROQ_API_KEY=' .env.eval.example > .env.eval
+          session=$(python -m app.eval.session)
+          echo "::add-mask::$session"
+          echo "GROUNDLINE_SESSION=$session" >> "$GITHUB_ENV"
+      - name: Evaluate
+        if: steps.progress.outputs.pending == 'true'
+        timeout-minutes: 320
+        run: |
+          docs=(app/eval/corpus/gitlab/*.md)
+          stage() {
+            local run="$1"; shift
+            python app/eval/stage.py "$run.json" "$1" && return 0
+            shift
+            python -u app/eval/run_eval.py app/eval/data/gitlab_dataset.json --docs "${docs[@]}" --out "$run.json" "$@" \
+              && return 0
+            local code=$?
+            if [ "$code" -eq 75 ]; then
+              echo "daily limit reached, the next scheduled run continues from here"
+              exit 0
+            fi
+            exit "$code"
+          }
+          stage eval_gitlab_baseline answered --serve baseline
+          stage eval_gitlab_jev answered --serve jev
+          stage eval_gitlab_baseline finished --serve baseline --judge-repeats 3 --cache-pairs
+          stage eval_gitlab_jev finished --serve jev --judge-repeats 3 --cache-pairs \
+            --set CACHE_SIMILARITY_THRESHOLD=0.75 --set JEV_CACHE_VERIFY_FROM=0.75 --set JEV_CACHE_VERIFY_BELOW=1.0
+      - name: Server log
+        if: failure() && steps.progress.outputs.pending == 'true'
+        run: tail -n 200 eval_server.log || true

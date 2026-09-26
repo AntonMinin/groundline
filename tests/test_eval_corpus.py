@@ -1,4 +1,5 @@
 import hashlib
+import json
 
 import httpx
 import pytest
@@ -46,3 +47,20 @@ def test_the_manifest_lists_eight_pinned_files():
     data = json.loads(fetch_gitlab.MANIFEST.read_text(encoding="utf-8"))
     assert len(data["commit"]) == 40 and len(data["files"]) == 8
     assert all(len(item["sha256"]) == 64 for item in data["files"])
+
+
+def test_stages_follow_the_run_through_answers_repeats_and_pairs(tmp_path):
+    from app.eval import stage
+
+    run = {"total_questions": 2}
+    path = tmp_path / "run.json"
+    assert not stage.reached(path, "answered")
+    for rows_done, repeats, pairs, complete, expected in (
+        (1, 1, [], False, (False, False)),
+        (2, 1, [], True, (True, False)),
+        (2, 3, [], False, (True, False)),
+        (2, 3, [{}], True, (True, True)),
+    ):
+        run.update(rows=[{"score_runs": [{}] * repeats}] * rows_done, cache_pairs=pairs, complete=complete)
+        path.write_text(json.dumps(run), encoding="utf-8")
+        assert (stage.reached(path, "answered"), stage.reached(path, "finished")) == expected
