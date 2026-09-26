@@ -163,7 +163,7 @@ async def ask(client: httpx.AsyncClient, question: str, use_cache: bool = False)
             detail = (await response.aread()).decode()
             if response.status_code == 429 and "limit reached" in detail:
                 raise DailyLimitReached(detail)
-            if response.status_code in (502, 504):
+            if response.status_code in (502, 504) or "already being answered" in detail:
                 raise TransientError(f"/query failed with {response.status_code}: {detail}")
             raise RuntimeError(f"/query failed with {response.status_code}: {detail}")
         async for line in response.aiter_lines():
@@ -190,7 +190,7 @@ async def ask_patiently(client: httpx.AsyncClient, question: str, use_cache: boo
     for attempt in range(TRANSIENT_RETRIES):
         try:
             return await ask(client, question, use_cache)
-        except TransientError as exc:
+        except (TransientError, httpx.TransportError) as exc:
             if attempt == TRANSIENT_RETRIES - 1:
                 raise
             print(f"  {exc}, retrying in {TRANSIENT_WAIT_SECONDS:.0f}s")
@@ -540,7 +540,7 @@ async def main() -> None:
         base_url=api,
         headers={"X-Requested-With": "groundline"},
         cookies={"groundline_session": args.session},
-        timeout=120,
+        timeout=300,
     ) as client:
         with_jev = await jev_enabled(client)
         label = args.label or ("jev" if with_jev else "baseline")
