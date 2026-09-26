@@ -1,4 +1,4 @@
-export const UPDATED = '2026-09-20'
+export const UPDATED = '2026-09-26'
 
 export const LEGAL = {
   en: {
@@ -28,6 +28,7 @@ export const LEGAL = {
             ['Render', 'Runs the backend, so every request passes through it: your questions, your uploads and your email address. Its logs keep the technical records above.'],
             ['Vercel', 'Serves the pages, so it sees the IP address and browser of every visit. No document text and no email address.'],
             ['Groq', 'Your question and the document fragments chosen to answer it. Used to write the answer.'],
+            ['OpenRouter and TypeSafe', 'Your question, the document fragments chosen to answer it, the answer, and the earlier question a cached answer belongs to. OpenRouter passes them to TypeSafe’s Jev model, which checks whether the fragments are enough to answer, whether a cached question asks the same thing, and whether the sources back the answer. Jev returns probabilities, not text.'],
             ['DeepInfra', 'The text of your document fragments and of your questions. Used to turn text into the vectors that make search work.'],
             ['Pinecone', 'Your question and the candidate fragments. Used to rank which fragments actually answer it.'],
             ['LangFuse', 'A trace of each request: the question, the answer and the fragments used, for debugging and cost analysis.'],
@@ -41,7 +42,7 @@ export const LEGAL = {
         },
         {
           h: 'How long it is kept',
-          body: 'Documents, history and cached answers stay until you delete them or delete your account. Login codes expire after 10 minutes. Sessions last seven days. LangFuse keeps traces for 30 days on its free plan.',
+          body: 'Documents, history and cached answers stay until you delete them or delete your account. Login codes expire after 10 minutes, and the record of a code request (address and IP) is deleted after seven days. Sessions last seven days; logging out ends every session of the account. LangFuse keeps traces for 30 days on its free plan.',
         },
         {
           h: 'How to delete it',
@@ -148,6 +149,7 @@ export const LEGAL = {
             ['Render', 'На нём работает бэкенд, поэтому через него проходит каждый запрос: вопросы, загруженные файлы и адрес почты. В его логах лежат технические записи, перечисленные выше.'],
             ['Vercel', 'Отдаёт страницы, поэтому видит IP-адрес и браузер каждого визита. Без текста документов и без адреса почты.'],
             ['Groq', 'Ваш вопрос и отобранные фрагменты документов. Пишет ответ.'],
+            ['OpenRouter и TypeSafe', 'Ваш вопрос, отобранные фрагменты документов, ответ и прошлый вопрос, к которому относится ответ из кэша. OpenRouter передаёт их модели Jev от TypeSafe: она проверяет, хватает ли фрагментов для ответа, тот ли это вопрос, что уже есть в кэше, и подтверждают ли источники ответ. Jev возвращает вероятности, а не текст.'],
             ['DeepInfra', 'Текст фрагментов документов и текст вопросов. Превращает текст в векторы, на которых работает поиск.'],
             ['Pinecone', 'Ваш вопрос и фрагменты-кандидаты. Определяет, в каких из них действительно есть ответ.'],
             ['LangFuse', 'Трассировку запроса: вопрос, ответ и использованные фрагменты - для отладки и анализа расходов.'],
@@ -161,7 +163,7 @@ export const LEGAL = {
         },
         {
           h: 'Сколько это хранится',
-          body: 'Документы, история и кэш живут, пока вы их не удалите или не удалите аккаунт. Код входа истекает через 10 минут. Сессия - семь дней. LangFuse на бесплатном тарифе хранит трассировки 30 дней.',
+          body: 'Документы, история и кэш живут, пока вы их не удалите или не удалите аккаунт. Код входа истекает через 10 минут, а запись о запросе кода (адрес и IP) удаляется через семь дней. Сессия - семь дней; выход из аккаунта завершает все его сессии. LangFuse на бесплатном тарифе хранит трассировки 30 дней.',
         },
         {
           h: 'Как удалить',

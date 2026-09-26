@@ -110,7 +110,7 @@ export const CONTENT = {
       userTitle: 'What changes for the person asking',
       user: [
         ['A grounding badge', 'Under every answer: supported, partly supported, not supported or contradicted - the same verdict that decides whether the answer is cached.'],
-        ['An honest "not in the documents"', 'When the fragments do not cover the question, the answer still says so instead of guessing: Jev skips the LLM check only when it is confident the context is enough.'],
+        ['An honest "not in the documents"', 'When the fragments do not cover the question, the answer still says so instead of guessing: Jev skips the LLM check only when it is confident the context is enough.', true],
         ['Fewer wrong cache hits', 'A question that reads like an earlier one but asks something else no longer receives the earlier answer.'],
       ],
       methodTitle: 'How it was measured',
@@ -269,7 +269,7 @@ export const CONTENT = {
       userTitle: 'Что меняется для того, кто спрашивает',
       user: [
         ['Бейдж обоснованности', 'Под каждым ответом: подтверждено, подтверждено частично, не подтверждено или противоречит - тот же вердикт решает, попадёт ли ответ в кэш.'],
-        ['Честное «в документах этого нет»', 'Если фрагменты не покрывают вопрос, ответ так и говорит, а не угадывает: Jev пропускает проверку LLM, только когда уверен, что контекста достаточно.'],
+        ['Честное «в документах этого нет»', 'Если фрагменты не покрывают вопрос, ответ так и говорит, а не угадывает: Jev пропускает проверку LLM, только когда уверен, что контекста достаточно.', true],
         ['Меньше ложных попаданий в кэш', 'Вопрос, похожий по словам на прошлый, но о другом, больше не получает чужой ответ.'],
       ],
       methodTitle: 'Как измеряли',

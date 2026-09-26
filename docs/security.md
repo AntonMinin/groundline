@@ -150,6 +150,7 @@ Redaction is pattern-based, so it is a reduction, not a guarantee: free-form nam
 - `DELETE /documents/{id}` and `DELETE /documents` also clear the answer cache, so deleted content cannot be served from a cached answer.
 - `DELETE /cache` and `DELETE /history` let a user drop stored questions and answers without deleting documents.
 - `DELETE /me` deletes the user row; documents, chunks, cache, history and ingest jobs cascade, and pending OTP rows plus the personal `service_usage` counters keyed by that address are removed explicitly, so the address does not survive the account.
+- With `JEV_ENABLED=true`, the question, the fragments, the answer and the cached question are sent to OpenRouter and on to TypeSafe for Jev's decisions (see Open items on data retention).
 - Prompts and answers are sent to the configured LLM provider, and with `EMBEDDING_PROVIDER=api` / `RERANK_PROVIDER=api` document fragments are sent to those providers too. Set both to `local` for a deployment where document text never leaves the container.
 - LangFuse traces include questions, answers and retrieved fragments, with the patterns above masked. Leave the keys empty if that data must not go to a third party at all.
 - Server logs carry the user id, cache hit and similarity, but not the question text; the question and the nearest cached question are logged at `DEBUG` only.
@@ -161,6 +162,10 @@ Redaction is pattern-based, so it is a reduction, not a guarantee: free-form nam
 - **Rate limits are shared only when Upstash is configured.** With `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` set, the per-IP OTP limit is counted in Redis and holds across instances; without them it falls back to a Postgres count (shared, but only over rows that exist). A Redis outage fails open to the local counters rather than rejecting logins. The `/events` subscription limit is deliberately per-process: it counts the queues a process is actually serving, so a restart cannot strand a slot that no stream holds.
 - **No antivirus or content scanning** on uploads. Files are parsed as text and never executed, but nothing inspects them for malicious payloads.
 - **`DEV_MODE=true` prints login codes to the log.** It exists for local development; enabling it in production hands out sessions to anyone who can read logs.
+
+## Open items
+
+- **Zero data retention for Jev is not enforced yet.** With `JEV_ENABLED=true` the question, the fragments, the answer and the cached question go to OpenRouter, which forwards them to TypeSafe; the privacy notice lists both. OpenRouter can restrict a key to zero-data-retention endpoints (a guardrail with `enforce_zdr_other`, or the account-wide ZDR setting), but it is not documented whether TypeSafe's System One endpoint counts as one, and with the restriction on, Jev may stop answering and fall back to the pipeline without it. To do: turn the guardrail on for the production key, send one `POST /api/v1/systemone`, and keep it only if Jev still answers. OpenRouter itself stores no prompts unless logging is opted into.
 
 ## Accepted risks
 

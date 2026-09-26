@@ -72,43 +72,51 @@ const { copy } = Astro.props
       </table>
     </div>
 
-    <h3 class="jev-subhead">{copy.jev.resultsTitle}</h3>
-    <p class="muted jev-note">{copy.jev.resultsLede}</p>
-    <div class="jev-scroll">
-      <table class="jev-table jev-results">
-        <thead>
-          <tr>
-            <th scope="col"></th>
-            <th scope="col" class="num-col">{copy.jev.before}</th>
-            <th scope="col" class="num-col jev-after">{copy.jev.after}</th>
-          </tr>
-        </thead>
-        {
-          JEV_TABLE.map(([group, keys]) => (
-            <tbody>
-              <tr class="jev-group">
-                <th scope="rowgroup" colspan="3">{copy.jev.groups[group]}</th>
-              </tr>
-              {keys.map((key) => (
+    {
+      JEV_RESULTS.measured && (
+        <Fragment>
+          <h3 class="jev-subhead">{copy.jev.resultsTitle}</h3>
+          <p class="muted jev-note">{copy.jev.resultsLede}</p>
+          <div class="jev-scroll">
+            <table class="jev-table jev-results">
+              <thead>
                 <tr>
-                  <th scope="row">{copy.jev.rows[key]}</th>
-                  {JEV_RESULTS.values[key].map((value, index) => (
-                    <td class:list={['num', 'num-col', { 'jev-after': index === 1, pending: value === null }]}>
-                      {value ?? copy.jev.pending}
-                    </td>
-                  ))}
+                  <th scope="col"></th>
+                  <th scope="col" class="num-col">{copy.jev.before}</th>
+                  <th scope="col" class="num-col jev-after">{copy.jev.after}</th>
                 </tr>
-              ))}
-            </tbody>
-          ))
-        }
-      </table>
-    </div>
+              </thead>
+              {
+                JEV_TABLE.map(([group, keys]) => (
+                  <tbody>
+                    <tr class="jev-group">
+                      <th scope="rowgroup" colspan="3">{copy.jev.groups[group]}</th>
+                    </tr>
+                    {keys.map((key) => (
+                      <tr>
+                        <th scope="row">{copy.jev.rows[key]}</th>
+                        {JEV_RESULTS.values[key].map((value, index) => (
+                          <td class:list={['num', 'num-col', { 'jev-after': index === 1, pending: value === null }]}>
+                            {value ?? copy.jev.pending}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                ))
+              }
+            </table>
+          </div>
+        </Fragment>
+      )
+    }
 
     <h3 class="jev-subhead">{copy.jev.userTitle}</h3>
     <div class="split">
       {
-        copy.jev.user.map(([title, body]) => (
+        copy.jev.user
+          .filter(([, , needsResults]) => !needsResults || JEV_RESULTS.measured)
+          .map(([title, body]) => (
           <div class="split-item">
             <h3>{title}</h3>
             <p>{body}</p>
