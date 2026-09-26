@@ -122,3 +122,49 @@ def test_query_payload_sanitizes_and_rejects_at_the_api_boundary():
     assert QueryIn(question="  when​ is‮ rent due?  ").question == "when is rent due?"
     with pytest.raises(ValidationError):
         QueryIn(question="​​​")
+
+
+def test_telemetry_masking_reaches_nested_prompts_and_answers():
+    data = {
+        "messages": [
+            {"role": "system", "content": "answer from context"},
+            {"role": "user", "content": "mail jane.doe@example.com, card 4111 1111 1111 1111"},
+        ],
+        "output": ("key sk-abcdefghijklmnopqrstuvwx", 3),
+    }
+    masked = guard.mask_telemetry(data=data)
+    assert masked["messages"][1]["content"] == "mail [EMAIL], card [CARD]"
+    assert masked["messages"][0]["content"] == "answer from context"
+    assert masked["output"] == ["key [SECRET]", 3]
+
+
+MASK_PROBE = """
+from langfuse import get_client
+from langfuse.openai import AsyncOpenAI
+from app import guard, llm
+from app.api import main
+client = get_client()
+assert client._mask is guard.mask_telemetry, client._mask
+assert client._mask(data={"input": "call +44 20 7946 0958"}) == {"input": "call [PHONE]"}
+print("masked")
+"""
+
+
+def test_every_langfuse_client_the_app_uses_carries_the_mask():
+    import os
+    import subprocess
+    import sys
+
+    from tests.conftest import ROOT
+
+    environment = {
+        **os.environ,
+        "LANGFUSE_PUBLIC_KEY": "pk-lf-00000000-0000-0000-0000-000000000000",
+        "LANGFUSE_SECRET_KEY": "sk-lf-00000000-0000-0000-0000-000000000000",
+        "LANGFUSE_HOST": "http://127.0.0.1:9",
+        "LANGFUSE_TRACING_ENABLED": "true",
+    }
+    result = subprocess.run(
+        [sys.executable, "-c", MASK_PROBE], cwd=ROOT, env=environment, capture_output=True, text=True, timeout=120
+    )
+    assert "masked" in result.stdout, result.stderr[-2000:]

@@ -124,7 +124,12 @@ Three kinds of text reach a prompt, and none of them are trusted: the question, 
 
 The question, the retrieved fragments and the answer *must* reach the LLM provider - that is the product, and [Data handling](#data-handling) says so plainly. Observability is different: it is optional, it is a second vendor, and it retains.
 
-`guard.redact()` masks email addresses, card-shaped digit runs, IBANs, US SSNs, international phone numbers and the common API-key shapes (`sk-`/`pk-`, `ghp_`, `AKIA...`, JWTs) in everything sent to LangFuse - the trace input and output, the nearest cached question, the rerank query, the ingest file name - and in the `DEBUG` log line that prints the question. Set `TELEMETRY_REDACTION=false` to see raw text in traces while debugging; it defaults to on.
+`guard.redact()` masks email addresses, card-shaped digit runs, IBANs, US SSNs, international phone numbers and the common API-key shapes (`sk-`/`pk-`, `ghp_`, `AKIA...`, JWTs). It is applied in two places:
+
+- **Every LangFuse observation.** `app/api/main.py` creates the LangFuse client with `mask=guard.mask_telemetry`, and the SDK runs that function over the input, output and metadata of every span and generation before export, walking nested dicts and lists. That covers the traces the application writes itself (the query, the cache lookup with the nearest cached question, rerank, ingest, the Jev calls) and the generations the `langfuse.openai` wrapper records for every LLM call - the full prompt with the question and the retrieved fragments, and the answer. Every client `get_client()` returns carries the same mask; `tests/test_guard.py` checks that in a process with LangFuse keys set.
+- **The `DEBUG` log line** that prints the question.
+
+Set `TELEMETRY_REDACTION=false` to see raw text in traces while debugging; it defaults to on.
 
 Redaction is pattern-based, so it is a reduction, not a guarantee: free-form names, addresses and account numbers in an unusual format pass through. A deployment that cannot accept that leaves the LangFuse keys empty, which disables the export entirely.
 
@@ -134,7 +139,7 @@ Redaction is pattern-based, so it is a reduction, not a guarantee: free-form nam
 - `DELETE /cache` and `DELETE /history` let a user drop stored questions and answers without deleting documents.
 - `DELETE /me` deletes the user row; documents, chunks, cache, history and ingest jobs cascade, and pending OTP rows plus the personal `service_usage` counters keyed by that address are removed explicitly, so the address does not survive the account.
 - Prompts and answers are sent to the configured LLM provider, and with `EMBEDDING_PROVIDER=api` / `RERANK_PROVIDER=api` document fragments are sent to those providers too. Set both to `local` for a deployment where document text never leaves the container.
-- LangFuse traces include questions, answers and retrieved fragments. Leave the keys empty if that data must not go to a third party.
+- LangFuse traces include questions, answers and retrieved fragments, with the patterns above masked. Leave the keys empty if that data must not go to a third party at all.
 - Server logs carry the user id, cache hit and similarity, but not the question text; the question and the nearest cached question are logged at `DEBUG` only.
 
 ## Known limitations

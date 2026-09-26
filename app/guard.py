@@ -69,3 +69,17 @@ def redact(text: str) -> str:
     for pattern, placeholder in _REDACTIONS:
         text = pattern.sub(placeholder, text)
     return text
+
+
+def redact_value(value):
+    if isinstance(value, str):
+        return redact(value)
+    if isinstance(value, dict):
+        return {key: redact_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [redact_value(item) for item in value]
+    return value
+
+
+def mask_telemetry(*, data, **kwargs):
+    return redact_value(data)

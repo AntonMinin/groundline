@@ -7,11 +7,11 @@ import openai
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from langfuse import get_client
+from langfuse import Langfuse, get_client
 from sqlalchemy.exc import InterfaceError, OperationalError
 from sqlalchemy.exc import TimeoutError as PoolTimeout
 
-from app import inference, limits, limits_check
+from app import guard, inference, limits, limits_check
 from app.api.routes import router
 from app.auth.service import AuthError
 from app.config import settings
@@ -22,6 +22,7 @@ from app.retrieval.rerank import get_reranker
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("groundline")
+telemetry = Langfuse(mask=guard.mask_telemetry)
 
 
 async def check_langfuse() -> None:
