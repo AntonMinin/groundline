@@ -26,12 +26,14 @@ Everything is read from the environment (or a `.env` file) by `app/config.py`. S
 | --- | --- | --- |
 | `EMBEDDING_PROVIDER` | `local` | `local` (sentence-transformers in-process) or `api` (OpenAI-compatible embeddings endpoint) |
 | `EMBEDDING_MODEL` | `BAAI/bge-m3` | must match `EMBEDDING_DIM` |
+| `EMBEDDING_MODEL_REVISION` | a commit of `BAAI/bge-m3` | Hugging Face revision the local model is loaded at, so a changed upstream repository cannot swap the weights. Empty loads the latest |
 | `EMBEDDING_DIM` | `1024` | vector column width. Changing it requires a migration and re-indexing every document |
 | `EMBEDDING_BATCH_SIZE` | `16` | texts per call; also the granularity at which ingestion releases the local inference lock |
 | `EMBEDDING_API_BASE_URL` | DeepInfra | hosted bge-m3 endpoint |
 | `EMBEDDING_API_KEY` | - | key for the above |
 | `RERANK_PROVIDER` | `local` | `local` (CrossEncoder in-process) or `api` (Pinecone Inference) |
 | `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` | local reranker weights |
+| `RERANKER_MODEL_REVISION` | a commit of `BAAI/bge-reranker-v2-m3` | Hugging Face revision of the local reranker, pinned the same way |
 | `RERANK_API_URL` | `https://api.pinecone.io/rerank` | hosted reranker |
 | `RERANK_API_MODEL` | `bge-reranker-v2-m3` | hosted model name |
 | `RERANK_API_KEY` | - | key for the above |
@@ -109,6 +111,7 @@ See [Architecture → service limits](architecture.md#service-limits) for what i
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
+| `OTP_HMAC_SECRET` | - (falls back to `JWT_SECRET`) | key for the HMAC of stored login codes. Setting it lets `JWT_SECRET` be rotated without touching pending codes, and the other way round. At least 32 characters when set |
 | `JWT_TTL_MINUTES` | `10080` (7 days) | session lifetime. Tokens are stateless and cannot be revoked before expiry |
 | `OTP_TTL_MINUTES` | `10` | login code lifetime |
 | `OTP_MAX_ATTEMPTS` | `5` | wrong guesses before a code is dead |

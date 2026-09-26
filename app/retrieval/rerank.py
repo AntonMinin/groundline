@@ -16,7 +16,7 @@ PINECONE_API_VERSION = "2025-04"
 def get_reranker():
     from sentence_transformers import CrossEncoder
 
-    return CrossEncoder(settings.reranker_model, max_length=1024)
+    return CrossEncoder(settings.reranker_model, max_length=1024, revision=settings.reranker_model_revision or None)
 
 
 def _score_local(query: str, chunks: list[RetrievedChunk]) -> list[float]:

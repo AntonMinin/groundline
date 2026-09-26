@@ -7,12 +7,12 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import jwt
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import limits, ratelimit
 from app.config import CURRENT_TERMS_VERSION, settings
-from app.db.models import OtpCode, User
+from app.db.models import OtpCode, ServiceUsage, User
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +34,7 @@ class TermsNotAcceptedError(Exception):
 
 
 TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+LOGIN_RECORDS_KEPT_DAYS = 7
 
 
 async def _siteverify(payload: dict) -> dict:
@@ -62,7 +63,8 @@ async def verify_turnstile(token: str | None, ip: str | None) -> None:
 
 
 def hash_code(email: str, code: str) -> str:
-    return hmac.new(settings.jwt_secret.encode(), f"{email}:{code}".encode(), hashlib.sha256).hexdigest()
+    key = settings.otp_hmac_secret or settings.jwt_secret
+    return hmac.new(key.encode(), f"{email}:{code}".encode(), hashlib.sha256).hexdigest()
 
 
 def normalize_email(email: str) -> str:
@@ -86,16 +88,24 @@ async def send_otp_email(email: str, code: str) -> None:
             json={
                 "from": settings.resend_from,
                 "to": [email],
-                "subject": f"Groundline login code: {code}",
+                "subject": "Your Groundline login code",
                 "text": f"Your Groundline login code is {code}. It expires in {settings.otp_ttl_minutes} minutes.",
             },
         )
         if response.is_error:
-            raise EmailDeliveryError(f"Resend returned {response.status_code}: {response.text}")
+            raise EmailDeliveryError(f"Resend returned {response.status_code}")
     limits.report_resend_headers(response.headers)
     for key in limits.EMAIL_KEYS:
         await limits.add(key)
     await limits.add("resend.emails_per_day", subject=email)
+
+
+async def forget_old_login_records(session: AsyncSession, now: datetime) -> None:
+    cutoff = now - timedelta(days=LOGIN_RECORDS_KEPT_DAYS)
+    await session.execute(delete(OtpCode).where(OtpCode.created_at < cutoff))
+    await session.execute(
+        delete(ServiceUsage).where(ServiceUsage.quota_key.contains("|"), ServiceUsage.period_start < cutoff.date())
+    )
 
 
 async def request_otp(session: AsyncSession, email: str, ip: str | None) -> None:
@@ -121,6 +131,7 @@ async def request_otp(session: AsyncSession, email: str, ip: str | None) -> None
         if not allowed:
             raise OtpRateLimitError("Too many code requests, try again later")
     code = f"{secrets.randbelow(1_000_000):06d}"
+    await forget_old_login_records(session, now)
     await session.execute(update(OtpCode).where(OtpCode.email == email, OtpCode.used.is_(False)).values(used=True))
     session.add(
         OtpCode(

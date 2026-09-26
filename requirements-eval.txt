@@ -2,3 +2,4 @@ ragas==0.4.3
 langchain-community<0.4
 openai>=1.109
 httpx==0.28.1
+langchain-openai>=1.1.14

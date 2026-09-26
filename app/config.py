@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     embedding_provider: Literal["local", "api"] = "local"
     embedding_model: str = "BAAI/bge-m3"
+    embedding_model_revision: str = "5617a9f61b028005a4858fdac845db406aefb181"
     embedding_dim: int = 1024
     embedding_batch_size: int = 16
     embedding_api_base_url: str = "https://api.deepinfra.com/v1/openai"
@@ -27,6 +28,7 @@ class Settings(BaseSettings):
 
     rerank_provider: Literal["local", "api"] = "local"
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_model_revision: str = "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
     rerank_api_url: str = "https://api.pinecone.io/rerank"
     rerank_api_model: str = "bge-reranker-v2-m3"
     rerank_api_key: str = ""
@@ -85,6 +87,7 @@ class Settings(BaseSettings):
     telegram_chat_id: str = ""
 
     jwt_secret: str
+    otp_hmac_secret: str = ""
     jwt_ttl_minutes: int = 60 * 24 * 7
     otp_ttl_minutes: int = 10
     otp_max_attempts: int = 5
@@ -117,6 +120,13 @@ class Settings(BaseSettings):
     def _strong_secret(cls, value: str) -> str:
         if len(value) < 32:
             raise ValueError("JWT_SECRET must be at least 32 characters")
+        return value
+
+    @field_validator("otp_hmac_secret")
+    @classmethod
+    def _strong_or_empty_otp_secret(cls, value: str) -> str:
+        if value and len(value) < 32:
+            raise ValueError("OTP_HMAC_SECRET must be at least 32 characters, or empty to reuse JWT_SECRET")
         return value
 
 

@@ -12,7 +12,7 @@ from app.inference import run_inference
 def get_model():
     from sentence_transformers import SentenceTransformer
 
-    return SentenceTransformer(settings.embedding_model)
+    return SentenceTransformer(settings.embedding_model, revision=settings.embedding_model_revision or None)
 
 
 @lru_cache

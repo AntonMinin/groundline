@@ -31,7 +31,9 @@ This only works while the application connects as a role **without** `BYPASSRLS`
 ## Authentication
 
 - **Passwordless.** A 6-digit code is emailed; there is no password to leak, reuse or reset.
-- Codes are stored as **HMAC-SHA256 hashes** keyed with `JWT_SECRET`, never in plaintext, and compared with `hmac.compare_digest`.
+- Codes are stored as **HMAC-SHA256 hashes** keyed with `OTP_HMAC_SECRET` (falling back to `JWT_SECRET` when it is empty), never in plaintext, and compared with `hmac.compare_digest`. The code is in the body of the email only, not in its subject, so it does not show on a locked screen's notification.
+- Login-code rows (address, IP) and the per-address counters are deleted after seven days, on the next code request; nothing keeps an address or an IP longer than that unless it belongs to an account.
+- A failed email delivery logs Resend's status code only, not its response body, which can contain the recipient's address.
 - A code expires after `OTP_TTL_MINUTES` (10), dies after `OTP_MAX_ATTEMPTS` (5) wrong guesses, and requesting a new one marks all previous unused codes for that address as used.
 - The verification row is selected `FOR UPDATE`, so parallel guesses cannot race the attempt counter.
 - Rate limits: one code per address per `OTP_RESEND_COOLDOWN_SECONDS` (60), and at most `OTP_MAX_PER_IP_PER_HOUR` (20) requests per client IP.
@@ -152,3 +154,12 @@ Redaction is pattern-based, so it is a reduction, not a guarantee: free-form nam
 - **Rate limits are shared only when Upstash is configured.** With `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` set, the per-IP OTP limit is counted in Redis and holds across instances; without them it falls back to a Postgres count (shared, but only over rows that exist). A Redis outage fails open to the local counters rather than rejecting logins. The `/events` subscription limit is deliberately per-process: it counts the queues a process is actually serving, so a restart cannot strand a slot that no stream holds.
 - **No antivirus or content scanning** on uploads. Files are parsed as text and never executed, but nothing inspects them for malicious payloads.
 - **`DEV_MODE=true` prints login codes to the log.** It exists for local development; enabling it in production hands out sessions to anyone who can read logs.
+
+## Accepted risks
+
+Findings from the 2026-09-26 audit that are deliberately not fixed, and why.
+
+- **Document text can steer Jev's verdicts.** Fragments and the question reach Jev's `state` as JSON fields, and TypeSafe documents that jev-1.13 can be moved by adversarial text. A document could raise the sufficiency probability (the LLM check is skipped, but the answer is still written by the answer prompt that allows only the fragments), the `supported` probability (an unsupported answer is cached), or the same-question verdict (a stored answer is returned for a different question). Accepted because every path stays inside one account: the document, the cache, the question history and the answer all belong to the account that uploaded the document, and row-level security keeps them there. A fix would mean new question wording plus adversarial cases in the evaluation set, and its effect can only be shown by measurement.
+- **`X-Forwarded-For` is trusted from any proxy** (`--forwarded-allow-ips '*'`, see Known limitations). With every hop trusted, uvicorn takes the left-most address in the header, and whether Render replaces a client-sent header or appends to it has not been verified - if it appends, a client can choose the IP the per-IP login-code limit counts. Accepted because Render publishes no fixed list of proxy addresses to trust instead, and because that limit is the outer layer: each address still gets at most 3 codes a day and one per minute, every code allows 5 guesses, and Turnstile gates the request. A deployment behind a proxy with known addresses should list them.
+- **Evaluation-only dependencies with advisories.** `ragas 0.4.3` (PYSEC-2026-3046, in the multimodal faithfulness metric, not used here) and `diskcache 5.6.3` (PYSEC-2026-2447, code execution for someone who can already write to the cache directory) have no fixed release; `langchain-openai` is pinned to `>=1.1.14`. `requirements-eval.txt` is installed only in the local evaluation virtualenv, never in the image.
+- **Pricing pages reach a language model.** The daily limit check (`app/limits_check.py`) gives the text of third-party pricing pages to an LLM to read one number. A page could make it report a wrong number, which produces a Telegram alert that a limit may be outdated; the configured limit never changes by itself and no user data is involved.
