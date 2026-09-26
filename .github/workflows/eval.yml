@@ -74,8 +74,12 @@ jobs:
       - name: Install
         if: steps.progress.outputs.pending == 'true'
         run: |
-          pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
-          pip install -r requirements.txt -r requirements-local.txt -r requirements-eval.txt
+          python -m venv .venv
+          .venv/bin/pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
+          .venv/bin/pip install -r requirements.txt -r requirements-local.txt
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          python -m venv .venv-eval
+          .venv-eval/bin/pip install -r requirements-eval.txt
       - name: Prepare the database, the corpus and the eval account
         if: steps.progress.outputs.pending == 'true'
         run: |
@@ -101,7 +105,7 @@ jobs:
             local run="$1"; shift
             python app/eval/stage.py "$run.json" "$1" && return 0
             shift
-            python -u app/eval/run_eval.py app/eval/data/gitlab_dataset.json --docs "${docs[@]}" --out "$run.json" "$@" \
+            .venv-eval/bin/python -u app/eval/run_eval.py app/eval/data/gitlab_dataset.json --docs "${docs[@]}" --out "$run.json" "$@" \
               && return 0
             local code=$?
             if [ "$code" -eq 75 ]; then
