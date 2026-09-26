@@ -6,7 +6,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "landing" / "dist"
 LEGAL_PAGES = ("privacy/index.html", "terms/index.html", "ru/privacy/index.html", "ru/terms/index.html")
-SECTION_LINKS = ("how", "auth", "numbers", "faq")
+SECTION_LINKS = ("jev", "how", "auth", "numbers", "faq")
 
 
 def page(name: str) -> str:

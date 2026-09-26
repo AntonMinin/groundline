@@ -194,6 +194,10 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   white-space: nowrap;
 }
 .tag-accent { background: var(--color-accent-100); color: var(--color-accent-text); }
+.tag[data-grounding='supported'] { background: var(--color-accent-100); color: var(--color-accent-text); }
+.tag[data-grounding='partially_supported'] { color: var(--color-warn); }
+.tag[data-grounding='unsupported'],
+.tag[data-grounding='contradicted'] { color: var(--color-error); }
 
 .brand {
   display: inline-flex; align-items: center; gap: var(--space-2);

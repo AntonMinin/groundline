@@ -2,7 +2,7 @@
 import Header from './Header.astro'
 import Footer from './Footer.astro'
 import Screenshot from './Screenshot.astro'
-import { PIPELINE_STEPS, SITE } from '../content.js'
+import { JEV_RESULTS, JEV_TABLE, PIPELINE_STEPS, SITE } from '../content.js'
 
 const { copy } = Astro.props
 ---
@@ -28,6 +28,107 @@ const { copy } = Astro.props
         ))
       }
     </ul>
+  </section>
+
+  <section class="section jev" id="jev">
+    <div class="section-head">
+      <p class="kicker jev-kicker">{copy.jev.kicker}</p>
+      <h2>{copy.jev.title}</h2>
+      <p class="muted">{copy.jev.lede}</p>
+    </div>
+
+    <div class="split">
+      {
+        copy.jev.why.map(([title, body]) => (
+          <div class="split-item">
+            <h3>{title}</h3>
+            <p>{body}</p>
+          </div>
+        ))
+      }
+    </div>
+
+    <h3 class="jev-subhead">{copy.jev.checksTitle}</h3>
+    <div class="jev-scroll">
+      <table class="jev-table jev-checks">
+        <thead>
+          <tr>
+            <th scope="col"></th>
+            <th scope="col">{copy.jev.before}</th>
+            <th scope="col" class="jev-after">{copy.jev.after}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            copy.jev.checks.map(([question, before, after]) => (
+              <tr>
+                <th scope="row">{question}</th>
+                <td class="muted" data-label={copy.jev.before}>{before}</td>
+                <td class="jev-after" data-label={copy.jev.after}>{after}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="jev-subhead">{copy.jev.resultsTitle}</h3>
+    <p class="muted jev-note">{copy.jev.resultsLede}</p>
+    <div class="jev-scroll">
+      <table class="jev-table jev-results">
+        <thead>
+          <tr>
+            <th scope="col"></th>
+            <th scope="col" class="num-col">{copy.jev.before}</th>
+            <th scope="col" class="num-col jev-after">{copy.jev.after}</th>
+          </tr>
+        </thead>
+        {
+          JEV_TABLE.map(([group, keys]) => (
+            <tbody>
+              <tr class="jev-group">
+                <th scope="rowgroup" colspan="3">{copy.jev.groups[group]}</th>
+              </tr>
+              {keys.map((key) => (
+                <tr>
+                  <th scope="row">{copy.jev.rows[key]}</th>
+                  {JEV_RESULTS.values[key].map((value, index) => (
+                    <td class:list={['num', 'num-col', { 'jev-after': index === 1, pending: value === null }]}>
+                      {value ?? copy.jev.pending}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          ))
+        }
+      </table>
+    </div>
+
+    <h3 class="jev-subhead">{copy.jev.userTitle}</h3>
+    <div class="split">
+      {
+        copy.jev.user.map(([title, body]) => (
+          <div class="split-item">
+            <h3>{title}</h3>
+            <p>{body}</p>
+          </div>
+        ))
+      }
+    </div>
+
+    <h3 class="jev-subhead">{copy.jev.methodTitle}</h3>
+    <dl class="jev-method">
+      {
+        copy.jev.method.map(([term, body]) => (
+          <div>
+            <dt>{term}</dt>
+            <dd>{body}</dd>
+          </div>
+        ))
+      }
+    </dl>
+    <p><a href={JEV_RESULTS.evaluationUrl} target="_blank" rel="noopener">{copy.jev.docsLink}</a></p>
   </section>
 
   <section class="section" id="how">

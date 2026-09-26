@@ -1,22 +1,194 @@
 [
   {
     "question": "How many days per week can I work from home?",
-    "reference": "Employees may work remotely up to three days per week; fully remote work needs written approval from the department head."
+    "reference": "Employees may work remotely up to three days per week; fully remote work needs written approval from the department head.",
+    "kind": "answerable",
+    "lang": "en",
+    "pair": "remote",
+    "role": "anchor"
   },
   {
-    "question": "Сколько дней отпуска можно перенести на следующий год и до какого числа их нужно использовать?",
-    "reference": "Можно перенести до 7 неиспользованных дней, они сгорают 31 марта."
+    "question": "How many remote work days per week are allowed?",
+    "reference": "Up to three remote work days per week are allowed.",
+    "kind": "answerable",
+    "lang": "en",
+    "pair": "remote",
+    "role": "paraphrase"
+  },
+  {
+    "question": "Сколько дней в неделю можно работать из дома?",
+    "reference": "Удалённо можно работать до трёх дней в неделю.",
+    "kind": "answerable",
+    "lang": "ru",
+    "pair": "remote",
+    "role": "paraphrase"
   },
   {
     "question": "When do I need a doctor's certificate?",
-    "reference": "A doctor's certificate is required from the third consecutive day of absence."
+    "reference": "A doctor's certificate is required from the third consecutive day of absence.",
+    "kind": "answerable",
+    "lang": "en",
+    "pair": "sick",
+    "role": "anchor"
   },
   {
-    "question": "What is the annual learning budget and does it carry over?",
-    "reference": "The learning budget is 1,200 EUR per year and unused budget does not carry over."
+    "question": "From which day of sick leave is a medical certificate required?",
+    "reference": "A medical certificate is required from the third consecutive day of absence.",
+    "kind": "answerable",
+    "lang": "en",
+    "pair": "sick",
+    "role": "paraphrase"
+  },
+  {
+    "question": "When must I tell my manager that I am sick?",
+    "reference": "The manager must be notified before 10:00 on the first day of illness.",
+    "kind": "answerable",
+    "lang": "en",
+    "pair": "sick",
+    "role": "different"
   },
   {
     "question": "How often are laptops replaced?",
-    "reference": "Laptops are replaced every three years."
+    "reference": "Laptops are replaced every three years.",
+    "kind": "answerable",
+    "lang": "en",
+    "pair": "laptop",
+    "role": "anchor"
+  },
+  {
+    "question": "How quickly do I have to report a lost laptop?",
+    "reference": "Lost or damaged equipment must be reported to IT within 24 hours.",
+    "kind": "answerable",
+    "lang": "en",
+    "pair": "laptop",
+    "role": "different"
+  },
+  {
+    "question": "How many vacation days do I get per year?",
+    "reference": "Every employee receives 28 calendar days of paid vacation per year.",
+    "kind": "answerable",
+    "lang": "en",
+    "pair": "vacation",
+    "role": "anchor"
+  },
+  {
+    "question": "How many vacation days can I carry over to next year?",
+    "reference": "Up to 7 unused vacation days can be carried over; they expire on March 31.",
+    "kind": "answerable",
+    "lang": "en",
+    "pair": "vacation",
+    "role": "different"
+  },
+  {
+    "question": "What are the core working hours?",
+    "reference": "Core working hours are 10:00 to 16:00 local time, Monday through Friday.",
+    "kind": "answerable",
+    "lang": "en",
+    "pair": "hours",
+    "role": "anchor"
+  },
+  {
+    "question": "Between which hours do I have to be available at work?",
+    "reference": "Employees have to be available during core hours, 10:00 to 16:00 local time, Monday through Friday.",
+    "kind": "answerable",
+    "lang": "en",
+    "pair": "hours",
+    "role": "paraphrase"
+  },
+  {
+    "question": "What is the annual learning budget and does it carry over?",
+    "reference": "The learning budget is 1,200 EUR per year and unused budget does not carry over.",
+    "kind": "answerable",
+    "lang": "en"
+  },
+  {
+    "question": "How much does the company reimburse for home internet?",
+    "reference": "The company reimburses up to 50 EUR per month for home internet.",
+    "kind": "answerable",
+    "lang": "en"
+  },
+  {
+    "question": "How far in advance do I have to request a two-week vacation?",
+    "reference": "Vacation requests longer than 10 days must be submitted at least one month in advance.",
+    "kind": "answerable",
+    "lang": "en"
+  },
+  {
+    "question": "Do conference trips abroad need approval?",
+    "reference": "Yes, conference trips abroad additionally require manager approval.",
+    "kind": "answerable",
+    "lang": "en"
+  },
+  {
+    "question": "Which laptop sizes can new employees choose from?",
+    "reference": "New employees choose between a 14-inch and a 16-inch laptop.",
+    "kind": "answerable",
+    "lang": "en"
+  },
+  {
+    "question": "How often is a fully remote arrangement reviewed?",
+    "reference": "Fully remote arrangements are reviewed every six months.",
+    "kind": "answerable",
+    "lang": "en"
+  },
+  {
+    "question": "What is the home internet allowance, and does the company also pay my mobile phone bill?",
+    "reference": "The company reimburses up to 50 EUR per month for home internet; the handbook says nothing about mobile phone bills.",
+    "kind": "partial",
+    "lang": "en"
+  },
+  {
+    "question": "How many vacation days do I get, and how many sick days are paid?",
+    "reference": "Employees get 28 calendar days of paid vacation per year; the handbook does not say how many sick days are paid.",
+    "kind": "partial",
+    "lang": "en"
+  },
+  {
+    "question": "How long is parental leave?",
+    "reference": "The handbook does not cover parental leave.",
+    "kind": "unanswerable",
+    "lang": "en"
+  },
+  {
+    "question": "Does the company pay for a gym membership?",
+    "reference": "The handbook does not mention gym memberships.",
+    "kind": "unanswerable",
+    "lang": "en"
+  },
+  {
+    "question": "How often are salaries reviewed?",
+    "reference": "The handbook does not say how often salaries are reviewed.",
+    "kind": "unanswerable",
+    "lang": "en"
+  },
+  {
+    "question": "Can I bring my dog to the office?",
+    "reference": "The handbook does not say whether dogs are allowed in the office.",
+    "kind": "unanswerable",
+    "lang": "en"
+  },
+  {
+    "question": "Сколько дней отпуска можно перенести на следующий год и до какого числа их нужно использовать?",
+    "reference": "Можно перенести до 7 неиспользованных дней, они сгорают 31 марта.",
+    "kind": "answerable",
+    "lang": "ru"
+  },
+  {
+    "question": "Какой годовой бюджет на обучение?",
+    "reference": "Годовой бюджет на обучение составляет 1200 евро, неиспользованный остаток не переносится.",
+    "kind": "answerable",
+    "lang": "ru"
+  },
+  {
+    "question": "До какого времени нужно сообщить руководителю о болезни?",
+    "reference": "Руководителя нужно уведомить до 10:00 в первый день болезни.",
+    "kind": "answerable",
+    "lang": "ru"
+  },
+  {
+    "question": "Компенсирует ли компания обеды?",
+    "reference": "В справочнике ничего не сказано о компенсации обедов.",
+    "kind": "unanswerable",
+    "lang": "ru"
   }
 ]

@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, Computed, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, func, text
+from sqlalchemy import BigInteger, Boolean, Computed, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -110,6 +110,15 @@ class IngestJob(Base):
             postgresql_where=text("idempotency_key IS NOT NULL"),
         ),
     )
+
+
+class DocumentVersion(Base):
+    __tablename__ = "document_versions"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    version: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
 
 
 class QueryCache(Base):

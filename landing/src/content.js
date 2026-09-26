@@ -22,6 +22,35 @@ export const MEASURED = {
   llmCallsOnHit: 0,
 }
 
+export const JEV_RESULTS = {
+  measured: null,
+  evaluationUrl:
+    (process.env.PUBLIC_REPO_URL || 'https://github.com/AntonMinin/groundline') + '/blob/main/docs/evaluation.md',
+  values: {
+    faithfulness: [null, null],
+    answer_correctness: [null, null],
+    context_precision: [null, null],
+    context_recall: [null, null],
+    groq_calls: [null, null],
+    groq_tokens: [null, null],
+    done_median: [null, null],
+    check_cache: [null, null],
+    jev_sufficiency: [null, null],
+    check_sufficiency: [null, null],
+    generate_answer: [null, null],
+    jev_cost: [null, null],
+    cache_pairs: [null, null],
+    wrong_hits: [null, null],
+  },
+}
+
+const JEV_ROWS = [
+  ['quality', ['faithfulness', 'answer_correctness', 'context_precision', 'context_recall']],
+  ['groq', ['groq_calls', 'groq_tokens']],
+  ['latency', ['done_median', 'check_cache', 'jev_sufficiency', 'check_sufficiency', 'generate_answer']],
+  ['cache', ['cache_pairs', 'wrong_hits', 'jev_cost']],
+]
+
 const STEPS = [
   ['check_cache', false],
   ['rewrite_query', true],
@@ -39,8 +68,60 @@ export const CONTENT = {
     title: 'Groundline - answers from your documents, with a semantic cache',
     description:
       'Groundline answers questions about your own documents and caches answers by meaning, not by query string: a reworded question costs no LLM tokens.',
-    nav: { how: 'How it works', auth: 'Why sign in', numbers: 'Numbers', faq: 'FAQ', repo: 'GitHub', demo: 'Open the demo' },
+    nav: { jev: 'Jev', how: 'How it works', auth: 'Why sign in', numbers: 'Numbers', faq: 'FAQ', repo: 'GitHub', demo: 'Open the demo' },
     otherLocale: { code: 'ru', label: 'Русский', href: '/ru' },
+    jev: {
+      kicker: 'Before and after Jev',
+      title: 'Three checks moved from the language model to a decision model',
+      lede: 'Jev is the first System One model from TypeSafe. It does not write text: it reads a state and typed questions and returns calibrated probabilities - yes or no, one option out of several, or a position on a scale. Groundline now asks it the yes-or-no questions a RAG pipeline used to put to its LLM.',
+      why: [
+        ['A decision, not a paragraph', 'Whether the fragments are enough is one bit. Asking a chat model for it costs a full prompt with every fragment and returns text that still has to be parsed.'],
+        ['Calibrated, so a threshold means something', 'Jev returns a probability. The pipeline acts on a threshold chosen from measurements and hands only the uncertain cases to the LLM.'],
+        ['Fails open', 'When Jev is slow, unavailable or out of budget, the pipeline takes its old path. No answer depends on Jev being up.'],
+      ],
+      checksTitle: 'Who makes each decision',
+      before: 'Before',
+      after: 'With Jev',
+      checks: [
+        ['Is the context enough to answer?', 'The LLM on every attempt, reading the question and all five fragments', 'Jev first; the LLM only when Jev is not sure, and it still writes the hint for the next search'],
+        ['Is this the question already in the cache?', 'Embedding similarity alone: 0.90 or more is a hit', 'Jev confirms matches between 0.85 and 0.97: a paraphrase can hit below 0.90, a look-alike that asks something else misses'],
+        ['Do the sources back the answer?', 'Not checked: any answer with sufficient context went to the cache', 'Jev grades the answer after it is shown; only supported answers are cached, and the chat shows the verdict'],
+      ],
+      resultsTitle: 'Measured on the GitLab Handbook corpus',
+      resultsLede: 'Same questions in the same order, cache cleared before each run, every answer judged three times by the same judge. Quality is the mean of the three judge runs ± their spread.',
+      groups: { quality: 'Answer quality (ragas)', groq: 'Groq per question', latency: 'Latency, median ms', cache: 'Cache and cost' },
+      rows: {
+        faithfulness: 'Faithfulness',
+        answer_correctness: 'Answer correctness',
+        context_precision: 'Context precision',
+        context_recall: 'Context recall',
+        groq_calls: 'LLM calls',
+        groq_tokens: 'LLM tokens',
+        done_median: 'Time to the full answer',
+        check_cache: 'check_cache',
+        jev_sufficiency: 'jev_sufficiency',
+        check_sufficiency: 'check_sufficiency',
+        generate_answer: 'generate_answer',
+        cache_pairs: 'Cache pairs decided correctly',
+        wrong_hits: 'Wrong cache hits',
+        jev_cost: 'Jev cost per 100 questions, USD',
+      },
+      pending: 'pending',
+      userTitle: 'What changes for the person asking',
+      user: [
+        ['A grounding badge', 'Under every answer: supported, partly supported, not supported or contradicted - the same verdict that decides whether the answer is cached.'],
+        ['An honest "not in the documents"', 'When the fragments do not cover the question, the answer still says so instead of guessing: Jev skips the LLM check only when it is confident the context is enough.'],
+        ['Fewer wrong cache hits', 'A question that reads like an earlier one but asks something else no longer receives the earlier answer.'],
+      ],
+      methodTitle: 'How it was measured',
+      method: [
+        ['Corpus', '8 pages of the GitLab Handbook on time off, leave, benefits, expenses and travel, pinned to commit f243917f, CC BY-SA 4.0 - 70 chunks.'],
+        ['Dataset', '29 questions: answered by one chunk, answered across documents, unanswerable, distractors, 5 in Russian. Plus 20 cache pairs: paraphrases and look-alikes.'],
+        ['Judge', 'ragas with gpt-oss-20b through OpenRouter on one pinned upstream, max_tokens 4096, three judgements per answer.'],
+        ['Limits', 'One corpus and 29 questions on free-tier Groq. Differences smaller than the judge spread are noise. Jev is strongest in English.'],
+      ],
+      docsLink: 'Full method and per-question results',
+    },
     hero: {
       kicker: 'RAG for your documents',
       title: 'Answers from your documents, and never pays twice for the same question',
@@ -146,8 +227,60 @@ export const CONTENT = {
     title: 'Groundline - ответы по вашим документам с семантическим кэшем',
     description:
       'Groundline отвечает на вопросы по вашим документам и кэширует ответы по смыслу, а не по строке запроса: перефразированный вопрос не тратит токены LLM.',
-    nav: { how: 'Как работает', auth: 'Зачем вход', numbers: 'Цифры', faq: 'FAQ', repo: 'GitHub', demo: 'Открыть демо' },
+    nav: { jev: 'Jev', how: 'Как работает', auth: 'Зачем вход', numbers: 'Цифры', faq: 'FAQ', repo: 'GitHub', demo: 'Открыть демо' },
     otherLocale: { code: 'en', label: 'English', href: '/' },
+    jev: {
+      kicker: 'До Jev и после Jev',
+      title: 'Три проверки перешли от языковой модели к модели для решений',
+      lede: 'Jev - первая модель System One от TypeSafe. Она не пишет текст: получает состояние и типизированные вопросы и возвращает калиброванные вероятности - да или нет, один вариант из нескольких или позицию на шкале. Groundline теперь задаёт ей те вопросы «да или нет», которые RAG-пайплайн раньше задавал своей LLM.',
+      why: [
+        ['Решение, а не абзац', 'Хватает ли фрагментов - это один бит. Спросить об этом чат-модель - значит отправить полный промпт со всеми фрагментами и потом разбирать текст ответа.'],
+        ['Калибровка, поэтому у порога есть смысл', 'Jev возвращает вероятность. Пайплайн действует по порогу, подобранному на замерах, и отдаёт LLM только неуверенные случаи.'],
+        ['Отказ не ломает запрос', 'Если Jev медленный, недоступен или кончился бюджет, пайплайн идёт старым путём. Ни один ответ не зависит от того, работает ли Jev.'],
+      ],
+      checksTitle: 'Кто принимает каждое решение',
+      before: 'До',
+      after: 'С Jev',
+      checks: [
+        ['Хватает ли контекста для ответа?', 'LLM на каждой попытке: вопрос и все пять фрагментов', 'Сначала Jev; LLM - только если Jev не уверен, и она по-прежнему пишет подсказку для следующего поиска'],
+        ['Это тот же вопрос, что уже есть в кэше?', 'Только сходство эмбеддингов: от 0.90 - попадание', 'Jev подтверждает совпадения от 0.85 до 0.97: перефраз может попасть ниже 0.90, похожий по словам вопрос с другим смыслом - нет'],
+        ['Подтверждают ли источники ответ?', 'Не проверялось: в кэш шёл любой ответ при достаточном контексте', 'Jev оценивает ответ после показа; в кэш идут только подтверждённые, а в чате виден вердикт'],
+      ],
+      resultsTitle: 'Замер на корпусе GitLab Handbook',
+      resultsLede: 'Одни и те же вопросы в одном порядке, кэш очищен перед каждым прогоном, каждый ответ оценён одним судьёй трижды. Качество - среднее трёх оценок ± их разброс.',
+      groups: { quality: 'Качество ответа (ragas)', groq: 'Groq на вопрос', latency: 'Задержка, медиана, мс', cache: 'Кэш и стоимость' },
+      rows: {
+        faithfulness: 'Faithfulness',
+        answer_correctness: 'Answer correctness',
+        context_precision: 'Context precision',
+        context_recall: 'Context recall',
+        groq_calls: 'Вызовы LLM',
+        groq_tokens: 'Токены LLM',
+        done_median: 'Время до полного ответа',
+        check_cache: 'check_cache',
+        jev_sufficiency: 'jev_sufficiency',
+        check_sufficiency: 'check_sufficiency',
+        generate_answer: 'generate_answer',
+        cache_pairs: 'Пары для кэша решены верно',
+        wrong_hits: 'Ложные попадания в кэш',
+        jev_cost: 'Стоимость Jev на 100 вопросов, USD',
+      },
+      pending: 'ждёт прогона',
+      userTitle: 'Что меняется для того, кто спрашивает',
+      user: [
+        ['Бейдж обоснованности', 'Под каждым ответом: подтверждено, подтверждено частично, не подтверждено или противоречит - тот же вердикт решает, попадёт ли ответ в кэш.'],
+        ['Честное «в документах этого нет»', 'Если фрагменты не покрывают вопрос, ответ так и говорит, а не угадывает: Jev пропускает проверку LLM, только когда уверен, что контекста достаточно.'],
+        ['Меньше ложных попаданий в кэш', 'Вопрос, похожий по словам на прошлый, но о другом, больше не получает чужой ответ.'],
+      ],
+      methodTitle: 'Как измеряли',
+      method: [
+        ['Корпус', '8 страниц GitLab Handbook об отпусках, leave, льготах, расходах и командировках, зафиксированы на коммите f243917f, CC BY-SA 4.0 - 70 чанков.'],
+        ['Датасет', '29 вопросов: ответ в одном чанке, ответ из нескольких документов, неотвечаемые, дистракторы, 5 на русском. Плюс 20 пар для кэша: перефразы и похожие по словам вопросы.'],
+        ['Судья', 'ragas с gpt-oss-20b через OpenRouter на одном закреплённом апстриме, max_tokens 4096, три оценки на ответ.'],
+        ['Ограничения', 'Один корпус и 29 вопросов на бесплатном тарифе Groq. Разница меньше разброса судьи - это шум. Сильнее всего Jev на английском.'],
+      ],
+      docsLink: 'Полная методика и результаты по вопросам',
+    },
     hero: {
       kicker: 'RAG по вашим документам',
       title: 'Отвечает по вашим документам и не платит дважды за один вопрос',
@@ -249,3 +382,4 @@ export const CONTENT = {
 }
 
 export const PIPELINE_STEPS = STEPS
+export const JEV_TABLE = JEV_ROWS

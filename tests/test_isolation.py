@@ -51,7 +51,7 @@ async def test_query_cache_is_per_user(make_user):
     assert (await store.query_stats(stranger.id))["total_queries"] == 0
 
 
-TENANT_TABLES = {"documents", "chunks", "query_cache", "query_log", "ingest_jobs"}
+TENANT_TABLES = {"documents", "chunks", "query_cache", "query_log", "ingest_jobs", "document_versions"}
 NON_TENANT_TABLES = {"users", "otp_codes", "service_usage", "alembic_version"}
 
 

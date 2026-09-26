@@ -66,3 +66,7 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
+      - key: JEV_ENABLED
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false

@@ -77,3 +77,19 @@ async def test_chunk_count_is_optional(tmp_path, capsys):
 
 def test_the_module_imports_without_the_evaluation_dependencies():
     assert "ragas" not in json.dumps(list(run_eval.__dict__))
+
+
+async def test_the_judge_can_be_pinned_to_one_openrouter_upstream():
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={"provider": "Parasail", "usage": {"cost": 0.001}})
+
+    meter = run_eval.JudgeMeter()
+    async with httpx.AsyncClient(
+        transport=run_eval.PinnedUpstream("Parasail", httpx.MockTransport(handler)), event_hooks={"response": [meter]}
+    ) as client:
+        await client.post("https://openrouter.test/api/v1/chat/completions", json={"model": "m", "messages": []})
+    assert seen == [{"model": "m", "messages": [], "provider": {"order": ["Parasail"], "allow_fallbacks": False}}]
+    assert meter.cost == 0.001 and meter.upstreams == {"Parasail": 1}

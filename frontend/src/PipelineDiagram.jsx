@@ -4,7 +4,7 @@ import { onEvent } from './events.js'
 import { useI18n } from './i18n.jsx'
 import { formatDuration } from './telemetry.js'
 
-const NODES = ['check_cache', 'rewrite_query', 'retrieve', 'rerank', 'check_sufficiency', 'generate_answer', 'record']
+const DEFAULT_NODES = ['check_cache', 'rewrite_query', 'retrieve', 'rerank', 'check_sufficiency', 'generate_answer', 'record']
 
 function fromMetrics(metrics) {
   const nodes = {}
@@ -16,6 +16,7 @@ function fromMetrics(metrics) {
       tokensSaved: metric.tokens_saved,
       similarity: metric.similarity,
       cacheHit: Boolean(metric.cache_hit),
+      jev: metric.jev,
     }
   })
   return nodes
@@ -23,7 +24,15 @@ function fromMetrics(metrics) {
 
 export default function PipelineDiagram() {
   const [run, setRun] = useState({ nodes: {}, cacheHit: false, threshold: null, started: false, restored: false })
+  const [nodes, setNodes] = useState(DEFAULT_NODES)
   const { t, n } = useI18n()
+
+  useEffect(() => {
+    api
+      .config()
+      .then((config) => config.pipeline_nodes?.length && setNodes(config.pipeline_nodes))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     api
@@ -72,6 +81,7 @@ export default function PipelineDiagram() {
                 tokensSaved: event.tokens_saved,
                 similarity: event.similarity,
                 cacheHit: Boolean(event.cache_hit),
+                jev: event.jev,
               },
             },
           }))
@@ -83,7 +93,7 @@ export default function PipelineDiagram() {
     [],
   )
 
-  const done = NODES.filter((node) => run.nodes[node]?.state === 'done')
+  const done = nodes.filter((node) => run.nodes[node]?.state === 'done')
   const totals = done.reduce(
     (sum, node) => ({
       ms: sum.ms + (run.nodes[node].durationMs ?? 0),
@@ -100,11 +110,21 @@ export default function PipelineDiagram() {
   }
 
   const noteFor = (node) => {
+    const jev = run.nodes[node]?.jev
+    if (node === 'jev_sufficiency' && jev?.sufficient !== undefined) {
+      return t(jev.passed ? 'pipeline.jevSufficient' : 'pipeline.jevUnsure', {
+        probability: jev.sufficient.toFixed(2),
+      })
+    }
+    if (node === 'check_grounding' && jev?.verdict) {
+      return t('pipeline.groundingNote', { verdict: t(`grounding.${jev.verdict}`), probability: jev.supported.toFixed(2) })
+    }
     if (node !== 'check_cache') return null
     const similarity = run.nodes.check_cache?.similarity
     if (similarity === null || similarity === undefined) return null
-    const key = run.cacheHit ? 'pipeline.cacheHitNote' : 'pipeline.cacheNote'
-    return t(key, { similarity: similarity.toFixed(4), threshold: run.threshold ? run.threshold.toFixed(2) : '0.95' })
+    const values = { similarity: similarity.toFixed(4), threshold: run.threshold ? run.threshold.toFixed(2) : '0.95' }
+    if (jev?.same_question !== undefined && !run.cacheHit) return t('pipeline.cacheRejectedNote', { ...values, probability: jev.same_question.toFixed(2) })
+    return t(run.cacheHit ? 'pipeline.cacheHitNote' : 'pipeline.cacheNote', values)
   }
 
   return (
@@ -116,7 +136,7 @@ export default function PipelineDiagram() {
         <span className="pipeline-facts">
           {run.started ? (
             <>
-              <b>{t('pipeline.stepsOf', { done: done.length, total: NODES.length })}</b>
+              <b>{t('pipeline.stepsOf', { done: done.length, total: nodes.length })}</b>
               <b>{formatDuration(totals.ms)}</b>
               <b>{n(totals.tokens)}</b> tok
               {run.restored && <span className="muted"> · {t('pipeline.previous')}</span>}
@@ -126,13 +146,13 @@ export default function PipelineDiagram() {
           )}
         </span>
         <span className="pipeline-track" aria-hidden="true">
-          {NODES.map((node) => (
+          {nodes.map((node) => (
             <span key={node} data-state={trackState(node)} />
           ))}
         </span>
       </summary>
       <ol className="pipeline-steps">
-        {NODES.map((node) => {
+        {nodes.map((node) => {
           const state = run.nodes[node]
           const note = noteFor(node)
           return (

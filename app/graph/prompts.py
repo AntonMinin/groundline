@@ -68,3 +68,43 @@ def answer_messages(question: str, chunks) -> list[dict]:
         {"role": "system", "content": ANSWER_SYSTEM},
         {"role": "user", "content": f"{format_context(chunks)}\n\n{_fence('user_question', question)}"},
     ]
+
+
+JEV_SUFFICIENT = {
+    "type": "noul",
+    "instructions": "Do the `fragments` together contain all the information needed to fully answer `question`?",
+    "criteria": {
+        "true": "Every part of the question can be answered from the fragments alone, without outside knowledge or guessing.",
+        "false": "At least one part of the question is not covered by the fragments, or the fragments are about something else.",
+    },
+}
+
+JEV_SAME_QUESTION = {
+    "type": "noul",
+    "instructions": "Would a correct answer to `stored_question` also be a correct and complete answer to `new_question`?",
+    "criteria": {
+        "true": "Both ask for the same information, only the wording differs.",
+        "false": "They ask about different things, quantities, conditions or entities, so one answer does not fit both.",
+    },
+}
+
+JEV_GROUNDING = {
+    "type": "choice",
+    "instructions": (
+        "How well do the `fragments` support the claims made in `answer`? "
+        "Markers like [1] in the answer cite the fragment with that n."
+    ),
+    "criteria": {
+        "supported": "Every factual claim in the answer is stated in the fragments.",
+        "partially_supported": "Some claims in the answer are stated in the fragments, others are not.",
+        "unsupported": "The main claims in the answer are not stated in the fragments.",
+        "contradicted": "The fragments say the opposite of at least one claim in the answer.",
+        "no_answer": "The answer only says the information is not available and makes no factual claims.",
+    },
+}
+
+
+def jev_fragments(chunks) -> list[dict]:
+    return [
+        {"n": number, "source": _location(chunk), "text": chunk.content} for number, chunk in enumerate(chunks, start=1)
+    ]

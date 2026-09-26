@@ -1,0 +1,52 @@
+{
+  "source": "GitLab Handbook",
+  "repository": "https://gitlab.com/gitlab-com/content-sites/handbook",
+  "license": "CC BY-SA 4.0",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "commit": "f243917f443cae27299d08899b624a9e38e247ab",
+  "output_dir": "gitlab",
+  "api_base": "https://gitlab.com/api/v4",
+  "project": "gitlab-com/content-sites/handbook",
+  "files": [
+    {
+      "path": "content/handbook/people-group/time-off-and-absence/time-off-types.md",
+      "name": "time-off-types.md",
+      "sha256": "7597b2c20fcdfac920bd75045f222afbd462596b0b5a768b6dee90b4ae8f626f"
+    },
+    {
+      "path": "content/handbook/people-group/time-off-and-absence/leave-types.md",
+      "name": "leave-types.md",
+      "sha256": "b956207cc4522d0608e44184255b3360e63b47abe9e70db32c43652efedea87c"
+    },
+    {
+      "path": "content/handbook/total-rewards/benefits/parental-leave-toolkit.md",
+      "name": "parental-leave-toolkit.md",
+      "sha256": "8c6c4fca9d2c67b1f122edd48c027892001f06982b1add587238e1cf09732bb7"
+    },
+    {
+      "path": "content/handbook/total-rewards/benefits/general-and-entity-benefits/_index.md",
+      "name": "general-and-entity-benefits.md",
+      "sha256": "64f3214d794e3447b58f7ea40a4f6c55235d86a032340576a1232216cc3fd6be"
+    },
+    {
+      "path": "content/handbook/finance/expenses.md",
+      "name": "expenses.md",
+      "sha256": "f8e08af030221339d13686bb336b6560fca54803ac19049c94b84dcebb468e82"
+    },
+    {
+      "path": "content/handbook/finance/travel/_index.md",
+      "name": "travel.md",
+      "sha256": "9eb826c1d73b1a8a3d8413e3b0d788a50624bdb3817d80b45cc12e5699b4488f"
+    },
+    {
+      "path": "content/handbook/finance/spending-company-money.md",
+      "name": "spending-company-money.md",
+      "sha256": "d08dca36457b978e0206e65a390fe827c2fd14bbdcfd1913c6e662d1b6c85846"
+    },
+    {
+      "path": "content/handbook/finance/growth-and-development/_index.md",
+      "name": "growth-and-development.md",
+      "sha256": "9d67e42d3e06ee3fdccea6e2614be5f7031571612ded0e88a4b780ad484e80ac"
+    }
+  ]
+}

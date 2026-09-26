@@ -31,6 +31,21 @@ class Settings(BaseSettings):
     rerank_api_model: str = "bge-reranker-v2-m3"
     rerank_api_key: str = ""
 
+    jev_enabled: bool = False
+    jev_provider: Literal["openrouter", "typesafe"] = "openrouter"
+    jev_model: str = "jev-1.13"
+    jev_timeout_critical_ms: int = 1500
+    jev_timeout_ms: int = 2000
+    openrouter_api_key: str = ""
+    typesafe_api_key: str = ""
+    jev_price_per_1m: float = 0.042
+    jev_monthly_budget_usd: float = 1.0
+    jev_sufficient_threshold: float = 0.85
+    jev_cache_verify_from: float = 0.85
+    jev_cache_verify_below: float = 0.97
+    jev_same_question_threshold: float = 0.5
+    jev_grounded_threshold: float = 0.9
+
     preload_models: bool = True
 
     chunk_size: int = 700

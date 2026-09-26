@@ -117,7 +117,7 @@ async def test_turnstile_accepts_a_valid_token(client, sent_codes, monkeypatch):
 
 
 async def test_turnstile_is_skipped_without_a_secret(client, sent_codes):
-    assert (await client.get("/config")).json() == {"turnstile_site_key": ""}
+    assert (await client.get("/config")).json()["turnstile_site_key"] == ""
     assert (await client.post("/auth/request-otp", json={"email": _email(), "accepted_terms": True})).status_code == 202
 
 

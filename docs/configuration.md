@@ -53,6 +53,27 @@ Local and hosted bge-m3 produce the same vectors (identical weights), so switchi
 
 Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwards; existing chunks are not re-cut.
 
+## Jev decisions
+
+[Jev](https://docs.typesafe.ai/concepts/system-one) is a System One model: it returns calibrated probabilities for typed questions and generates no text. Groundline uses it for three decisions (see [How it works → Jev](how-it-works.md#jev-three-fast-decisions)). Every call is fail-open: an error, a timeout or a spent budget means the pipeline behaves exactly as it does without Jev.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `JEV_ENABLED` | `false` | main switch. `false` builds the original seven-step graph, so behaviour is identical to a build without Jev. `true` with no key for the chosen provider also keeps Jev off, with a warning in the log |
+| `JEV_PROVIDER` | `openrouter` | `openrouter` (`POST https://openrouter.ai/api/v1/systemone`, billed to OpenRouter credits) or `typesafe` (`POST https://api.typesafe.ai/v1/systemone`). Same request and response shape. `typesafe` without `TYPESAFE_API_KEY` logs a warning and uses `openrouter` |
+| `OPENROUTER_API_KEY` | - | key for the OpenRouter System One API. Backend only |
+| `TYPESAFE_API_KEY` | - | key for the TypeSafe API. Backend only |
+| `JEV_MODEL` | `jev-1.13` | pinned version, so the thresholds below stay valid when `jev-latest` moves. OpenRouter maps it to `typesafe/jev-1.13` |
+| `JEV_TIMEOUT_CRITICAL_MS` | `1500` | timeout for the two decisions on the path to the answer: the cache check and `jev_sufficiency`. About twice the measured p95 (702 ms, see [Evaluation](evaluation.md)). No retries: a slow Jev falls back instead of delaying the answer |
+| `JEV_TIMEOUT_MS` | `2000` | timeout for `check_grounding`, which runs after `done` and only delays the badge and the cache write. Measured p95 681 ms |
+| `JEV_PRICE_PER_1M` | `0.042` | USD per 1M input tokens, used to price TypeSafe calls. OpenRouter reports the exact `usage.cost` itself |
+| `JEV_MONTHLY_BUDGET_USD` | `1.0` | monthly cap on Jev spend. Unlike DeepInfra, reaching it skips Jev and keeps answering questions |
+| `JEV_SUFFICIENT_THRESHOLD` | `0.85` | Jev's probability that the fragments are enough, at or above which the LLM sufficiency check is skipped. Below it the LLM check runs as before and still writes the `missing` hint for the rewrite |
+| `JEV_CACHE_VERIFY_FROM` | `0.85` | lower end of the range Jev checks. A nearest question between this value and `CACHE_SIMILARITY_THRESHOLD` becomes a hit when Jev says it asks the same thing; if Jev fails it stays a miss, as without Jev |
+| `JEV_CACHE_VERIFY_BELOW` | `0.97` | upper end of the range. A hit from `CACHE_SIMILARITY_THRESHOLD` up to this value is confirmed by Jev before the stored answer is returned; if Jev fails it stays a hit. At or above it the similarity alone decides |
+| `JEV_SAME_QUESTION_THRESHOLD` | `0.5` | Jev's probability that the new and the stored question ask for the same thing, below which a would-be hit becomes a miss |
+| `JEV_GROUNDED_THRESHOLD` | `0.9` | probability of the `supported` verdict at or above which an answer is written to the cache. A Jev failure falls back to the original rule |
+
 ## Quotas and ingestion
 
 | Variable | Default | Purpose |

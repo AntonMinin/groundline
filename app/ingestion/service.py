@@ -9,6 +9,7 @@ from app import guard
 from app.db.models import Chunk, Document, QueryCache
 from app.db.session import tenant_session
 from app.embeddings import embed
+from app.graph.store import bump_documents_version
 from app.ingestion.chunking import chunk_pages
 from app.ingestion.extract import InvalidFileError, extract_pages, extract_pages_from_path
 
@@ -34,6 +35,7 @@ async def _store(user_id: UUID, filename: str, size_bytes: int, pages: list[tupl
             )
             for chunk, vector in zip(chunks, vectors)
         )
+        await bump_documents_version(session, user_id)
         await session.execute(delete(QueryCache).where(QueryCache.user_id == user_id))
         await session.commit()
         return document

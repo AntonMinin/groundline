@@ -88,7 +88,7 @@ async def check_all(spacing: float | None = None) -> dict[str, float | None]:
     gap = settings.limits_check_spacing_seconds if spacing is None else spacing
     results: dict[str, float | None] = {}
     for quota in limits.QUOTAS:
-        if limits.limit_of(quota) is None:
+        if limits.limit_of(quota) is None or not quota.checkable:
             continue
         if results and gap > 0:
             await asyncio.sleep(gap)

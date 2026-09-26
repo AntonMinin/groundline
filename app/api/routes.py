@@ -15,14 +15,14 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import delete, func, select
 
-from app import events, guard, limits, ratelimit
+from app import events, guard, jev, limits, ratelimit
 from app.auth import service as auth
 from app.auth.deps import ConsentedUser, CurrentUser, Session, require_csrf
 from app.config import settings
 from app.db.models import Document, IngestJob, OtpCode, QueryCache, QueryLog, ServiceUsage, User
 from app.db.session import tenant_session
 from app.graph import store
-from app.graph.pipeline import run_query
+from app.graph.pipeline import node_names, run_query
 from app.ingestion import jobs
 from app.ingestion.extract import check_extension
 from app.retrieval.search import user_has_chunks
@@ -100,7 +100,7 @@ async def health() -> dict:
 
 @router.get("/config")
 async def public_config() -> dict:
-    return {"turnstile_site_key": settings.turnstile_site_key}
+    return {"turnstile_site_key": settings.turnstile_site_key, "pipeline_nodes": node_names(jev.enabled())}
 
 
 @router.post("/auth/request-otp", status_code=status.HTTP_202_ACCEPTED)
@@ -303,6 +303,7 @@ async def list_documents(user: ConsentedUser) -> list[DocumentOut]:
 @router.delete("/documents", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_all_documents(user: ConsentedUser) -> None:
     async with tenant_session(user.id) as session:
+        await store.bump_documents_version(session, user.id)
         await session.execute(delete(Document).where(Document.user_id == user.id))
         await session.execute(delete(QueryCache).where(QueryCache.user_id == user.id))
         await session.commit()
@@ -330,6 +331,7 @@ async def delete_document(document_id: UUID, user: ConsentedUser) -> None:
         )
         if result.rowcount == 0:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+        await store.bump_documents_version(session, user.id)
         await session.execute(delete(QueryCache).where(QueryCache.user_id == user.id))
         await session.commit()
 

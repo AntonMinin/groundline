@@ -32,6 +32,7 @@ class Quota:
     paid: bool = False
     enforced: bool = False
     note: str = ""
+    checkable: bool = True
 
 
 QUOTAS = (
@@ -70,6 +71,21 @@ QUOTAS = (
         paid=True,
         enforced=True,
         note="Prepaid balance, not a free tier: embedding tokens priced at DEEPINFRA_PRICE_PER_1M",
+    ),
+    Quota(
+        key="jev.spend_per_month",
+        service="Jev",
+        title="Spend",
+        limit=None,
+        period="month",
+        source="local",
+        unit="usd",
+        pricing_url="https://openrouter.ai/typesafe/jev-1.13",
+        paid=True,
+        enforced=True,
+        checkable=False,
+        note="Prepaid credits, not a free tier: usage.cost from OpenRouter, or input tokens at JEV_PRICE_PER_1M from TypeSafe. "
+        "Jev is skipped, not the query, when JEV_MONTHLY_BUDGET_USD is spent",
     ),
     Quota(
         key="pinecone.rerank_units_per_month",
@@ -204,6 +220,8 @@ def applies(quota: Quota) -> bool:
         return settings.embedding_provider == "api"
     if quota.key.startswith("pinecone."):
         return settings.rerank_provider == "api"
+    if quota.key.startswith("jev."):
+        return settings.jev_enabled
     if quota.key.startswith("upstash."):
         return ratelimit.enabled()
     if quota.key.startswith("turnstile."):
@@ -216,6 +234,8 @@ def applies(quota: Quota) -> bool:
 def limit_of(quota: Quota) -> float | None:
     if quota.key == "deepinfra.spend_per_month":
         return settings.deepinfra_monthly_budget_usd
+    if quota.key == "jev.spend_per_month":
+        return settings.jev_monthly_budget_usd
     return quota.limit
 
 

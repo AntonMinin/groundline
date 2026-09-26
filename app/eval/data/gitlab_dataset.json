@@ -1,0 +1,605 @@
+[
+  {
+    "question": "How many paid sick days can a team member use?",
+    "reference": "Each team member may use up to 25 paid sick days, available from their first day of work; eligibility is calculated on a rolling 12-month period.",
+    "kind": "single",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "time-off-types.md",
+        "section": "Sick Time / Sick Time Eligibility and Coverage"
+      }
+    ]
+  },
+  {
+    "question": "How much notice should I give my manager before taking PTO?",
+    "reference": "As much notice as possible, but at least twice as many days as the planned time off, for example 6 business days of notice for 3 days off.",
+    "kind": "single",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "time-off-types.md",
+        "section": "Flexible Paid Time Off (PTO) / PTO Protocols (Planning and Coordination)"
+      }
+    ]
+  },
+  {
+    "question": "Up to what amount per night are hotel stays reimbursed?",
+    "reference": "Hotel stays are reimbursable up to 300 USD (or local equivalent) per night including tax for standard rooms, with a 7 day booking lead time; Navan's dynamic policy can allow more where 300 USD is unrealistic, and bookings over 20% of the dynamic policy are flagged for manager review.",
+    "kind": "single",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "expenses.md",
+        "section": "4.1 Travel related expenses / Hotels"
+      }
+    ]
+  },
+  {
+    "question": "What home office stipend do new hires get?",
+    "reference": "New hires receive a 1,500 USD (or local equivalent) stipend to set up their home office in their first year; they buy the items with their own funds and claim them in Navan under Work From Home - New Hire Stipend.",
+    "kind": "single",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "expenses.md",
+        "section": "Equipment / New Hires- 1,500 USD Guidelines"
+      }
+    ]
+  },
+  {
+    "question": "How long is GitLab's paid parental leave and by when does it have to be used?",
+    "reference": "GitLab provides 16 weeks of paid parental leave, which must be used before the child's first birthday or the first anniversary of the adoption.",
+    "kind": "single",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "leave-types.md",
+        "section": "GitLab Parental Leave / Eligibility, Entitlement and Planning Your Leave"
+      }
+    ]
+  },
+  {
+    "question": "What is the daily limit for my own meals while traveling on company business?",
+    "reference": "Meals while traveling on company business are reimbursable up to 120 USD (or local equivalent) per day; tips up to 20% are acceptable and count toward the limit.",
+    "kind": "single",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "expenses.md",
+        "section": "Meals: Company Provided while Traveling"
+      }
+    ]
+  },
+  {
+    "question": "How much life insurance does GitLab provide where no local life insurance exists?",
+    "reference": "Where local life insurance benefits are not available, GitLab provides 20,000 USD of life insurance coverage payable to a beneficiary the team member chooses.",
+    "kind": "single",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "general-and-entity-benefits.md",
+        "section": "Financial Security & Professional Growth / Life Insurance Coverage"
+      }
+    ]
+  },
+  {
+    "question": "How long does the CFO Shadow Program rotation last?",
+    "reference": "The CFO Shadow Program rotation runs over 2 weeks, with the shadow attending meetings with the CFO 3 days per week, Tuesday to Thursday.",
+    "kind": "single",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "growth-and-development.md",
+        "section": "CFO Shadow Program"
+      }
+    ]
+  },
+  {
+    "question": "Which countries am I not allowed to take a company laptop to?",
+    "reference": "US-embargoed countries and regions: Cuba, Iran, North Korea, Syria and the Crimea, Donetsk and Luhansk regions of Ukraine, plus Russia and Belarus; the list can change without notice.",
+    "kind": "single",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "travel.md",
+        "section": "Trade Compliance Considerations"
+      }
+    ]
+  },
+  {
+    "question": "What is the reimbursement limit for a co-working space?",
+    "reference": "A monthly co-working space is reimbursable up to 700 USD per month and needs pre-approval; daily office passes are limited to 100 USD per day, and up to 5 one-off days a month need no manager or finance approval.",
+    "kind": "single",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "expenses.md",
+        "section": "Co-Working Space - Monthly"
+      },
+      {
+        "doc": "expenses.md",
+        "section": "Co-Working Space - Daily Office Pass"
+      }
+    ]
+  },
+  {
+    "question": "I want extra time off after my parental leave and help planning coverage. What are my options?",
+    "reference": "After parental leave you can add Flexible PTO in coordination with your manager, giving double the notice of the time requested and recording it in Workday. For coverage planning, Parentaly offers templates and 3-9 sessions with a Parentaly Expert before and after the leave, funded from the Growth and Development Fund; sign up 2-3 months before the leave.",
+    "kind": "multi",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "leave-types.md",
+        "section": "GitLab Parental Leave / Supplement with Paid Time Off"
+      },
+      {
+        "doc": "general-and-entity-benefits.md",
+        "section": "Family Benefits / Parental Leave Support: Parentaly"
+      }
+    ]
+  },
+  {
+    "question": "What does the business travel insurance cover for emergency medical costs, and how long can a trip be?",
+    "reference": "The two pages disagree. The travel page lists emergency medical up to 250,000 USD per occurrence and coverage for trips of less than 180 days. The benefits page (Chubb policy) lists out-of-country medical expenses up to 250,000 USD per occurrence, an emergency medical benefit up to 10,000 USD, and coverage for trips up to 365 days.",
+    "kind": "multi",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "travel.md",
+        "section": "Business Travel Insurance Coverage / Key Coverage Details"
+      },
+      {
+        "doc": "general-and-entity-benefits.md",
+        "section": "Travel, Community & Support / Business Travel Accident Policy Details"
+      }
+    ]
+  },
+  {
+    "question": "How much can I spend on my professional development, for example conferences and books?",
+    "reference": "The Growth and Development Fund provides up to 10,000 USD per year (January 1 to December 31) for career development. Conference costs are reimbursable with an approved G&D issue, and travel to the conference needs manager approval because it is not part of the G&D limits. Books are reimbursable up to 60 USD per year.",
+    "kind": "multi",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "general-and-entity-benefits.md",
+        "section": "Growth and Development Fund"
+      },
+      {
+        "doc": "expenses.md",
+        "section": "Conferences"
+      },
+      {
+        "doc": "expenses.md",
+        "section": "Books (Audio/E-Books included)"
+      }
+    ]
+  },
+  {
+    "question": "Do unused public holidays or an unused home office refresh roll over to next year?",
+    "reference": "Neither does. The public holiday balance must be used within the calendar year and does not roll over, and the yearly 500 USD home office refresh resets on January 1 with unused funds not rolling over.",
+    "kind": "multi",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "time-off-types.md",
+        "section": "Public Holiday / Overview"
+      },
+      {
+        "doc": "expenses.md",
+        "section": "Existing Team Members- 500 USD Refresh Guidelines"
+      }
+    ]
+  },
+  {
+    "question": "If I lose a family member, how much time can I take off and what support does GitLab offer?",
+    "reference": "Bereavement leave falls under Flexible PTO with no set limit, is paid at 100% of weekly wages and needs no proof of loss; beyond 25 calendar days you ask your manager, People Business Partner and the Absence Management Team for an extension. Support includes Modern Health counseling and, since 2026-01-01, Bereave support benefits accessed through Okta.",
+    "kind": "multi",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "time-off-types.md",
+        "section": "Bereavement"
+      },
+      {
+        "doc": "general-and-entity-benefits.md",
+        "section": "Bereave Support Benefits"
+      }
+    ]
+  },
+  {
+    "question": "Can I keep expensing my home internet while I am on parental leave?",
+    "reference": "No. Work-related expenses such as internet, co-working space and other monthly subscriptions are not reimbursable while on leave of any kind, and during parental leave no work is required.",
+    "kind": "multi",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "expenses.md",
+        "section": "3. General Guidelines"
+      },
+      {
+        "doc": "leave-types.md",
+        "section": "GitLab Parental Leave / No Work Required During Your Leave"
+      }
+    ]
+  },
+  {
+    "question": "What percentage does GitLab match on 401(k) contributions?",
+    "reference": "These documents do not state a 401(k) match; entity-specific benefits are on separate pages.",
+    "kind": "unanswerable",
+    "lang": "en",
+    "sources": []
+  },
+  {
+    "question": "Is there a paid sabbatical after five years at GitLab?",
+    "reference": "These documents do not describe a sabbatical policy.",
+    "kind": "unanswerable",
+    "lang": "en",
+    "sources": []
+  },
+  {
+    "question": "How much does GitLab contribute to health insurance premiums in Germany?",
+    "reference": "These documents do not give German health insurance contributions; they point to the entity-specific GmbH page.",
+    "kind": "unanswerable",
+    "lang": "en",
+    "sources": []
+  },
+  {
+    "question": "How is overtime paid at GitLab?",
+    "reference": "These documents do not describe overtime pay.",
+    "kind": "unanswerable",
+    "lang": "en",
+    "sources": []
+  },
+  {
+    "question": "Do I need a doctor's note for a three-day sick absence?",
+    "reference": "No. For sick absences shorter than 6 consecutive days no sick note is needed, unless local statutory reporting requirements say otherwise; you notify your manager and record Out Sick in Workday.",
+    "kind": "distractor",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "time-off-types.md",
+        "section": "Sick Time / For Sick Absences 1-5 Consecutive Days"
+      }
+    ]
+  },
+  {
+    "question": "How far in advance do I have to book a rental car?",
+    "reference": "Rental cars are booked through Navan up to the intermediate car class with a 7 day booking lead time.",
+    "kind": "distractor",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "expenses.md",
+        "section": "Car Rental"
+      }
+    ]
+  },
+  {
+    "question": "From how many days does caring for a sick family member count as a leave of absence?",
+    "reference": "Caregiver sick absences of 6 days or longer are a leave of absence; for absences under 5 consecutive days no documentation is needed unless statutory rules require it.",
+    "kind": "distractor",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "time-off-types.md",
+        "section": "Caregiver Sick Time / Reporting Procedures"
+      },
+      {
+        "doc": "leave-types.md",
+        "section": "Caregiving Sick Leave"
+      }
+    ]
+  },
+  {
+    "question": "Can I expense a gift for a colleague's new baby?",
+    "reference": "No. Baby gifts are not reimbursable because GitLab already sends a new parent gift; other qualified gifts for significant life events are capped at 125 USD.",
+    "kind": "distractor",
+    "lang": "en",
+    "sources": [
+      {
+        "doc": "expenses.md",
+        "section": "Team Member Significant Life Events and Team Member Gifts"
+      }
+    ]
+  },
+  {
+    "question": "Сколько оплачиваемых дней по болезни положено сотруднику?",
+    "reference": "До 25 оплачиваемых дней по болезни с первого дня работы, считаются за скользящие 12 месяцев.",
+    "kind": "single",
+    "lang": "ru",
+    "sources": [
+      {
+        "doc": "time-off-types.md",
+        "section": "Sick Time / Sick Time Eligibility and Coverage"
+      }
+    ]
+  },
+  {
+    "question": "Какой лимит на компенсацию домашнего интернета в месяц?",
+    "reference": "100 USD в месяц; сверх этой суммы не возмещается, нужен детализированный счёт, оборудование и подключение не компенсируются.",
+    "kind": "single",
+    "lang": "ru",
+    "sources": [
+      {
+        "doc": "expenses.md",
+        "section": "Internet"
+      }
+    ]
+  },
+  {
+    "question": "Сколько длится оплачиваемый отпуск по уходу за ребёнком и какую помощь дают при подготовке к нему?",
+    "reference": "16 недель оплачиваемого отпуска, использовать до первого дня рождения ребёнка; программа Parentaly даёт шаблоны и 3-9 сессий с экспертом, оплачивается из фонда Growth and Development.",
+    "kind": "multi",
+    "lang": "ru",
+    "sources": [
+      {
+        "doc": "leave-types.md",
+        "section": "GitLab Parental Leave / Eligibility, Entitlement and Planning Your Leave"
+      },
+      {
+        "doc": "general-and-entity-benefits.md",
+        "section": "Family Benefits / Parental Leave Support: Parentaly"
+      }
+    ]
+  },
+  {
+    "question": "Нужна ли справка от врача, если я болел три дня?",
+    "reference": "Нет, при болезни меньше 6 дней подряд справка не нужна, если местные требования не требуют иного.",
+    "kind": "distractor",
+    "lang": "ru",
+    "sources": [
+      {
+        "doc": "time-off-types.md",
+        "section": "Sick Time / For Sick Absences 1-5 Consecutive Days"
+      }
+    ]
+  },
+  {
+    "question": "Какой размер годовой премии у инженеров?",
+    "reference": "В этих документах размер премий не указан.",
+    "kind": "unanswerable",
+    "lang": "ru",
+    "sources": []
+  },
+  {
+    "question": "How many paid sick days do I get?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "sick-days",
+    "role": "anchor",
+    "doc": "time-off-types.md"
+  },
+  {
+    "question": "What is the maximum number of paid sick days I can take in a year?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "sick-days",
+    "role": "paraphrase",
+    "doc": "time-off-types.md"
+  },
+  {
+    "question": "How many paid caregiver sick days do I get?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "sick-days",
+    "role": "different",
+    "doc": "time-off-types.md"
+  },
+  {
+    "question": "How much notice do I need to give before taking PTO?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "pto-notice",
+    "role": "anchor",
+    "doc": "time-off-types.md"
+  },
+  {
+    "question": "How far ahead should I tell my manager about planned vacation days?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "pto-notice",
+    "role": "paraphrase",
+    "doc": "time-off-types.md"
+  },
+  {
+    "question": "How much notice do I need to give before taking military leave?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "pto-notice",
+    "role": "different",
+    "doc": "time-off-types.md"
+  },
+  {
+    "question": "What is the nightly limit for hotel stays on business trips?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "hotel",
+    "role": "anchor",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "How much can I spend per night on a hotel when I travel for work?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "hotel",
+    "role": "paraphrase",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "What is the daily limit for meals on business trips?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "hotel",
+    "role": "different",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "How big is the home office stipend for new hires?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "stipend",
+    "role": "anchor",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "How much money do new employees get to set up their home office?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "stipend",
+    "role": "paraphrase",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "How big is the yearly home office refresh for existing team members?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "stipend",
+    "role": "different",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "How many weeks of paid parental leave does GitLab offer?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "parental",
+    "role": "anchor",
+    "doc": "leave-types.md"
+  },
+  {
+    "question": "How long is the paid leave for new parents?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "parental",
+    "role": "paraphrase",
+    "doc": "leave-types.md"
+  },
+  {
+    "question": "How many months of unpaid military leave can I take?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "parental",
+    "role": "different",
+    "doc": "leave-types.md"
+  },
+  {
+    "question": "What is the monthly cap for home internet reimbursement?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "internet",
+    "role": "anchor",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "How much of my home internet bill can I expense each month?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "internet",
+    "role": "paraphrase",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "What is the monthly cap for phone service reimbursement?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "internet",
+    "role": "different",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "What is the monthly limit for a co-working space?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "coworking",
+    "role": "anchor",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "How much can I expense for a co-working membership per month?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "coworking",
+    "role": "paraphrase",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "What is the daily limit for a co-working day pass?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "coworking",
+    "role": "different",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "How long can a business trip be for the travel insurance to apply?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "travel-insurance",
+    "role": "anchor",
+    "doc": "travel.md / general-and-entity-benefits.md"
+  },
+  {
+    "question": "What is the maximum trip length covered by the business travel insurance?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "travel-insurance",
+    "role": "paraphrase",
+    "doc": "travel.md / general-and-entity-benefits.md"
+  },
+  {
+    "question": "How much lost baggage does the business travel insurance cover?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "travel-insurance",
+    "role": "different",
+    "doc": "travel.md / general-and-entity-benefits.md"
+  },
+  {
+    "question": "How many days of bereavement leave can I take?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "bereavement",
+    "role": "anchor",
+    "doc": "time-off-types.md"
+  },
+  {
+    "question": "Is there a limit on how long bereavement leave can be?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "bereavement",
+    "role": "paraphrase",
+    "doc": "time-off-types.md"
+  },
+  {
+    "question": "How many days of jury duty leave are paid?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "bereavement",
+    "role": "different",
+    "doc": "time-off-types.md"
+  },
+  {
+    "question": "How far ahead do I have to book a rental car?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "rental-car",
+    "role": "anchor",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "What is the booking lead time for rental cars?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "rental-car",
+    "role": "paraphrase",
+    "doc": "expenses.md"
+  },
+  {
+    "question": "How far ahead do I have to book a domestic flight?",
+    "kind": "cache_pair",
+    "lang": "en",
+    "pair": "rental-car",
+    "role": "different",
+    "doc": "expenses.md"
+  }
+]

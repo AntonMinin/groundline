@@ -40,6 +40,11 @@ function Meta({ message }) {
           : t('chat.cacheMiss')}
       </span>
       {message.durationMs !== undefined && <span className="num">{message.durationMs >= 1000 ? `${(message.durationMs / 1000).toFixed(2)} s` : `${message.durationMs} ms`}</span>}
+      {message.grounding && (
+        <span className="tag" data-grounding={message.grounding.verdict}>
+          {t('chat.grounding', { verdict: t(`grounding.${message.grounding.verdict}`) })}
+        </span>
+      )}
       <span className="num">
         {message.cacheHit
           ? t('chat.saved', { tokens: n(message.tokensSaved ?? 0) })
@@ -58,7 +63,10 @@ function toMessage(row) {
     tokensUsed: row.tokens_used,
     tokensSaved: row.tokens_saved,
     similarity: row.node_metrics?.find((metric) => metric.node === 'check_cache')?.similarity,
-    durationMs: row.node_metrics?.reduce((sum, metric) => sum + (metric.duration_ms ?? 0), 0),
+    durationMs: row.node_metrics
+      ?.filter((metric) => metric.node !== 'check_grounding')
+      .reduce((sum, metric) => sum + (metric.duration_ms ?? 0), 0),
+    grounding: row.node_metrics?.find((metric) => metric.node === 'check_grounding' && metric.jev?.verdict)?.jev,
   }
 }
 
@@ -101,6 +109,8 @@ export default function Chat({ initial, onAnswered }) {
     try {
       for await (const evt of api.query(text)) {
         if (evt.type === 'token') update((m) => ({ answer: m.answer + evt.text }))
+        if (evt.type === 'grounding') update(() => ({ grounding: evt }))
+        if (evt.type === 'done') setBusy(false)
         if (evt.type === 'done')
           update(() => ({
             sources: evt.sources,
