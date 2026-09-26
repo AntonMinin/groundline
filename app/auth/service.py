@@ -171,15 +171,25 @@ async def accept_terms(session: AsyncSession, user: User) -> User:
     return user
 
 
-def create_token(user_id: uuid.UUID) -> str:
+def create_token(user_id: uuid.UUID, version: int = 0) -> str:
     now = datetime.now(UTC)
-    payload = {"sub": str(user_id), "iat": now, "exp": now + timedelta(minutes=settings.jwt_ttl_minutes)}
+    payload = {
+        "sub": str(user_id),
+        "ver": version,
+        "iat": now,
+        "exp": now + timedelta(minutes=settings.jwt_ttl_minutes),
+    }
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
-def decode_token(token: str) -> uuid.UUID:
+def decode_token(token: str) -> tuple[uuid.UUID, int]:
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
-        return uuid.UUID(payload["sub"])
-    except (jwt.PyJWTError, KeyError, ValueError) as exc:
+        return uuid.UUID(payload["sub"]), int(payload.get("ver", 0))
+    except (jwt.PyJWTError, KeyError, ValueError, TypeError) as exc:
         raise AuthError("Invalid token") from exc
+
+
+async def revoke_sessions(session: AsyncSession, user_id: uuid.UUID) -> None:
+    await session.execute(update(User).where(User.id == user_id).values(token_version=User.token_version + 1))
+    await session.commit()

@@ -36,6 +36,7 @@ class User(Base):
     terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     terms_version: Mapped[str | None] = mapped_column(Text, nullable=True)
     role: Mapped[str] = mapped_column(Text, default="user", server_default="user")
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 class OtpCode(Base):

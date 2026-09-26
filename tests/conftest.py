@@ -106,10 +106,10 @@ async def client(migrated_db):
         yield http
 
 
-def auth_headers(user_id) -> dict:
+def auth_headers(user_id, version: int = 0) -> dict:
     from app.auth.service import create_token
 
-    return {"Cookie": f"groundline_session={create_token(user_id)}"}
+    return {"Cookie": f"groundline_session={create_token(user_id, version)}"}
 
 
 def fake_embedding(seed: int) -> list[float]:

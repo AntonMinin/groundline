@@ -139,13 +139,25 @@ async def verify_otp(body: VerifyIn, session: Session, response: Response) -> Us
     except auth.TermsNotAcceptedError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     response.set_cookie(
-        settings.cookie_name, auth.create_token(user.id), max_age=settings.jwt_ttl_minutes * 60, **_cookie_options()
+        settings.cookie_name,
+        auth.create_token(user.id, user.token_version),
+        max_age=settings.jwt_ttl_minutes * 60,
+        **_cookie_options(),
     )
     return _user_out(user)
 
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(response: Response) -> None:
+async def logout(request: Request, session: Session, response: Response) -> None:
+    token = request.cookies.get(settings.cookie_name)
+    if token:
+        try:
+            user_id, version = auth.decode_token(token)
+        except auth.AuthError:
+            user_id = None
+        user = await session.get(User, user_id) if user_id else None
+        if user is not None and user.token_version == version:
+            await auth.revoke_sessions(session, user.id)
     response.delete_cookie(settings.cookie_name, **_cookie_options())
 
 

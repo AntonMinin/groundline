@@ -26,11 +26,11 @@ async def current_user(request: Request, session: Session) -> User:
     if not token:
         raise unauthorized
     try:
-        user_id = decode_token(token)
+        user_id, version = decode_token(token)
     except AuthError:
         raise unauthorized
     user = await session.get(User, user_id)
-    if user is None:
+    if user is None or user.token_version != version:
         raise unauthorized
     return user
 
