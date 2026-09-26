@@ -85,6 +85,7 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | `MAX_PDF_PAGES` | `500` | pages per PDF, checked before any text is extracted |
 | `QUERIES_PER_DAY` | `50` | per user, rolling 24 hours; cache hits are not counted |
 | `USER_TOKENS_PER_DAY` | `12500` | Groq tokens per user per UTC day, as Groq counts them (`usage.total_tokens`, including the chat template and reasoning tokens). Checked before every LLM call, so a person can overshoot by one call at most: 12 500 + the largest prompt (~5 200) + `LLM_MAX_OUTPUT_TOKENS` stays under 10% of the 200 000-token free tier. `0` disables it. Accounts with the `eval` or `admin` role are exempt but still counted |
+| `QUESTION_TOKEN_ESTIMATE` | `4500` | a new question starts only while the person's budget has at least this much left, so a question is not refused halfway, at the answer. A question over five full fragments measured 8 269 Groq tokens and 3 requests without Jev, about 4 300 tokens when Jev skips the LLM sufficiency check |
 | `USER_REQUESTS_PER_DAY` | `100` | Groq requests per user per UTC day, checked before every call - 10% of the 1 000-request free tier |
 | `GROQ_RESERVE_TOKENS` | `20000` | a new question (cache miss) is refused while fewer than this many tokens of the shared daily budget are left, so questions already running can finish |
 | `GROQ_RESERVE_REQUESTS` | `20` | the same reserve for requests |

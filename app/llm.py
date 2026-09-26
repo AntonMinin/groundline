@@ -56,6 +56,16 @@ async def _admit(model: str) -> None:
     await limits.ensure_personal("groq.requests_per_day", subject, settings.user_requests_per_day)
 
 
+async def ensure_room_for_question() -> None:
+    current = _caller.get()
+    budget = settings.user_tokens_per_day
+    if current is None or current[1] or budget <= 0:
+        return
+    await limits.ensure_personal(
+        "groq.tokens_per_day", str(current[0]), max(budget - settings.question_token_estimate, 1)
+    )
+
+
 async def _record(model: str, usage, messages: list[dict], completion: str) -> None:
     tokens = usage.total_tokens if usage and usage.total_tokens else messages_tokens(messages) + count_tokens(completion)
     _spent.set(_spent.get() + tokens)

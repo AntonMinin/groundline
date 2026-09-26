@@ -162,3 +162,17 @@ async def test_a_spent_embedding_budget_stops_paid_embeddings_before_the_call(co
     with pytest.raises(limits.LimitExceeded):
         await embeddings.embed(["question"])
     assert called == []
+
+
+async def test_a_question_starts_only_with_room_for_a_typical_one(counters, groq, monkeypatch):
+    monkeypatch.setattr(settings, "user_tokens_per_day", 12_500)
+    monkeypatch.setattr(settings, "question_token_estimate", 4_500)
+    user = uuid.uuid4()
+    with llm.caller(user):
+        await limits.add("groq.tokens_per_day", 7_900, subject=str(user))
+        await llm.ensure_room_for_question()
+        await limits.add("groq.tokens_per_day", 200, subject=str(user))
+        with pytest.raises(limits.LimitExceeded):
+            await llm.ensure_room_for_question()
+    with llm.caller(user, exempt=True):
+        await llm.ensure_room_for_question()

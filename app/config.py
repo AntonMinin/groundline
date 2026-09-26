@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     queries_per_day: int = 50
     user_tokens_per_day: int = 12_500
     user_requests_per_day: int = 100
+    question_token_estimate: int = 4_500
     groq_reserve_tokens: int = 20_000
     groq_reserve_requests: int = 20
     uploads_per_day: int = 5

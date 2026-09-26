@@ -136,6 +136,7 @@ async def rewrite_query(state: QueryState) -> QueryState:
     if state["attempt"] == 0:
         await limits.ensure_headroom("groq.tokens_per_day", settings.groq_reserve_tokens)
         await limits.ensure_headroom("groq.requests_per_day", settings.groq_reserve_requests)
+        await llm.ensure_room_for_question()
     messages = prompts.rewrite_messages(state["question"], state.get("query"), state.get("missing"))
     before = llm.spent()
     rewritten = guard.clamp(await llm.complete("rewrite_query", messages)) or state["question"]
