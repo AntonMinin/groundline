@@ -80,6 +80,7 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | --- | --- | --- |
 | `MAX_UPLOAD_MB` | `0.3` | per-file limit in megabytes, enforced while the upload is being read. Fractions are allowed, so `0.3` caps a file at about 300 KB |
 | `QUERIES_PER_DAY` | `50` | per user, rolling 24 hours; cache hits are not counted |
+| `USER_TOKENS_PER_DAY` | `20000` | language-model tokens per user, rolling 24 hours, summed from `query_log.tokens_used`. Keeps one account from spending the shared Groq daily quota for everyone. `0` disables it. Accounts with the `eval` or `admin` role are exempt |
 | `QUERY_MIN_INTERVAL_SECONDS` | `15` | shortest gap between two questions from one user. `0` disables it |
 | `MAX_DOCUMENTS` | `1` | per user. At the limit `/ingest` answers `429` and the document has to be deleted first |
 | `MAX_STORAGE_MB` | `200` | total uploaded bytes per user |

@@ -100,6 +100,12 @@ export GROUNDLINE_SESSION=...   # the groundline_session cookie value after logg
 python app/eval/run_eval.py app/eval/data/dataset.json --docs app/eval/data/handbook.md
 ```
 
+The evaluation account needs the `eval` role, because `use_cache=false` and running many questions past the per-user token budget are refused for ordinary accounts:
+
+```sql
+UPDATE users SET role = 'eval' WHERE email = 'eval@example.com';
+```
+
 The dataset is a JSON list of `{question, reference}`. The script uploads the documents and **waits for indexing to finish** - `/ingest` only queues the work, so it polls `/jobs/{id}` until the job reports `done` and fails loudly if it reports `error`. Then it sends every question with `use_cache=false` (so it measures the pipeline, not the cache), and reports faithfulness, context precision, context recall and answer correctness per question and on average, writing `eval_results.json`.
 
 What the metrics mean in practice: **faithfulness** drops when the answer states something the retrieved fragments do not support (hallucination), **context recall** drops when retrieval missed the fragment that held the answer, and **context precision** drops when the top-5 is padded with irrelevant chunks - that is, low recall points at search, low precision at the reranker, low faithfulness at the prompt.

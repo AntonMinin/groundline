@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     ingest_queue_size: int = 100
 
     queries_per_day: int = 50
+    user_tokens_per_day: int = 20_000
     query_min_interval_seconds: int = 15
     max_documents: int = 1
     max_storage_mb: int = 200

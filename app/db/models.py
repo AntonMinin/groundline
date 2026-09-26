@@ -35,6 +35,7 @@ class User(Base):
     created_at: Mapped[datetime] = _created_at()
     terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     terms_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    role: Mapped[str] = mapped_column(Text, default="user", server_default="user")
 
 
 class OtpCode(Base):

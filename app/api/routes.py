@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import tempfile
+import time
 from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
@@ -33,6 +34,10 @@ UPLOAD_CHUNK_BYTES = 1024 * 1024
 MAX_FILENAME_CHARS = Document.filename.type.length
 MAX_IDEMPOTENCY_KEY_CHARS = IngestJob.idempotency_key.type.length
 MAX_EMAIL_CHARS = limits.MAX_SUBJECT_CHARS
+TRUSTED_ROLES = {"eval", "admin"}
+ANSWERING_STALE_SECONDS = 600
+
+_answering: dict[UUID, float] = {}
 
 Email = Annotated[EmailStr, Field(max_length=MAX_EMAIL_CHARS)]
 
@@ -424,19 +429,46 @@ async def _ensure_question_spacing(user_id: UUID) -> None:
         )
 
 
-@router.post("/query")
-async def query(body: QueryIn, user: ConsentedUser) -> StreamingResponse:
+def _claim_answering(user_id: UUID) -> None:
+    now = time.monotonic()
+    started = _answering.get(user_id)
+    if started is not None and now - started < ANSWERING_STALE_SECONDS:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, "A question is already being answered, wait for it to finish."
+        )
+    _answering[user_id] = now
+
+
+async def _check_query_limits(user: User) -> None:
     async with tenant_session(user.id) as session:
         if not await user_has_chunks(session, user.id):
             raise HTTPException(status.HTTP_409_CONFLICT, "No documents uploaded yet")
     await _ensure_question_spacing(user.id)
-    if (await store.usage(user.id))["queries_last_24h"] >= settings.queries_per_day:
+    usage = await store.usage(user.id)
+    if usage["queries_last_24h"] >= settings.queries_per_day:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Daily limit of {settings.queries_per_day} queries reached")
-    stream = run_query(user.id, body.question, use_cache=body.use_cache)
+    budget = settings.user_tokens_per_day
+    if user.role not in TRUSTED_ROLES and budget > 0 and usage["tokens_last_24h"] >= budget:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, f"Daily limit of {budget:,} language-model tokens reached"
+        )
+
+
+@router.post("/query")
+async def query(body: QueryIn, user: ConsentedUser) -> StreamingResponse:
+    if not body.use_cache and user.role not in TRUSTED_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only evaluation accounts can bypass the answer cache")
+    _claim_answering(user.id)
     try:
-        first = await anext(stream)
+        await _check_query_limits(user)
+        stream = run_query(user.id, body.question, use_cache=body.use_cache)
+        try:
+            first = await anext(stream)
+        except BaseException:
+            await stream.aclose()
+            raise
     except BaseException:
-        await stream.aclose()
+        _answering.pop(user.id, None)
         raise
 
     async def body_stream():
@@ -447,6 +479,7 @@ async def query(body: QueryIn, user: ConsentedUser) -> StreamingResponse:
         except Exception as exc:
             yield _sse(_stream_error(exc))
         finally:
+            _answering.pop(user.id, None)
             await stream.aclose()
             await limits.publish_snapshot()
 

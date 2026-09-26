@@ -140,14 +140,16 @@ async def usage(user_id: UUID) -> dict:
                 select(func.count(), func.coalesce(func.sum(Document.size_bytes), 0)).where(Document.user_id == user_id)
             )
         ).one()
-        queries = await session.scalar(
-            select(func.count()).where(
-                QueryLog.user_id == user_id,
-                QueryLog.cache_hit.is_(False),
-                QueryLog.created_at > func.now() - timedelta(days=1),
+        queries, tokens = (
+            await session.execute(
+                select(func.count(), func.coalesce(func.sum(QueryLog.tokens_used), 0)).where(
+                    QueryLog.user_id == user_id,
+                    QueryLog.cache_hit.is_(False),
+                    QueryLog.created_at > func.now() - timedelta(days=1),
+                )
             )
-        )
-    return {"documents": documents, "storage_bytes": storage, "queries_last_24h": queries}
+        ).one()
+    return {"documents": documents, "storage_bytes": storage, "queries_last_24h": queries, "tokens_last_24h": tokens}
 
 
 async def query_stats(user_id: UUID) -> dict:

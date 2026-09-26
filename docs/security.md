@@ -91,6 +91,8 @@ The `connect-src` origin is derived from `VITE_API_URL`, not written by hand, so
 | Limit | Default | Where |
 | --- | --- | --- |
 | Queries per day (cache hits excluded) | 50 | `QUERIES_PER_DAY` |
+| Language-model tokens per day (cache hits excluded) | 20 000 | `USER_TOKENS_PER_DAY` |
+| Questions being answered at once, per user | 1 | fixed |
 | Gap between two questions from one user | 15 s | `QUERY_MIN_INTERVAL_SECONDS` |
 | Documents per user | 1 | `MAX_DOCUMENTS` |
 | Storage per user | 200 MB | `MAX_STORAGE_MB` |
@@ -98,6 +100,10 @@ The `connect-src` origin is derived from `VITE_API_URL`, not written by hand, so
 | Concurrent `/events` streams per user | 5 | `EVENTS_MAX_SUBSCRIBERS` |
 | OTP requests per IP per hour | 20 | `OTP_MAX_PER_IP_PER_HOUR` |
 | Login codes per email address per day | 3 | `RESEND_PER_USER_PER_DAY` |
+
+The per-user checks count finished questions in `query_log`, which is written at the end of the pipeline, so on their own they could be raced by firing many questions at once. A second question from the same account while one is still being answered gets `429` before any check or model call runs. The claim is held in the API process and released when the answer stream ends; a claim older than ten minutes is treated as abandoned. It is per process, which matches the single-process deployment; several API processes would need the claim in Postgres or Redis instead.
+
+`use_cache=false` in `POST /query` and the exemption from the token budget are for accounts with the `eval` or `admin` role (`users.role`, default `user`); any other account asking to bypass the cache gets `403`. Roles are set in the database only - no endpoint changes them.
 
 External service quotas are enforced on top of these: when a provider's free tier (or the DeepInfra budget) is spent, the affected endpoint answers `429` naming the service and its reset time, instead of failing at the provider. See [Architecture → service limits](architecture.md#service-limits).
 
