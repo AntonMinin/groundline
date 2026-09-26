@@ -39,8 +39,10 @@ async def send(text: str) -> None:
                 },
             )
             response.raise_for_status()
-    except httpx.HTTPError:
-        log.warning("Could not deliver a Telegram alert", exc_info=True)
+    except httpx.HTTPStatusError as exc:
+        log.warning("Could not deliver a Telegram alert: Telegram answered %s", exc.response.status_code)
+    except httpx.HTTPError as exc:
+        log.warning("Could not deliver a Telegram alert: %s", type(exc).__name__)
 
 
 def _amount(value: float, unit: str) -> str:
