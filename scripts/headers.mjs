@@ -24,7 +24,7 @@ export const landingPolicy = (scriptHashes = []) =>
     'style-src': ["'self'", "'unsafe-inline'", FONT_STYLES],
     'img-src': ["'self'", 'data:'],
     'font-src': ["'self'", FONT_FILES],
-    'connect-src': ["'self'"],
+    'connect-src': ["'self'", apiOrigin()],
     'object-src': ["'none'"],
     'base-uri': ["'self'"],
     'form-action': ["'self'"],

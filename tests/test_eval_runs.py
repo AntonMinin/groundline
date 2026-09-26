@@ -21,14 +21,23 @@ async def eval_token(monkeypatch, migrated_db):
 
 
 def run(done: int) -> dict:
-    rows = [{"question": f"q{number}", "answer": "secret answer", "sources": [{"content": "chunk"}]} for number in range(done)]
+    rows = [
+        {
+            "question": f"q{number}",
+            "kind": "unanswerable" if number % 2 else "single",
+            "answer": "secret answer",
+            "sources": [{"content": "chunk"}],
+            "scores": {"answer_correctness": None if number == 1 else 0.5},
+        }
+        for number in range(done)
+    ]
     return {
         "label": "baseline",
         "jev": False,
         "complete": False,
         "total_questions": 29,
         "summary": {"all": {"faithfulness": 0.9}, "kind": {}, "node_latency": {}, "judge_spread": {}},
-        "cache_pairs": [{"correct": True}, {"correct": False}],
+        "cache_pairs": [{"correct": True, "cache_hit": True}, {"correct": False, "cache_hit": True}, {"correct": False}],
         "rows": rows,
     }
 
@@ -58,7 +67,8 @@ async def test_public_status_shows_progress_without_answers(client):
     status = await client.get("/eval/status")
     assert status.headers["access-control-allow-origin"] == "*"
     [entry] = status.json()["runs"]
-    assert (entry["done"], entry["total"], entry["cache_pairs"]) == (22, 29, {"total": 2, "correct": 1})
+    assert (entry["done"], entry["total"], entry["unanswerable_scored"]) == (22, 29, 10)
+    assert entry["cache_pairs"] == {"total": 3, "correct": 1, "wrong_hits": 1}
     assert "secret answer" not in status.text and "judge_spread" not in entry["summary"]
 
 

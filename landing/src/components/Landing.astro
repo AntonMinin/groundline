@@ -72,52 +72,57 @@ const { copy } = Astro.props
       </table>
     </div>
 
-    {
-      JEV_RESULTS.measured && (
-        <Fragment>
-          <h3 class="jev-subhead">{copy.jev.resultsTitle}</h3>
-          <p class="muted jev-note">{copy.jev.resultsLede}</p>
-          <div class="jev-scroll">
-            <table class="jev-table jev-results">
-              <thead>
-                <tr>
-                  <th scope="col"></th>
-                  <th scope="col" class="num-col">{copy.jev.before}</th>
-                  <th scope="col" class="num-col jev-after">{copy.jev.after}</th>
+    <div
+      class="jev-live"
+      data-jev-results
+      data-status-url={JEV_RESULTS.statusUrl}
+      data-measured={JEV_RESULTS.measured ? 'true' : undefined}
+      hidden={!JEV_RESULTS.measured}
+    >
+      <h3 class="jev-subhead">{copy.jev.resultsTitle}</h3>
+      <p class="muted jev-note">{copy.jev.resultsLede}</p>
+      <p class="jev-note jev-preliminary" data-jev-preliminary data-template={copy.jev.preliminary} hidden></p>
+      <div class="jev-scroll">
+        <table class="jev-table jev-results">
+          <thead>
+            <tr>
+              <th scope="col"></th>
+              <th scope="col" class="num-col">{copy.jev.before}</th>
+              <th scope="col" class="num-col jev-after">{copy.jev.after}</th>
+            </tr>
+          </thead>
+          {
+            JEV_TABLE.map(([group, keys]) => (
+              <tbody>
+                <tr class="jev-group">
+                  <th scope="rowgroup" colspan="3">{copy.jev.groups[group]}</th>
                 </tr>
-              </thead>
-              {
-                JEV_TABLE.map(([group, keys]) => (
-                  <tbody>
-                    <tr class="jev-group">
-                      <th scope="rowgroup" colspan="3">{copy.jev.groups[group]}</th>
-                    </tr>
-                    {keys.map((key) => (
-                      <tr>
-                        <th scope="row">{copy.jev.rows[key]}</th>
-                        {JEV_RESULTS.values[key].map((value, index) => (
-                          <td class:list={['num', 'num-col', { 'jev-after': index === 1, pending: value === null }]}>
-                            {value ?? copy.jev.pending}
-                          </td>
-                        ))}
-                      </tr>
+                {keys.map((key) => (
+                  <tr>
+                    <th scope="row">{copy.jev.rows[key]}</th>
+                    {JEV_RESULTS.values[key].map((value, index) => (
+                      <td
+                        class:list={['num', 'num-col', { 'jev-after': index === 1, pending: value === null }]}
+                        data-key={key}
+                        data-column={index}
+                      >
+                        {value ?? copy.jev.pending}
+                      </td>
                     ))}
-                  </tbody>
-                ))
-              }
-            </table>
-          </div>
-        </Fragment>
-      )
-    }
+                  </tr>
+                ))}
+              </tbody>
+            ))
+          }
+        </table>
+      </div>
+    </div>
 
     <h3 class="jev-subhead">{copy.jev.userTitle}</h3>
     <div class="split">
       {
-        copy.jev.user
-          .filter(([, , needsResults]) => !needsResults || JEV_RESULTS.measured)
-          .map(([title, body]) => (
-          <div class="split-item">
+        copy.jev.user.map(([title, body, needsResults]) => (
+          <div class="split-item" data-needs-results={needsResults ? 'true' : undefined} hidden={needsResults && !JEV_RESULTS.measured}>
             <h3>{title}</h3>
             <p>{body}</p>
           </div>
@@ -138,6 +143,12 @@ const { copy } = Astro.props
     </dl>
     <p><a href={JEV_RESULTS.evaluationUrl} target="_blank" rel="noopener">{copy.jev.docsLink}</a></p>
   </section>
+
+  <script>
+    import { showEvalStatus } from '../evalStatus.js'
+
+    showEvalStatus(document.querySelector('[data-jev-results]'))
+  </script>
 
   <section class="section" id="how">
     <div class="section-head">

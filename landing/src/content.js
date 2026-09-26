@@ -24,6 +24,7 @@ export const MEASURED = {
 
 export const JEV_RESULTS = {
   measured: null,
+  statusUrl: (process.env.PUBLIC_API_URL || 'https://api.groundline.antonmb.com') + '/eval/status',
   evaluationUrl:
     (process.env.PUBLIC_REPO_URL || 'https://github.com/AntonMinin/groundline') + '/blob/main/docs/evaluation.md',
   values: {
@@ -107,6 +108,7 @@ export const CONTENT = {
         jev_cost: 'Jev cost per 100 questions, USD',
       },
       pending: 'pending',
+      preliminary: 'Preliminary data, updating as the runs continue: {baseline} of {total} questions without Jev, {jev} of {total} with Jev. Last update: {date}.',
       userTitle: 'What changes for the person asking',
       user: [
         ['A grounding badge', 'Under every answer: supported, partly supported, not supported or contradicted - the same verdict that decides whether the answer is cached.'],
@@ -266,6 +268,7 @@ export const CONTENT = {
         jev_cost: 'Стоимость Jev на 100 вопросов, USD',
       },
       pending: 'ждёт прогона',
+      preliminary: 'Предварительные данные, обновляются по ходу прогонов: {baseline} из {total} вопросов без Jev, {jev} из {total} с Jev. Последнее обновление: {date}.',
       userTitle: 'Что меняется для того, кто спрашивает',
       user: [
         ['Бейдж обоснованности', 'Под каждым ответом: подтверждено, подтверждено частично, не подтверждено или противоречит - тот же вердикт решает, попадёт ли ответ в кэш.'],

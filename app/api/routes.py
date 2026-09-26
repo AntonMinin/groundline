@@ -126,17 +126,25 @@ def _eval_run_public(run: EvalRun) -> dict:
     data = run.data
     summary = data.get("summary") or {}
     pairs = data.get("cache_pairs") or []
+    rows = data.get("rows") or []
     return {
         "name": run.name,
         "label": data.get("label"),
         "jev": data.get("jev"),
         "complete": data.get("complete", False),
-        "done": len(data.get("rows") or []),
+        "done": len(rows),
+        "unanswerable_scored": sum(
+            1 for row in rows if row.get("kind") == "unanswerable" and (row.get("scores") or {}).get("answer_correctness") is not None
+        ),
         "total": data.get("total_questions"),
         "updated_at": run.updated_at.isoformat(),
         "jev_cost_usd": data.get("jev_cost_usd"),
         "summary": {key: summary.get(key) for key in ("all", "kind", "node_latency")},
-        "cache_pairs": {"total": len(pairs), "correct": sum(1 for pair in pairs if pair.get("correct"))},
+        "cache_pairs": {
+            "total": len(pairs),
+            "correct": sum(1 for pair in pairs if pair.get("correct")),
+            "wrong_hits": sum(1 for pair in pairs if pair.get("cache_hit") and not pair.get("correct")),
+        },
     }
 
 
