@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.groq.com/openai/v1"
     llm_model: str = "openai/gpt-oss-120b"
     llm_timeout: float = 30.0
+    llm_max_output_tokens: int = 2048
 
     embedding_provider: Literal["local", "api"] = "local"
     embedding_model: str = "BAAI/bge-m3"
@@ -41,7 +42,7 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     typesafe_api_key: str = ""
     jev_price_per_1m: float = 0.042
-    jev_monthly_budget_usd: float = 1.0
+    jev_monthly_budget_usd: float = 1.5
     jev_sufficient_threshold: float = 0.85
     jev_cache_verify_from: float = 0.85
     jev_cache_verify_below: float = 0.97
@@ -71,7 +72,11 @@ class Settings(BaseSettings):
     ingest_queue_size: int = 100
 
     queries_per_day: int = 50
-    user_tokens_per_day: int = 20_000
+    user_tokens_per_day: int = 12_500
+    user_requests_per_day: int = 100
+    groq_reserve_tokens: int = 20_000
+    groq_reserve_requests: int = 20
+    uploads_per_day: int = 5
     query_min_interval_seconds: int = 15
     max_documents: int = 1
     max_storage_mb: int = 200

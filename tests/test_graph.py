@@ -59,6 +59,12 @@ def fakes(monkeypatch):
     monkeypatch.setattr(pipeline.store, "find_nearest", find_nearest)
     monkeypatch.setattr(pipeline.store, "record_query", record_query)
     monkeypatch.setattr(pipeline.store, "documents_version", documents_version)
+
+    async def within_limits(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(pipeline.limits, "ensure", within_limits)
+    monkeypatch.setattr(pipeline.limits, "ensure_headroom", within_limits)
     return calls, state
 
 

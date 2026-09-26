@@ -69,7 +69,7 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | `JEV_TIMEOUT_CRITICAL_MS` | `1500` | timeout for the two decisions on the path to the answer: the cache check and `jev_sufficiency`. About twice the measured p95 (702 ms, see [Evaluation](evaluation.md)). No retries: a slow Jev falls back instead of delaying the answer |
 | `JEV_TIMEOUT_MS` | `2000` | timeout for `check_grounding`, which runs after `done` and only delays the badge and the cache write. Measured p95 681 ms |
 | `JEV_PRICE_PER_1M` | `0.042` | USD per 1M input tokens, used to price TypeSafe calls. OpenRouter reports the exact `usage.cost` itself |
-| `JEV_MONTHLY_BUDGET_USD` | `1.0` | monthly cap on Jev spend. Unlike DeepInfra, reaching it skips Jev and keeps answering questions |
+| `JEV_MONTHLY_BUDGET_USD` | `1.5` | monthly cap on Jev spend. Unlike DeepInfra, reaching it skips Jev and keeps answering questions |
 | `JEV_SUFFICIENT_THRESHOLD` | `0.85` | Jev's probability that the fragments are enough, at or above which the LLM sufficiency check is skipped. Below it the LLM check runs as before and still writes the `missing` hint for the rewrite |
 | `JEV_CACHE_VERIFY_FROM` | `0.85` | lower end of the range Jev checks. A nearest question between this value and `CACHE_SIMILARITY_THRESHOLD` becomes a hit when Jev says it asks the same thing; if Jev fails it stays a miss, as without Jev |
 | `JEV_CACHE_VERIFY_BELOW` | `0.97` | upper end of the range. A hit from `CACHE_SIMILARITY_THRESHOLD` up to this value is confirmed by Jev before the stored answer is returned; if Jev fails it stays a hit. At or above it the similarity alone decides |
@@ -84,7 +84,12 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | `MAX_DOCUMENT_CHARS` | `1000000` | characters of extracted text per document. A small compressed PDF can expand to tens of megabytes of text; extraction stops and the upload fails with `422` once the text passes this size, before any chunk is embedded |
 | `MAX_PDF_PAGES` | `500` | pages per PDF, checked before any text is extracted |
 | `QUERIES_PER_DAY` | `50` | per user, rolling 24 hours; cache hits are not counted |
-| `USER_TOKENS_PER_DAY` | `20000` | language-model tokens per user, rolling 24 hours, summed from `query_log.tokens_used`. Keeps one account from spending the shared Groq daily quota for everyone. `0` disables it. Accounts with the `eval` or `admin` role are exempt |
+| `USER_TOKENS_PER_DAY` | `12500` | Groq tokens per user per UTC day, as Groq counts them (`usage.total_tokens`, including the chat template and reasoning tokens). Checked before every LLM call, so a person can overshoot by one call at most: 12 500 + the largest prompt (~5 200) + `LLM_MAX_OUTPUT_TOKENS` stays under 10% of the 200 000-token free tier. `0` disables it. Accounts with the `eval` or `admin` role are exempt but still counted |
+| `USER_REQUESTS_PER_DAY` | `100` | Groq requests per user per UTC day, checked before every call - 10% of the 1 000-request free tier |
+| `GROQ_RESERVE_TOKENS` | `20000` | a new question (cache miss) is refused while fewer than this many tokens of the shared daily budget are left, so questions already running can finish |
+| `GROQ_RESERVE_REQUESTS` | `20` | the same reserve for requests |
+| `LLM_MAX_OUTPUT_TOKENS` | `2048` | `max_tokens` of every LLM call, reasoning included. Bounds what one call can cost, so neither a long answer nor a document asking for one can take a person's whole budget in one go |
+| `UPLOADS_PER_DAY` | `5` | uploads per user in 24 hours, deleted documents included. Bounds the paid embedding cost of delete-and-upload loops |
 | `QUERY_MIN_INTERVAL_SECONDS` | `15` | shortest gap between two questions from one user. `0` disables it |
 | `MAX_DOCUMENTS` | `1` | per user. At the limit `/ingest` answers `429` and the document has to be deleted first |
 | `MAX_STORAGE_MB` | `200` | total uploaded bytes per user |

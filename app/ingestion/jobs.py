@@ -120,6 +120,15 @@ async def unfinished(user_id: UUID) -> int:
         )
 
 
+async def started_today(user_id: UUID) -> int:
+    async with tenant_session(user_id) as session:
+        return await session.scalar(
+            select(func.count()).where(
+                IngestJob.user_id == user_id, IngestJob.created_at > func.now() - timedelta(days=1)
+            )
+        )
+
+
 async def find_by_key(user_id: UUID, idempotency_key: str) -> IngestJob | None:
     async with tenant_session(user_id) as session:
         return await session.scalar(

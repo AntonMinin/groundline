@@ -95,8 +95,11 @@ The `connect-src` origin is derived from `VITE_API_URL`, not written by hand, so
 | Limit | Default | Where |
 | --- | --- | --- |
 | Queries per day (cache hits excluded) | 50 | `QUERIES_PER_DAY` |
-| Language-model tokens per day (cache hits excluded) | 20 000 | `USER_TOKENS_PER_DAY` |
+| Groq tokens per UTC day, as Groq counts them | 12 500 | `USER_TOKENS_PER_DAY` |
+| Groq requests per UTC day | 100 | `USER_REQUESTS_PER_DAY` |
+| Output tokens of one LLM call | 2 048 | `LLM_MAX_OUTPUT_TOKENS` |
 | Questions being answered at once, per user | 1 | fixed |
+| Uploads per 24 hours | 5 | `UPLOADS_PER_DAY` |
 | Gap between two questions from one user | 15 s | `QUERY_MIN_INTERVAL_SECONDS` |
 | Documents per user | 1 | `MAX_DOCUMENTS` |
 | Uploads being indexed at once, per user | 1 | fixed |
@@ -107,6 +110,10 @@ The `connect-src` origin is derived from `VITE_API_URL`, not written by hand, so
 | Login codes per email address per day | 3 | `RESEND_PER_USER_PER_DAY` |
 
 The per-user checks count finished questions in `query_log`, which is written at the end of the pipeline, so on their own they could be raced by firing many questions at once. A second question from the same account while one is still being answered gets `429` before any check or model call runs. The claim is held in the API process and released when the answer stream ends; a claim older than ten minutes is treated as abandoned. It is per process, which matches the single-process deployment; several API processes would need the claim in Postgres or Redis instead.
+
+**The shared Groq free tier.** Every call to the answer model is counted with the numbers Groq reports (`usage.total_tokens`, one request), for the service and for the person, and checked before it is sent: the service against the free tier (200 000 tokens and 1 000 requests a day), the person against `USER_TOKENS_PER_DAY` and `USER_REQUESTS_PER_DAY`. Counting what the provider counts matters - an estimate from the prompt text missed the chat template and the reasoning tokens and read five times low on short prompts. Since a person has one question running at a time and every call has a `max_tokens` cap, one account can overshoot its budget by a single call at most, which keeps it under 10% of the free tier (`tests/test_llm_budget.py` asserts the arithmetic). A new question that misses the cache is refused while the shared budget has less than `GROQ_RESERVE_TOKENS` / `GROQ_RESERVE_REQUESTS` left, so running questions can finish; cache hits need no model and keep working.
+
+**Paid services have hard monthly caps.** DeepInfra embeddings are checked against `DEEPINFRA_MONTHLY_BUDGET_USD` before every call, for uploads and for question embeddings alike. Jev calls are checked against `JEV_MONTHLY_BUDGET_USD` (1.5 on Render) before every call; when it is spent, Jev is skipped and questions are answered without it. The OpenRouter key itself carries a lower limit set in OpenRouter, as a second stop.
 
 `use_cache=false` in `POST /query` and the exemption from the token budget are for accounts with the `eval` or `admin` role (`users.role`, default `user`); any other account asking to bypass the cache gets `403`. Roles are set in the database only - no endpoint changes them.
 

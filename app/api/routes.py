@@ -175,7 +175,10 @@ async def accept_terms(user: CurrentUser, session: Session) -> UserOut:
 async def delete_account(user: CurrentUser, session: Session, response: Response) -> None:
     await session.execute(delete(OtpCode).where(OtpCode.email == user.email))
     await session.execute(
-        delete(ServiceUsage).where(ServiceUsage.quota_key.endswith(f"|{user.email}", autoescape=True))
+        delete(ServiceUsage).where(
+            ServiceUsage.quota_key.endswith(f"|{user.email}", autoescape=True)
+            | ServiceUsage.quota_key.endswith(f"|{user.id}", autoescape=True)
+        )
     )
     await session.execute(delete(User).where(User.id == user.id))
     await session.commit()
@@ -262,6 +265,10 @@ async def _accept_upload(
     await limits.ensure(*limits.INGEST_KEYS)
     if await jobs.unfinished(user.id):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, UPLOAD_BUSY)
+    if settings.uploads_per_day > 0 and await jobs.started_today(user.id) >= settings.uploads_per_day:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, f"Daily limit of {settings.uploads_per_day} uploads reached"
+        )
     usage = await store.usage(user.id)
     if usage["documents"] >= settings.max_documents:
         kept = settings.max_documents
@@ -474,14 +481,8 @@ async def _check_query_limits(user: User) -> None:
         if not await user_has_chunks(session, user.id):
             raise HTTPException(status.HTTP_409_CONFLICT, "No documents uploaded yet")
     await _ensure_question_spacing(user.id)
-    usage = await store.usage(user.id)
-    if usage["queries_last_24h"] >= settings.queries_per_day:
+    if (await store.usage(user.id))["queries_last_24h"] >= settings.queries_per_day:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Daily limit of {settings.queries_per_day} queries reached")
-    budget = settings.user_tokens_per_day
-    if user.role not in TRUSTED_ROLES and budget > 0 and usage["tokens_last_24h"] >= budget:
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS, f"Daily limit of {budget:,} language-model tokens reached"
-        )
 
 
 @router.post("/query")
@@ -491,7 +492,7 @@ async def query(body: QueryIn, user: ConsentedUser) -> StreamingResponse:
     _claim_answering(user.id)
     try:
         await _check_query_limits(user)
-        stream = run_query(user.id, body.question, use_cache=body.use_cache)
+        stream = run_query(user.id, body.question, use_cache=body.use_cache, exempt=user.role in TRUSTED_ROLES)
         try:
             first = await anext(stream)
         except BaseException:

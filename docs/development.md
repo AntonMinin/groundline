@@ -100,6 +100,8 @@ export GROUNDLINE_SESSION=...   # the groundline_session cookie value after logg
 python app/eval/run_eval.py app/eval/data/dataset.json --docs app/eval/data/handbook.md
 ```
 
+Settings for evaluation runs live in `.env.eval` (copy `.env.eval.example`); `app/eval/run_eval.py --serve jev|baseline` starts the API with `.env` plus `.env.eval` on top, so the production `.env` stays untouched. Put a Groq key from a separate free account in `.env.eval`: an evaluation run uses the whole daily free tier, and it must not spend the quota the demo serves users from. `.env.eval` is git-ignored and, like every `.env*` file, excluded from the Docker image.
+
 The evaluation account needs the `eval` role, because `use_cache=false` and running many questions past the per-user token budget are refused for ordinary accounts:
 
 ```sql

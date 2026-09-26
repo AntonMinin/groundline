@@ -2,7 +2,7 @@
 .venv-eval/
 .env*
 !.env.example
-!.env.eval
+!.env.eval.example
 __pycache__/
 .pytest_cache/
 eval_results.json

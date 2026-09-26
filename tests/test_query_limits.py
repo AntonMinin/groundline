@@ -13,10 +13,11 @@ from tests.conftest import auth_headers, seed_document
 
 @pytest.fixture
 def pipeline(monkeypatch):
-    calls = {"use_cache": [], "release": asyncio.Event()}
+    calls = {"use_cache": [], "exempt": [], "release": asyncio.Event()}
 
-    async def run_query(user_id, question, use_cache=True):
+    async def run_query(user_id, question, use_cache=True, exempt=False):
         calls["use_cache"].append(use_cache)
+        calls["exempt"].append(exempt)
         yield {"type": "token", "text": "answer"}
         await calls["release"].wait()
         yield {"type": "done", "sources": [], "cache_hit": False}
@@ -37,13 +38,6 @@ async def user_with_document(make_user, role: str = "user", seed: int = 60):
     return user
 
 
-async def spend(user_id, tokens: int) -> None:
-    await store.record_query(
-        user_id=user_id, question="q", answer="a", sources=[], cache_hit=False, tokens_used=tokens, tokens_saved=0,
-        cache_embedding=None,
-    )
-
-
 async def test_a_regular_account_cannot_bypass_the_cache(client, make_user, pipeline):
     user = await user_with_document(make_user, seed=61)
     response = await client.post("/query", json={"question": "q", "use_cache": False}, headers=auth_headers(user.id))
@@ -51,24 +45,14 @@ async def test_a_regular_account_cannot_bypass_the_cache(client, make_user, pipe
     assert pipeline["use_cache"] == []
 
 
-async def test_the_daily_token_budget_stops_a_regular_account(client, make_user, pipeline, monkeypatch):
-    monkeypatch.setattr(settings, "user_tokens_per_day", 1000)
-    user = await user_with_document(make_user, seed=62)
-    await spend(user.id, 1000)
-    response = await client.post("/query", json={"question": "q"}, headers=auth_headers(user.id))
-    assert response.status_code == 429
-    assert "1,000 language-model tokens" in response.json()["detail"]
-
-
 @pytest.mark.parametrize("role", ["eval", "admin"])
-async def test_evaluation_accounts_bypass_the_cache_and_the_token_budget(client, make_user, pipeline, monkeypatch, role):
-    monkeypatch.setattr(settings, "user_tokens_per_day", 1000)
+async def test_evaluation_accounts_can_bypass_the_cache_and_are_exempt(client, make_user, pipeline, role):
     user = await user_with_document(make_user, role=role, seed=63)
-    await spend(user.id, 5000)
     pipeline["release"].set()
     response = await client.post("/query", json={"question": "q", "use_cache": False}, headers=auth_headers(user.id))
     assert response.status_code == 200
     assert pipeline["use_cache"] == [False]
+    assert pipeline["exempt"] == [True]
 
 
 async def test_parallel_questions_from_one_account_are_refused(client, make_user, pipeline):

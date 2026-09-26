@@ -62,6 +62,7 @@ async def embed(texts: list[str], name: str = "embed") -> list[list[float]]:
         metadata={"provider": settings.embedding_provider},
     ) as observation:
         if settings.embedding_provider == "api":
+            await limits.ensure(*limits.INGEST_KEYS)
             vectors, tokens = await _encode_api(texts)
             observation.update(usage_details={"input": tokens})
             await limits.add("deepinfra.spend_per_month", limits.spend_for(tokens))

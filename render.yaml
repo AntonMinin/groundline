@@ -68,3 +68,5 @@ services:
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false
+      - key: JEV_MONTHLY_BUDGET_USD
+        value: "1.5"

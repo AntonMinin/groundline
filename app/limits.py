@@ -190,7 +190,8 @@ QUOTAS = (
 )
 
 REGISTRY = {quota.key: quota for quota in QUOTAS}
-QUERY_KEYS = ("groq.requests_per_day", "groq.tokens_per_day", "pinecone.rerank_units_per_month")
+GROQ_KEYS = ("groq.requests_per_day", "groq.tokens_per_day")
+QUERY_KEYS = (*GROQ_KEYS, "pinecone.rerank_units_per_month")
 INGEST_KEYS = ("deepinfra.spend_per_month",)
 EMAIL_KEYS = ("resend.emails_per_day", "resend.emails_per_month")
 
@@ -285,7 +286,7 @@ def report_resend_headers(headers) -> None:
             log.debug("Unparsable Resend quota header %s: %s", header, value)
 
 
-SUBJECT_KEYS = ("resend.emails_per_day",)
+SUBJECT_KEYS = ("resend.emails_per_day", "groq.requests_per_day", "groq.tokens_per_day")
 MAX_SUBJECT_CHARS = ServiceUsage.quota_key.type.length - max(len(key) for key in SUBJECT_KEYS) - 1
 
 
@@ -373,6 +374,16 @@ async def ensure(*keys: str) -> None:
         quota = REGISTRY[key]
         if counters[key] >= limit_of(quota):
             raise LimitExceeded(quota, resets_at(quota.period))
+
+
+async def ensure_headroom(key: str, headroom: float) -> None:
+    quota = REGISTRY[key]
+    limit = limit_of(quota)
+    if headroom <= 0 or limit is None or not applies(quota):
+        return
+    counters = await used((key,))
+    if counters[key] + headroom > limit:
+        raise LimitExceeded(quota, resets_at(quota.period))
 
 
 async def ensure_personal(key: str, subject: str, limit: int) -> None:

@@ -126,14 +126,24 @@ async def check_cache(state: QueryState, writer: StreamWriter) -> QueryState:
     }
 
 
+def _llm_tokens(before: int, estimate: int) -> int:
+    measured = llm.spent() - before
+    return measured if measured > 0 else estimate
+
+
 async def rewrite_query(state: QueryState) -> QueryState:
     await limits.ensure(*limits.QUERY_KEYS)
+    if state["attempt"] == 0:
+        await limits.ensure_headroom("groq.tokens_per_day", settings.groq_reserve_tokens)
+        await limits.ensure_headroom("groq.requests_per_day", settings.groq_reserve_requests)
     messages = prompts.rewrite_messages(state["question"], state.get("query"), state.get("missing"))
+    before = llm.spent()
     rewritten = guard.clamp(await llm.complete("rewrite_query", messages)) or state["question"]
     return {
         "query": rewritten,
         "attempt": state["attempt"] + 1,
-        "tokens_used": state["tokens_used"] + llm.messages_tokens(messages) + count_tokens(rewritten),
+        "tokens_used": state["tokens_used"]
+        + _llm_tokens(before, llm.messages_tokens(messages) + count_tokens(rewritten)),
     }
 
 
@@ -189,8 +199,9 @@ async def check_sufficiency(state: QueryState) -> QueryState:
     if not state["chunks"]:
         return {"sufficient": False, "missing": "no relevant fragments found"}
     messages = prompts.sufficiency_messages(state["question"], state["chunks"])
+    before = llm.spent()
     raw = await llm.complete("check_sufficiency", messages, response_format={"type": "json_object"})
-    tokens_used = state["tokens_used"] + llm.messages_tokens(messages) + count_tokens(raw)
+    tokens_used = state["tokens_used"] + _llm_tokens(before, llm.messages_tokens(messages) + count_tokens(raw))
     try:
         verdict = json.loads(raw)
         return {
@@ -216,6 +227,7 @@ def route_after_cache(state: QueryState) -> str:
 async def generate_answer(state: QueryState, writer: StreamWriter) -> QueryState:
     messages = prompts.answer_messages(state["question"], state["chunks"])
     parts: list[str] = []
+    before = llm.spent()
     async for token in llm.stream("generate_answer", messages):
         parts.append(token)
         writer({"type": "token", "text": token})
@@ -223,7 +235,7 @@ async def generate_answer(state: QueryState, writer: StreamWriter) -> QueryState
     return {
         "answer": answer,
         "sources": [_source(chunk) for chunk in state["chunks"]],
-        "tokens_used": state["tokens_used"] + llm.messages_tokens(messages) + count_tokens(answer),
+        "tokens_used": state["tokens_used"] + _llm_tokens(before, llm.messages_tokens(messages) + count_tokens(answer)),
         "tokens_saved": 0,
     }
 
@@ -399,12 +411,15 @@ graph = build_graph()
 _END = object()
 
 
-async def run_query(user_id: UUID, question: str, use_cache: bool = True) -> AsyncIterator[dict]:
+async def run_query(
+    user_id: UUID, question: str, use_cache: bool = True, exempt: bool = False
+) -> AsyncIterator[dict]:
     queue: asyncio.Queue = asyncio.Queue()
 
     async def worker() -> None:
         try:
             with (
+                llm.caller(user_id, exempt),
                 propagate_attributes(user_id=str(user_id), trace_name="query"),
                 get_client().start_as_current_observation(
                     name="query", as_type="chain", input={"question": guard.redact(question)}
