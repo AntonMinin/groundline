@@ -1,8 +1,6 @@
 name: Eval
 
 on:
-  schedule:
-    - cron: "17 */6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -14,7 +12,7 @@ concurrency:
 
 env:
   EVAL_SYNC_URL: https://api.groundline.antonmb.com
-  RUNS: eval_gitlab_baseline eval_gitlab_jev
+  RUNS: eval_gitlab_jev_first eval_gitlab_baseline eval_gitlab_jev
 
 jobs:
   eval:
@@ -114,6 +112,7 @@ jobs:
             fi
             exit "$code"
           }
+          stage eval_gitlab_jev_first answered --serve jev --label jev_first
           stage eval_gitlab_baseline answered --serve baseline
           stage eval_gitlab_jev answered --serve jev
           stage eval_gitlab_baseline finished --serve baseline --judge-repeats 3 --cache-pairs

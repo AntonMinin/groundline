@@ -622,7 +622,7 @@ async def main() -> None:
                     save()
 
                 await cache_pairs(client, dataset, pairs, save_pairs)
-        except DailyLimitReached as exc:
+        except (DailyLimitReached, TransientError) as exc:
             save()
             print(f"stopped: {exc}\nrun the same command again after the reset to continue from here")
             raise SystemExit(DAILY_LIMIT_EXIT_CODE)
