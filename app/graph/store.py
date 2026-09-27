@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import cast, func, select, update
@@ -189,6 +189,7 @@ async def query_stats(user_id: UUID) -> dict:
 
 LLM_NODES = ("rewrite_query", "check_sufficiency", "generate_answer")
 LIVE_WINDOW = 1000
+JEV_FIRST_SINCE = datetime(2026, 9, 27, 16, 30, tzinfo=UTC)
 
 
 def question_facts(row: QueryMetric) -> dict:
@@ -242,11 +243,11 @@ async def live_metrics() -> dict:
             with_jev: (
                 await session.scalars(
                     select(QueryMetric)
-                    .where(QueryMetric.jev.is_(with_jev))
+                    .where(QueryMetric.jev.is_(with_jev), QueryMetric.created_at >= since)
                     .order_by(QueryMetric.created_at.desc())
                     .limit(LIVE_WINDOW)
                 )
             ).all()
-            for with_jev in (False, True)
+            for with_jev, since in ((False, datetime.min.replace(tzinfo=UTC)), (True, JEV_FIRST_SINCE))
         }
     return {"baseline": rows[False], "jev": rows[True]}

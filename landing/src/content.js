@@ -69,7 +69,7 @@ export const CONTENT = {
         ['Do the sources back the answer?', 'Not checked: any answer with sufficient context went to the cache', 'Jev grades the answer after it is shown; only supported answers are cached, and the chat shows the verdict'],
       ],
       liveTitle: 'Live, from the questions people ask',
-      liveLede: 'Every answered question is measured as it happens: time, LLM calls and tokens, cache hits, the grounding verdict. Only these numbers are kept for this table, never the question or the answer.',
+      liveLede: 'Every answered question is measured as it happens: time, LLM calls and tokens, cache hits, the grounding verdict. Only these numbers are kept for this table, never the question or the answer. The Jev columns count only the current Jev-first pipeline; the questions without Jev were asked before Jev was turned on and before the database round trips were cut, so their time is not directly comparable.',
       liveColumns: ['Without Jev, average', 'With Jev, average', 'With Jev, last question'],
       liveRows: {
         answer_ms: 'Time to the full answer, s (cache misses)',
@@ -238,7 +238,7 @@ export const CONTENT = {
         ['Подтверждают ли источники ответ?', 'Не проверялось: в кэш шёл любой ответ при достаточном контексте', 'Jev оценивает ответ после показа; в кэш идут только подтверждённые, а в чате виден вердикт'],
       ],
       liveTitle: 'Вживую, по вопросам, которые задают люди',
-      liveLede: 'Каждый отвеченный вопрос измеряется на лету: время, вызовы и токены LLM, попадания в кэш, вердикт обоснованности. Для этой таблицы хранятся только эти числа - ни вопрос, ни ответ.',
+      liveLede: 'Каждый отвеченный вопрос измеряется на лету: время, вызовы и токены LLM, попадания в кэш, вердикт обоснованности. Для этой таблицы хранятся только эти числа - ни вопрос, ни ответ. Колонки с Jev считают только текущий пайплайн Jev-first; вопросы без Jev заданы до включения Jev и до сокращения обращений к базе, поэтому их время напрямую не сравнимо.',
       liveColumns: ['Без Jev, среднее', 'С Jev, среднее', 'С Jev, последний вопрос'],
       liveRows: {
         answer_ms: 'Время до полного ответа, с (без кэша)',

@@ -50,7 +50,8 @@ def test_baseline_counts_every_llm_call():
     assert (facts["answer_ms"], facts["llm_calls"], facts["jev_calls"]) == (2600, 3, 0)
 
 
-async def test_live_metrics_are_public_and_split_by_mode(client, make_user):
+async def test_live_metrics_are_public_and_split_by_mode(client, make_user, monkeypatch):
+    monkeypatch.setattr(store, "JEV_FIRST_SINCE", datetime(2000, 1, 1, tzinfo=UTC))
     user = await make_user()
     await store.record_query(
         user_id=user.id, question="secret question", answer="secret answer", sources=[], cache_hit=False,
