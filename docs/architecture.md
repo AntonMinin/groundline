@@ -131,6 +131,10 @@ Nodes, in `app/graph/pipeline.py`:
 
 Routing: `check_cache → record` on a hit, otherwise `→ rewrite_query`. `check_sufficiency → generate_answer` when sufficient **or** when `attempt > MAX_REWRITES`, otherwise back to `rewrite_query`.
 
+With `JEV_ENABLED=true`, `build_graph()` adds `jev_sufficiency` and `check_grounding` and reroutes: `check_cache → retrieve` on a miss (the search for the question as asked already ran next to the cache lookup and is taken from state), `rerank → jev_sufficiency`, which goes to `generate_answer` when Jev passes (with the fragments Jev graded as needed), to `rewrite_query` while attempts remain, and to `check_sufficiency` only when the Jev call failed. `record` sends `done` and defers the cache write to `check_grounding`, which caches only supported answers. See [How it works → Jev](how-it-works.md#jev-three-fast-decisions).
+
+Per question, `run_query()` also opens a usage ledger (`limits.batched()`): every counter the question may check is read in one query started with the question, checks see the question's own spending, and all increments are written in one transaction when it ends, also on failure. `record` writes an anonymous copy of the node metrics to `query_metrics` for `GET /metrics/live`.
+
 Two things are layered on top of every node by `_instrumented()`:
 
 - **Live events** - `node_started` on entry, `node_finished` on exit with `duration_ms`, tokens spent in that node, `tokens_saved` and `similarity` (for `check_cache`), and `cache_hit`.

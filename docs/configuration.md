@@ -66,11 +66,12 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | `OPENROUTER_API_KEY` | - | key for the OpenRouter System One API. Backend only |
 | `TYPESAFE_API_KEY` | - | key for the TypeSafe API. Backend only |
 | `JEV_MODEL` | `jev-1.13` | pinned version, so the thresholds below stay valid when `jev-latest` moves. OpenRouter maps it to `typesafe/jev-1.13` |
-| `JEV_TIMEOUT_CRITICAL_MS` | `1500` | timeout for the two decisions on the path to the answer: the cache check and `jev_sufficiency`. About twice the measured p95 (702 ms, see [Evaluation](evaluation.md)). No retries: a slow Jev falls back instead of delaying the answer |
+| `JEV_TIMEOUT_CRITICAL_MS` | `1500` | timeout for the whole call, for the two decisions on the path to the answer: the cache check and `jev_sufficiency`. About twice the measured p95 (702 ms, see [Evaluation](evaluation.md)). No retries: a slow Jev falls back instead of delaying the answer |
 | `JEV_TIMEOUT_MS` | `2000` | timeout for `check_grounding`, which runs after `done` and only delays the badge and the cache write. Measured p95 681 ms |
 | `JEV_PRICE_PER_1M` | `0.042` | USD per 1M input tokens, used to price TypeSafe calls. OpenRouter reports the exact `usage.cost` itself |
 | `JEV_MONTHLY_BUDGET_USD` | `1.5` | monthly cap on Jev spend. Unlike DeepInfra, reaching it skips Jev and keeps answering questions |
-| `JEV_SUFFICIENT_THRESHOLD` | `0.85` | Jev's probability that the fragments are enough, at or above which the LLM sufficiency check is skipped. Below it the LLM check runs as before and still writes the `missing` hint for the rewrite |
+| `JEV_SUFFICIENT_THRESHOLD` | `0.85` | Jev's probability that the fragments are enough, at or above which the answer is generated. Below it the query is rewritten by the LLM and searched again while attempts remain, then answered anyway. The LLM sufficiency check runs only when the Jev call fails |
+| `JEV_RELEVANT_THRESHOLD` | `0.5` | Jev's probability that a fragment is needed for the answer, below which it is left out of the answer prompt. If no fragment reaches it, or a grade is missing, all fragments are kept |
 | `JEV_CACHE_VERIFY_FROM` | `0.85` | lower end of the range Jev checks. A nearest question between this value and `CACHE_SIMILARITY_THRESHOLD` becomes a hit when Jev says it asks the same thing; if Jev fails it stays a miss, as without Jev |
 | `JEV_CACHE_VERIFY_BELOW` | `0.97` | upper end of the range. A hit from `CACHE_SIMILARITY_THRESHOLD` up to this value is confirmed by Jev before the stored answer is returned; if Jev fails it stays a hit. At or above it the similarity alone decides |
 | `JEV_SAME_QUESTION_THRESHOLD` | `0.5` | Jev's probability that the new and the stored question ask for the same thing, below which a would-be hit becomes a miss |
