@@ -156,6 +156,21 @@ async def eval_status(response: Response, session: Session) -> dict:
     return {"runs": [_eval_run_public(run) for run in runs]}
 
 
+@router.get("/metrics/live")
+async def live_metrics(response: Response) -> dict:
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Cache-Control"] = "public, max-age=60"
+    rows = await store.live_metrics()
+    month = limits.period_start("month")
+    spend = (await limits.used(("jev.spend_per_month",))).get("jev.spend_per_month", 0.0)
+    jev_this_month = sum(1 for row in rows["jev"] if row.created_at.date() >= month and not row.cache_hit)
+    cost = round(spend / jev_this_month, 6) if jev_this_month else None
+    return {
+        "baseline": store.summarize_live(rows["baseline"], None),
+        "jev": store.summarize_live(rows["jev"], cost),
+    }
+
+
 @router.get("/eval/runs/{name}", dependencies=[Depends(_require_eval_token)])
 async def eval_run(name: Annotated[str, Path(max_length=100)], session: Session) -> dict:
     run = await session.get(EvalRun, name)

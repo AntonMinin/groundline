@@ -306,6 +306,7 @@ async def record(state: QueryState, writer: StreamWriter, defer_cache: bool = Fa
             cache_embedding=state["question_embedding"] if cacheable else None,
             node_metrics=state.get("node_metrics", []),
             documents_version=state.get("documents_version", 0),
+            with_jev=jev.enabled(),
         )
     )
     if cacheable and not cached:

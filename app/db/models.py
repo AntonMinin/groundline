@@ -175,3 +175,17 @@ class QueryLog(Base):
     tokens_saved: Mapped[int] = mapped_column(Integer, default=0)
     node_metrics: Mapped[list] = mapped_column(JSONB, default=list)
     created_at: Mapped[datetime] = _created_at()
+
+
+class QueryMetric(Base):
+    __tablename__ = "query_metrics"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("query_log.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = _created_at()
+    jev: Mapped[bool] = mapped_column(Boolean)
+    cache_hit: Mapped[bool] = mapped_column(Boolean)
+    tokens_used: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_saved: Mapped[int] = mapped_column(Integer, default=0)
+    node_metrics: Mapped[list] = mapped_column(JSONB, default=list)

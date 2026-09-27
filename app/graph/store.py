@@ -6,8 +6,8 @@ from sqlalchemy import cast, func, select, update
 from sqlalchemy.dialects.postgresql import JSONB, insert
 
 from app.config import settings
-from app.db.models import Document, DocumentVersion, QueryCache, QueryLog
-from app.db.session import tenant_session
+from app.db.models import Document, DocumentVersion, QueryCache, QueryLog, QueryMetric
+from app.db.session import SessionLocal, tenant_session
 
 
 @dataclass
@@ -44,6 +44,7 @@ async def record_query(
     cache_embedding: list[float] | None,
     node_metrics: list[dict] | None = None,
     documents_version: int = 0,
+    with_jev: bool = False,
 ) -> tuple[UUID, bool]:
     log = QueryLog(
         id=uuid4(),
@@ -56,8 +57,18 @@ async def record_query(
         tokens_saved=tokens_saved,
         node_metrics=node_metrics or [],
     )
+    metric = QueryMetric(
+        id=log.id,
+        jev=with_jev,
+        cache_hit=cache_hit,
+        tokens_used=tokens_used,
+        tokens_saved=tokens_saved,
+        node_metrics=node_metrics or [],
+    )
     async with tenant_session(user_id) as session:
         session.add(log)
+        await session.flush()
+        session.add(metric)
         cached = cache_embedding is not None and await _documents_unchanged(session, user_id, documents_version)
         if cached:
             session.add(_cache_row(user_id, question, cache_embedding, answer, sources, tokens_used))
@@ -99,6 +110,11 @@ async def append_node_metric(user_id: UUID, log_id: UUID, metric: dict) -> None:
             update(QueryLog)
             .where(QueryLog.id == log_id, QueryLog.user_id == user_id)
             .values(node_metrics=QueryLog.node_metrics.op("||")(cast([metric], JSONB)))
+        )
+        await session.execute(
+            update(QueryMetric)
+            .where(QueryMetric.id == log_id)
+            .values(node_metrics=QueryMetric.node_metrics.op("||")(cast([metric], JSONB)))
         )
         await session.commit()
 
@@ -169,3 +185,61 @@ async def query_stats(user_id: UUID) -> dict:
         "tokens_saved": saved,
         "tokens_used": used,
     }
+
+
+LLM_NODES = ("rewrite_query", "check_sufficiency", "generate_answer")
+LIVE_WINDOW = 1000
+
+
+def question_facts(row: QueryMetric) -> dict:
+    nodes = row.node_metrics or []
+    before_done = [metric for metric in nodes if metric.get("node") != "check_grounding"]
+    jev_calls = [metric["jev"] for metric in nodes if "latency_ms" in (metric.get("jev") or {})]
+    grounding = next((metric.get("jev") for metric in nodes if metric.get("node") == "check_grounding"), None) or {}
+    return {
+        "answer_ms": sum(metric.get("duration_ms", 0) for metric in before_done),
+        "llm_calls": sum(1 for metric in nodes if metric.get("node") in LLM_NODES),
+        "llm_tokens": row.tokens_used,
+        "cache_hit": row.cache_hit,
+        "jev_calls": len(jev_calls),
+        "jev_ms": sum(call["latency_ms"] for call in jev_calls),
+        "grounding": grounding.get("verdict"),
+    }
+
+
+def _mean(values: list) -> float | None:
+    present = [value for value in values if value is not None]
+    return round(sum(present) / len(present), 2) if present else None
+
+
+def summarize_live(rows: list[QueryMetric], jev_cost_per_question: float | None) -> dict:
+    facts = [question_facts(row) for row in rows]
+    if not facts:
+        return {"questions": 0, "average": None, "last": None}
+    graded = [fact["grounding"] for fact in facts if fact["grounding"]]
+    average = {
+        "answer_ms": _mean([fact["answer_ms"] for fact in facts if not fact["cache_hit"]]),
+        "llm_calls": _mean([fact["llm_calls"] for fact in facts]),
+        "llm_tokens": _mean([fact["llm_tokens"] for fact in facts]),
+        "cache_hit": _mean([float(fact["cache_hit"]) for fact in facts]),
+        "jev_ms": _mean([fact["jev_ms"] for fact in facts if fact["jev_calls"]]),
+        "supported": round(graded.count("supported") / len(graded), 2) if graded else None,
+        "jev_cost_usd": jev_cost_per_question,
+    }
+    return {"questions": len(facts), "average": average, "last": {**facts[0], "at": rows[0].created_at.isoformat()}}
+
+
+async def live_metrics() -> dict:
+    async with SessionLocal() as session:
+        rows = {
+            with_jev: (
+                await session.scalars(
+                    select(QueryMetric)
+                    .where(QueryMetric.jev.is_(with_jev))
+                    .order_by(QueryMetric.created_at.desc())
+                    .limit(LIVE_WINDOW)
+                )
+            ).all()
+            for with_jev in (False, True)
+        }
+    return {"baseline": rows[False], "jev": rows[True]}
