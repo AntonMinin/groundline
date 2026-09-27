@@ -24,7 +24,7 @@ from app.auth import service as auth
 from app.auth.deps import ConsentedUser, CurrentUser, Session, require_csrf
 from app.config import settings
 from app.db.models import Document, EvalRun, IngestJob, OtpCode, QueryCache, QueryLog, ServiceUsage, User
-from app.db.session import tenant_session
+from app.db.session import SessionLocal, tenant_session
 from app.graph import store
 from app.graph.pipeline import node_names, run_query
 from app.ingestion import jobs
@@ -168,7 +168,19 @@ async def live_metrics(response: Response) -> dict:
     return {
         "baseline": store.summarize_live(rows["baseline"], None),
         "jev": store.summarize_live(rows["jev"], cost),
+        "server": await _server_timings(),
     }
+
+
+async def _server_timings() -> dict:
+    started = time.perf_counter()
+    async with SessionLocal() as session:
+        await session.execute(select(1))
+    session_ms = (time.perf_counter() - started) * 1000
+    started = time.perf_counter()
+    sum(number * number for number in range(200_000))
+    cpu_ms = (time.perf_counter() - started) * 1000
+    return {"db_session_ms": round(session_ms, 1), "cpu_benchmark_ms": round(cpu_ms, 1)}
 
 
 @router.get("/eval/runs/{name}", dependencies=[Depends(_require_eval_token)])
