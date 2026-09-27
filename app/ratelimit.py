@@ -3,6 +3,7 @@ from datetime import UTC, date, datetime
 
 import httpx
 
+from app import http
 from app.config import settings
 
 log = logging.getLogger(__name__)
@@ -18,14 +19,14 @@ def commands_key(today: date | None = None) -> str:
 async def _pipeline(commands: list[list[str]]) -> list | None:
     metered = [*commands, ["INCRBY", commands_key(), str(len(commands) + 1)]]
     try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            response = await client.post(
-                f"{settings.upstash_redis_rest_url.rstrip('/')}/pipeline",
-                headers={"Authorization": f"Bearer {settings.upstash_redis_rest_token}"},
-                json=metered,
-            )
-            response.raise_for_status()
-            return [item["result"] for item in response.json()][: len(commands)]
+        response = await http.client().post(
+            f"{settings.upstash_redis_rest_url.rstrip('/')}/pipeline",
+            headers={"Authorization": f"Bearer {settings.upstash_redis_rest_token}"},
+            json=metered,
+            timeout=5,
+        )
+        response.raise_for_status()
+        return [item["result"] for item in response.json()][: len(commands)]
     except (httpx.HTTPError, KeyError, TypeError, ValueError):
         log.warning("Upstash unavailable, falling back to per-process limits", exc_info=True)
         return None

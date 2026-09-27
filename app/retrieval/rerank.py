@@ -4,7 +4,7 @@ from functools import lru_cache
 import httpx
 from langfuse import get_client
 
-from app import guard, limits
+from app import guard, http, limits
 from app.config import settings
 from app.inference import run_inference
 from app.retrieval.fusion import RetrievedChunk
@@ -36,20 +36,20 @@ def rerank_units(payload: dict) -> float:
 
 
 async def _score_api(query: str, chunks: list[RetrievedChunk]) -> list[float]:
-    async with httpx.AsyncClient(timeout=settings.llm_timeout) as client:
-        response = await client.post(
-            settings.rerank_api_url,
-            headers={"Api-Key": settings.rerank_api_key, "X-Pinecone-API-Version": PINECONE_API_VERSION},
-            json={
-                "model": settings.rerank_api_model,
-                "query": query,
-                "documents": [{"text": chunk.content} for chunk in chunks],
-                "top_n": len(chunks),
-                "return_documents": False,
-                "parameters": {"truncate": "END"},
-            },
-        )
-        response.raise_for_status()
+    response = await http.client().post(
+        settings.rerank_api_url,
+        headers={"Api-Key": settings.rerank_api_key, "X-Pinecone-API-Version": PINECONE_API_VERSION},
+        json={
+            "model": settings.rerank_api_model,
+            "query": query,
+            "documents": [{"text": chunk.content} for chunk in chunks],
+            "top_n": len(chunks),
+            "return_documents": False,
+            "parameters": {"truncate": "END"},
+        },
+        timeout=settings.llm_timeout,
+    )
+    response.raise_for_status()
     payload = response.json()
     await limits.add("pinecone.rerank_units_per_month", rerank_units(payload))
     await limits.add("langfuse.units_per_month")

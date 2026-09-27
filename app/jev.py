@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import time
@@ -5,7 +6,7 @@ import time
 import httpx
 from langfuse import get_client
 
-from app import guard, limits
+from app import guard, http, limits
 from app.config import settings
 
 log = logging.getLogger(__name__)
@@ -84,13 +85,15 @@ async def ask(name: str, state, questions: dict, timeout_ms: int) -> dict | None
         metadata={"provider": current, "timeout_ms": timeout_ms},
     ) as generation:
         try:
-            async with httpx.AsyncClient(timeout=timeout_ms / 1000) as client:
-                response = await client.post(
+            response = await asyncio.wait_for(
+                http.client().post(
                     ENDPOINTS[current],
                     headers={"Authorization": f"Bearer {_api_key(current)}"},
                     json={"model": settings.jev_model, "state": state, "questions": questions},
-                )
-                response.raise_for_status()
+                ),
+                timeout_ms / 1000,
+            )
+            response.raise_for_status()
             payload = response.json()
             answers = _parse(payload, questions)
             cost = cost_of(payload)

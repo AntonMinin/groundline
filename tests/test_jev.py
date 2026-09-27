@@ -41,7 +41,7 @@ def transport(monkeypatch):
         seen.append(request)
         return state["handler"](request)
 
-    monkeypatch.setattr(jev.httpx, "AsyncClient", lambda **kwargs: real(transport=httpx.MockTransport(handler), **kwargs))
+    monkeypatch.setattr(jev.http, "client", lambda: real(transport=httpx.MockTransport(handler)))
     return seen, state
 
 
