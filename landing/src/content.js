@@ -22,35 +22,14 @@ export const MEASURED = {
   llmCallsOnHit: 0,
 }
 
+const API_URL = process.env.PUBLIC_API_URL || 'https://api.groundline.antonmb.com'
+
 export const JEV_RESULTS = {
-  measured: null,
-  statusUrl: (process.env.PUBLIC_API_URL || 'https://api.groundline.antonmb.com') + '/eval/status',
+  liveUrl: API_URL + '/metrics/live',
+  statusUrl: API_URL + '/eval/status',
   evaluationUrl:
     (process.env.PUBLIC_REPO_URL || 'https://github.com/AntonMinin/groundline') + '/blob/main/docs/evaluation.md',
-  values: {
-    faithfulness: [null, null],
-    answer_correctness: [null, null],
-    context_precision: [null, null],
-    context_recall: [null, null],
-    groq_calls: [null, null],
-    groq_tokens: [null, null],
-    done_median: [null, null],
-    check_cache: [null, null],
-    jev_sufficiency: [null, null],
-    check_sufficiency: [null, null],
-    generate_answer: [null, null],
-    jev_cost: [null, null],
-    cache_pairs: [null, null],
-    wrong_hits: [null, null],
-  },
 }
-
-const JEV_ROWS = [
-  ['quality', ['faithfulness', 'answer_correctness', 'context_precision', 'context_recall']],
-  ['groq', ['groq_calls', 'groq_tokens']],
-  ['latency', ['done_median', 'check_cache', 'jev_sufficiency', 'check_sufficiency', 'generate_answer']],
-  ['cache', ['cache_pairs', 'wrong_hits', 'jev_cost']],
-]
 
 const STEPS = [
   ['check_cache', false],
@@ -77,38 +56,47 @@ export const CONTENT = {
       lede: 'Jev is the first System One model from TypeSafe. It does not write text: it reads a state and typed questions and returns calibrated probabilities - yes or no, one option out of several, or a position on a scale. Groundline now asks it the yes-or-no questions a RAG pipeline used to put to its LLM.',
       why: [
         ['A decision, not a paragraph', 'Whether the fragments are enough is one bit. Asking a chat model for it costs a full prompt with every fragment and returns text that still has to be parsed.'],
-        ['Calibrated, so a threshold means something', 'Jev returns a probability. The pipeline acts on a threshold chosen from measurements and hands only the uncertain cases to the LLM.'],
+        ['Fewer tokens in the answer', 'Jev marks which fragments the answer needs, so the LLM reads only those instead of all five.'],
+        ['Calibrated, so a threshold means something', 'Jev returns a probability. The pipeline acts on thresholds chosen from measurements.'],
         ['Fails open', 'When Jev is slow, unavailable or out of budget, the pipeline takes its old path. No answer depends on Jev being up.'],
       ],
       checksTitle: 'Who makes each decision',
       before: 'Before',
       after: 'With Jev',
       checks: [
-        ['Is the context enough to answer?', 'The LLM on every attempt, reading the question and all five fragments', 'Jev first; the LLM only when Jev is not sure, and it still writes the hint for the next search'],
+        ['Is the context enough to answer?', 'The LLM on every attempt, reading the question and all five fragments', 'Jev alone, in the same call that grades every fragment; the LLM only when Jev is down. The question is searched as asked and rewritten only when Jev finds the fragments insufficient'],
         ['Is this the question already in the cache?', 'Embedding similarity alone: 0.90 or more is a hit', 'Jev confirms matches between 0.85 and 0.97: a paraphrase can hit below 0.90, a look-alike that asks something else misses'],
         ['Do the sources back the answer?', 'Not checked: any answer with sufficient context went to the cache', 'Jev grades the answer after it is shown; only supported answers are cached, and the chat shows the verdict'],
       ],
-      resultsTitle: 'Measured on the GitLab Handbook corpus',
-      resultsLede: 'Same questions in the same order, cache cleared before each run, every answer judged three times by the same judge. Quality is the mean of the three judge runs ± their spread.',
-      groups: { quality: 'Answer quality (ragas)', groq: 'Groq per question', latency: 'Latency, median ms', cache: 'Cache and cost' },
-      rows: {
+      liveTitle: 'Live, from the questions people ask',
+      liveLede: 'Every answered question is measured as it happens: time, LLM calls and tokens, cache hits, the grounding verdict. Only these numbers are kept for this table, never the question or the answer.',
+      liveColumns: ['Without Jev, average', 'With Jev, average', 'With Jev, last question'],
+      liveRows: {
+        answer_ms: 'Time to the full answer, s (cache misses)',
+        llm_calls: 'LLM calls per question',
+        llm_tokens: 'LLM tokens per question',
+        cache_hit: 'Answered from the cache',
+        jev_ms: 'Time spent waiting for Jev, s',
+        supported: 'Answers backed by the sources',
+        jev_cost_usd: 'Jev cost per question, USD',
+      },
+      liveNote: 'Averages over the last {baseline} questions without Jev and {jev} with Jev; the last question was answered {date}. Refreshed on every visit.',
+      yes: 'yes',
+      no: 'no',
+      verdicts: { supported: 'supported', partially_supported: 'partly supported', unsupported: 'not supported', contradicted: 'contradicted', no_answer: 'no answer' },
+      evalTitle: 'Measured with ragas on the GitLab Handbook',
+      evalLede: 'The same 29 questions in the same order with the cache cleared, judged by an independent model. Jev v1 checked with Jev and still asked the LLM whenever Jev was unsure; Jev-first is the current pipeline, where Jev replaces those LLM calls.',
+      evalColumns: { baseline: 'Without Jev', jev: 'Jev v1', jev_first: 'Jev-first (current)' },
+      evalRows: {
         faithfulness: 'Faithfulness',
         answer_correctness: 'Answer correctness',
         context_precision: 'Context precision',
         context_recall: 'Context recall',
-        groq_calls: 'LLM calls',
-        groq_tokens: 'LLM tokens',
-        done_median: 'Time to the full answer',
-        check_cache: 'check_cache',
-        jev_sufficiency: 'jev_sufficiency',
-        check_sufficiency: 'check_sufficiency',
-        generate_answer: 'generate_answer',
-        cache_pairs: 'Cache pairs decided correctly',
-        wrong_hits: 'Wrong cache hits',
-        jev_cost: 'Jev cost per 100 questions, USD',
+        llm_calls: 'LLM calls per question',
+        llm_tokens: 'LLM tokens per question',
       },
+      evalNote: 'Questions answered and judged: {progress}. Last update: {date}.',
       pending: 'pending',
-      preliminary: 'Preliminary data, updating as the runs continue: {baseline} of {total} questions without Jev, {jev} of {total} with Jev. Last update: {date}.',
       userTitle: 'What changes for the person asking',
       user: [
         ['A grounding badge', 'Under every answer: supported, partly supported, not supported or contradicted - the same verdict that decides whether the answer is cached.'],
@@ -237,38 +225,47 @@ export const CONTENT = {
       lede: 'Jev - первая модель System One от TypeSafe. Она не пишет текст: получает состояние и типизированные вопросы и возвращает калиброванные вероятности - да или нет, один вариант из нескольких или позицию на шкале. Groundline теперь задаёт ей те вопросы «да или нет», которые RAG-пайплайн раньше задавал своей LLM.',
       why: [
         ['Решение, а не абзац', 'Хватает ли фрагментов - это один бит. Спросить об этом чат-модель - значит отправить полный промпт со всеми фрагментами и потом разбирать текст ответа.'],
-        ['Калибровка, поэтому у порога есть смысл', 'Jev возвращает вероятность. Пайплайн действует по порогу, подобранному на замерах, и отдаёт LLM только неуверенные случаи.'],
+        ['Меньше токенов в ответе', 'Jev отмечает, какие фрагменты нужны для ответа, и LLM читает только их, а не все пять.'],
+        ['Калибровка, поэтому у порога есть смысл', 'Jev возвращает вероятность. Пайплайн действует по порогам, подобранным на замерах.'],
         ['Отказ не ломает запрос', 'Если Jev медленный, недоступен или кончился бюджет, пайплайн идёт старым путём. Ни один ответ не зависит от того, работает ли Jev.'],
       ],
       checksTitle: 'Кто принимает каждое решение',
       before: 'До',
       after: 'С Jev',
       checks: [
-        ['Хватает ли контекста для ответа?', 'LLM на каждой попытке: вопрос и все пять фрагментов', 'Сначала Jev; LLM - только если Jev не уверен, и она по-прежнему пишет подсказку для следующего поиска'],
+        ['Хватает ли контекста для ответа?', 'LLM на каждой попытке: вопрос и все пять фрагментов', 'Только Jev, тем же вызовом, что оценивает каждый фрагмент; LLM - лишь если Jev недоступен. Поиск идёт по вопросу как есть, запрос переписывается только когда Jev считает фрагменты недостаточными'],
         ['Это тот же вопрос, что уже есть в кэше?', 'Только сходство эмбеддингов: от 0.90 - попадание', 'Jev подтверждает совпадения от 0.85 до 0.97: перефраз может попасть ниже 0.90, похожий по словам вопрос с другим смыслом - нет'],
         ['Подтверждают ли источники ответ?', 'Не проверялось: в кэш шёл любой ответ при достаточном контексте', 'Jev оценивает ответ после показа; в кэш идут только подтверждённые, а в чате виден вердикт'],
       ],
-      resultsTitle: 'Замер на корпусе GitLab Handbook',
-      resultsLede: 'Одни и те же вопросы в одном порядке, кэш очищен перед каждым прогоном, каждый ответ оценён одним судьёй трижды. Качество - среднее трёх оценок ± их разброс.',
-      groups: { quality: 'Качество ответа (ragas)', groq: 'Groq на вопрос', latency: 'Задержка, медиана, мс', cache: 'Кэш и стоимость' },
-      rows: {
+      liveTitle: 'Вживую, по вопросам, которые задают люди',
+      liveLede: 'Каждый отвеченный вопрос измеряется на лету: время, вызовы и токены LLM, попадания в кэш, вердикт обоснованности. Для этой таблицы хранятся только эти числа - ни вопрос, ни ответ.',
+      liveColumns: ['Без Jev, среднее', 'С Jev, среднее', 'С Jev, последний вопрос'],
+      liveRows: {
+        answer_ms: 'Время до полного ответа, с (без кэша)',
+        llm_calls: 'Вызовов LLM на вопрос',
+        llm_tokens: 'Токенов LLM на вопрос',
+        cache_hit: 'Ответ из кэша',
+        jev_ms: 'Ожидание Jev, с',
+        supported: 'Ответ подтверждён источниками',
+        jev_cost_usd: 'Стоимость Jev на вопрос, USD',
+      },
+      liveNote: 'Средние по последним {baseline} вопросам без Jev и {jev} с Jev; последний вопрос отвечен {date}. Обновляется при каждом заходе.',
+      yes: 'да',
+      no: 'нет',
+      verdicts: { supported: 'подтверждён', partially_supported: 'частично', unsupported: 'не подтверждён', contradicted: 'противоречит', no_answer: 'нет ответа' },
+      evalTitle: 'Замер ragas на GitLab Handbook',
+      evalLede: 'Одни и те же 29 вопросов в одном порядке с очищенным кэшем, оценка независимой моделью. Jev v1 проверял через Jev, но при неуверенности всё равно спрашивал LLM; Jev-first - текущий пайплайн, где Jev заменяет эти вызовы LLM.',
+      evalColumns: { baseline: 'Без Jev', jev: 'Jev v1', jev_first: 'Jev-first (текущий)' },
+      evalRows: {
         faithfulness: 'Faithfulness',
         answer_correctness: 'Answer correctness',
         context_precision: 'Context precision',
         context_recall: 'Context recall',
-        groq_calls: 'Вызовы LLM',
-        groq_tokens: 'Токены LLM',
-        done_median: 'Время до полного ответа',
-        check_cache: 'check_cache',
-        jev_sufficiency: 'jev_sufficiency',
-        check_sufficiency: 'check_sufficiency',
-        generate_answer: 'generate_answer',
-        cache_pairs: 'Пары для кэша решены верно',
-        wrong_hits: 'Ложные попадания в кэш',
-        jev_cost: 'Стоимость Jev на 100 вопросов, USD',
+        llm_calls: 'Вызовов LLM на вопрос',
+        llm_tokens: 'Токенов LLM на вопрос',
       },
+      evalNote: 'Отвечено и оценено вопросов: {progress}. Последнее обновление: {date}.',
       pending: 'ждёт прогона',
-      preliminary: 'Предварительные данные, обновляются по ходу прогонов: {baseline} из {total} вопросов без Jev, {jev} из {total} с Jev. Последнее обновление: {date}.',
       userTitle: 'Что меняется для того, кто спрашивает',
       user: [
         ['Бейдж обоснованности', 'Под каждым ответом: подтверждено, подтверждено частично, не подтверждено или противоречит - тот же вердикт решает, попадёт ли ответ в кэш.'],
@@ -385,4 +382,6 @@ export const CONTENT = {
 }
 
 export const PIPELINE_STEPS = STEPS
-export const JEV_TABLE = JEV_ROWS
+export const LIVE_ROWS = ['answer_ms', 'llm_calls', 'llm_tokens', 'cache_hit', 'jev_ms', 'supported', 'jev_cost_usd']
+export const EVAL_ROWS = ['faithfulness', 'answer_correctness', 'context_precision', 'context_recall', 'llm_calls', 'llm_tokens']
+export const EVAL_RUNS = ['baseline', 'jev', 'jev_first']

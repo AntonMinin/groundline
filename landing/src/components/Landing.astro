@@ -2,7 +2,7 @@
 import Header from './Header.astro'
 import Footer from './Footer.astro'
 import Screenshot from './Screenshot.astro'
-import { JEV_RESULTS, JEV_TABLE, PIPELINE_STEPS, SITE } from '../content.js'
+import { EVAL_ROWS, EVAL_RUNS, JEV_RESULTS, LIVE_ROWS, PIPELINE_STEPS, SITE } from '../content.js'
 
 const { copy } = Astro.props
 ---
@@ -74,47 +74,76 @@ const { copy } = Astro.props
 
     <div
       class="jev-live"
-      data-jev-results
+      data-jev-metrics
+      data-live-url={JEV_RESULTS.liveUrl}
       data-status-url={JEV_RESULTS.statusUrl}
-      data-measured={JEV_RESULTS.measured ? 'true' : undefined}
-      hidden={!JEV_RESULTS.measured}
+      data-copy={JSON.stringify({
+        liveNote: copy.jev.liveNote,
+        evalNote: copy.jev.evalNote,
+        yes: copy.jev.yes,
+        no: copy.jev.no,
+        verdicts: copy.jev.verdicts,
+        evalColumns: copy.jev.evalColumns,
+      })}
     >
-      <h3 class="jev-subhead">{copy.jev.resultsTitle}</h3>
-      <p class="muted jev-note">{copy.jev.resultsLede}</p>
-      <p class="jev-note jev-preliminary" data-jev-preliminary data-template={copy.jev.preliminary} hidden></p>
-      <div class="jev-scroll">
-        <table class="jev-table jev-results">
-          <thead>
-            <tr>
-              <th scope="col"></th>
-              <th scope="col" class="num-col">{copy.jev.before}</th>
-              <th scope="col" class="num-col jev-after">{copy.jev.after}</th>
-            </tr>
-          </thead>
-          {
-            JEV_TABLE.map(([group, keys]) => (
-              <tbody>
-                <tr class="jev-group">
-                  <th scope="rowgroup" colspan="3">{copy.jev.groups[group]}</th>
-                </tr>
-                {keys.map((key) => (
-                  <tr>
-                    <th scope="row">{copy.jev.rows[key]}</th>
-                    {JEV_RESULTS.values[key].map((value, index) => (
-                      <td
-                        class:list={['num', 'num-col', { 'jev-after': index === 1, pending: value === null }]}
-                        data-key={key}
-                        data-column={index}
-                      >
-                        {value ?? copy.jev.pending}
-                      </td>
-                    ))}
-                  </tr>
+      <div data-live hidden>
+        <h3 class="jev-subhead">{copy.jev.liveTitle}</h3>
+        <p class="muted jev-note">{copy.jev.liveLede}</p>
+        <div class="jev-scroll">
+          <table class="jev-table jev-results">
+            <thead>
+              <tr>
+                <th scope="col"></th>
+                {copy.jev.liveColumns.map((title, index) => (
+                  <th scope="col" class:list={['num-col', { 'jev-after': index > 0 }]}>{title}</th>
                 ))}
-              </tbody>
-            ))
-          }
-        </table>
+              </tr>
+            </thead>
+            <tbody>
+              {LIVE_ROWS.map((key) => (
+                <tr>
+                  <th scope="row">{copy.jev.liveRows[key]}</th>
+                  {[0, 1, 2].map((column) => (
+                    <td class:list={['num', 'num-col', 'pending', { 'jev-after': column > 0 }]} data-live-key={key} data-column={column}>
+                      {copy.jev.pending}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p class="jev-note jev-preliminary" data-live-note></p>
+      </div>
+
+      <div data-eval hidden>
+        <h3 class="jev-subhead">{copy.jev.evalTitle}</h3>
+        <p class="muted jev-note">{copy.jev.evalLede}</p>
+        <div class="jev-scroll">
+          <table class="jev-table jev-results">
+            <thead>
+              <tr>
+                <th scope="col"></th>
+                {EVAL_RUNS.map((run) => (
+                  <th scope="col" class:list={['num-col', { 'jev-after': run !== 'baseline' }]}>{copy.jev.evalColumns[run]}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {EVAL_ROWS.map((key) => (
+                <tr>
+                  <th scope="row">{copy.jev.evalRows[key]}</th>
+                  {EVAL_RUNS.map((run) => (
+                    <td class:list={['num', 'num-col', 'pending', { 'jev-after': run !== 'baseline' }]} data-eval-key={key} data-run={run}>
+                      {copy.jev.pending}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p class="jev-note jev-preliminary" data-eval-note></p>
       </div>
     </div>
 
@@ -122,7 +151,7 @@ const { copy } = Astro.props
     <div class="split">
       {
         copy.jev.user.map(([title, body, needsResults]) => (
-          <div class="split-item" data-needs-results={needsResults ? 'true' : undefined} hidden={needsResults && !JEV_RESULTS.measured}>
+          <div class="split-item" data-needs-results={needsResults ? 'true' : undefined} hidden={needsResults}>
             <h3>{title}</h3>
             <p>{body}</p>
           </div>
@@ -145,9 +174,9 @@ const { copy } = Astro.props
   </section>
 
   <script>
-    import { showEvalStatus } from '../evalStatus.js'
+    import { showJevMetrics } from '../jevMetrics.js'
 
-    showEvalStatus(document.querySelector('[data-jev-results]'))
+    showJevMetrics(document.querySelector('[data-jev-metrics]'))
   </script>
 
   <section class="section" id="how">
