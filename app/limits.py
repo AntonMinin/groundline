@@ -4,9 +4,8 @@ import contextlib
 import logging
 import time
 from contextvars import ContextVar
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
-from typing import NamedTuple
 
 import httpx
 from sqlalchemy import select
@@ -298,22 +297,30 @@ def _key_with_subject(key: str, subject: str | None) -> str:
     return f"{key}|{subject}" if subject else key
 
 
-class _Ledger(NamedTuple):
-    read: dict[str, float]
-    pending: dict[tuple[str, str | None], float]
+@dataclass
+class _Ledger:
+    read: dict[str, float | None] = field(default_factory=dict)
+    pending: dict[tuple[str, str | None], float] = field(default_factory=dict)
+    warming: asyncio.Task | None = None
 
 
 _ledger: ContextVar[_Ledger | None] = ContextVar("limits_ledger", default=None)
 
 
 @contextlib.asynccontextmanager
-async def batched():
-    ledger = _Ledger({}, {})
+async def batched(subject: str | None = None):
+    ledger = _Ledger()
+    names = {key: key for key in REGISTRY}
+    if subject:
+        names.update({_key_with_subject(key, subject): key for key in SUBJECT_KEYS})
+    ledger.warming = asyncio.create_task(_read(names))
     token = _ledger.set(ledger)
     try:
         yield
     finally:
         _ledger.reset(token)
+        with contextlib.suppress(Exception):
+            await ledger.warming
         await asyncio.shield(_flush(ledger.pending))
 
 
@@ -397,6 +404,9 @@ async def used(keys: tuple[str, ...], subject: str | None = None) -> dict[str, f
     if ledger is None:
         read = await _read(stored)
     else:
+        if ledger.warming is not None:
+            warmed = await ledger.warming
+            ledger.read.update({name: value for name, value in warmed.items() if name not in ledger.read})
         missing = {name: key for name, key in stored.items() if name not in ledger.read}
         if missing:
             ledger.read.update(await _read(missing))

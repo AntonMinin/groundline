@@ -580,12 +580,23 @@ def _claim_answering(user_id: UUID) -> None:
     _answering[user_id] = now
 
 
+async def _has_chunks(user_id: UUID) -> bool:
+    async with tenant_session(user_id) as session:
+        return await user_has_chunks(session, user_id)
+
+
 async def _check_query_limits(user: User) -> None:
-    async with tenant_session(user.id) as session:
-        if not await user_has_chunks(session, user.id):
-            raise HTTPException(status.HTTP_409_CONFLICT, "No documents uploaded yet")
-    await _ensure_question_spacing(user.id)
-    if (await store.usage(user.id))["queries_last_24h"] >= settings.queries_per_day:
+    has_chunks, spacing, usage = await asyncio.gather(
+        _has_chunks(user.id), _ensure_question_spacing(user.id), store.usage(user.id), return_exceptions=True
+    )
+    if isinstance(has_chunks, BaseException):
+        raise has_chunks
+    if not has_chunks:
+        raise HTTPException(status.HTTP_409_CONFLICT, "No documents uploaded yet")
+    for outcome in (spacing, usage):
+        if isinstance(outcome, BaseException):
+            raise outcome
+    if usage["queries_last_24h"] >= settings.queries_per_day:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Daily limit of {settings.queries_per_day} queries reached")
 
 

@@ -46,15 +46,31 @@ class QueryState(TypedDict, total=False):
     jev: dict
     log_id: UUID | None
     documents_version: int
+    prefetched: tuple[list[RetrievedChunk], int] | None
 
 
 def _source(chunk: RetrievedChunk) -> dict:
     return {**chunk.source(), "content": chunk.content, "score": round(chunk.score, 4)}
 
 
+async def _search_as_asked(state: QueryState, embedding: list[float]) -> tuple[list[RetrievedChunk], int]:
+    found, version = await asyncio.gather(
+        hybrid_search(state["user_id"], state["question"], embedding), store.documents_version(state["user_id"])
+    )
+    return found, version
+
+
+async def _nothing() -> None:
+    return None
+
+
 async def check_cache(state: QueryState, writer: StreamWriter) -> QueryState:
     [embedding] = await embed([state["question"]], name="embed_question")
-    nearest = await store.find_nearest(state["user_id"], embedding) if state.get("use_cache", True) else None
+    lookup = store.find_nearest(state["user_id"], embedding) if state.get("use_cache", True) else _nothing()
+    if jev.enabled():
+        nearest, prefetched = await asyncio.gather(lookup, _search_as_asked(state, embedding))
+    else:
+        nearest, prefetched = await lookup, None
     threshold = settings.cache_similarity_threshold
     similarity = nearest.similarity if nearest else None
     cached = nearest if nearest and nearest.similarity >= threshold else None
@@ -111,6 +127,7 @@ async def check_cache(state: QueryState, writer: StreamWriter) -> QueryState:
             "attempt": 0,
             "tokens_used": 0,
             "chunks": [],
+            "prefetched": prefetched,
             **verified,
         }
     langfuse.score_current_trace(name="cache_hit", value=1, data_type="BOOLEAN")
@@ -153,8 +170,12 @@ async def rewrite_query(state: QueryState) -> QueryState:
 
 
 async def retrieve(state: QueryState) -> QueryState:
-    if state.get("query") is None:
+    first = state.get("query") is None
+    if first:
         await _admit(state)
+    if first and state.get("prefetched") is not None:
+        found, version = state["prefetched"]
+        return {"query": state["question"], "candidates": found, "documents_version": version, "prefetched": None}
     query = state.get("query") or state["question"]
     if query == state["question"]:
         embedding = state["question_embedding"]
@@ -294,6 +315,17 @@ def _cacheable(state: QueryState) -> bool:
 
 async def record(state: QueryState, writer: StreamWriter, defer_cache: bool = False) -> QueryState:
     cacheable = _cacheable(state) and not defer_cache
+    writer(
+        {
+            "type": "done",
+            "sources": state["sources"],
+            "cache_hit": state["cache_hit"],
+            "cache_similarity": state.get("cache_similarity"),
+            "cache_threshold": settings.cache_similarity_threshold,
+            "tokens_used": state["tokens_used"],
+            "tokens_saved": state["tokens_saved"],
+        }
+    )
     log_id, cached = await asyncio.shield(
         store.record_query(
             user_id=state["user_id"],
@@ -311,17 +343,6 @@ async def record(state: QueryState, writer: StreamWriter, defer_cache: bool = Fa
     )
     if cacheable and not cached:
         _cache_write_skipped(state)
-    writer(
-        {
-            "type": "done",
-            "sources": state["sources"],
-            "cache_hit": state["cache_hit"],
-            "cache_similarity": state.get("cache_similarity"),
-            "cache_threshold": settings.cache_similarity_threshold,
-            "tokens_used": state["tokens_used"],
-            "tokens_saved": state["tokens_saved"],
-        }
-    )
     return {"log_id": log_id}
 
 
@@ -466,7 +487,7 @@ async def run_query(
                 ) as root,
             ):
                 answer = ""
-                async with limits.batched():
+                async with limits.batched(subject=str(user_id)):
                     async for event in graph.astream(
                         {"user_id": user_id, "question": question, "use_cache": use_cache}, stream_mode="custom"
                     ):
