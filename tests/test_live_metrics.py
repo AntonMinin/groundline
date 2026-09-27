@@ -40,6 +40,7 @@ def test_averages_skip_cache_hits_for_time_and_the_last_question_comes_first():
     assert summary["average"]["answer_ms"] == 1200
     assert summary["average"]["llm_calls"] == 0.5 and summary["average"]["cache_hit"] == 0.5
     assert summary["average"]["jev_ms"] == 520 and summary["average"]["supported"] == 1.0
+    assert summary["average"]["node_ms"]["generate_answer"] == 800 and summary["average"]["node_ms"]["check_cache"] == 100
     assert summary["last"]["llm_calls"] == 1 and summary["last"]["grounding"] == "supported"
     assert store.summarize_live([], None) == {"questions": 0, "average": None, "last": None}
 

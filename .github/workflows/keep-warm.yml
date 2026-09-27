@@ -1,0 +1,16 @@
+name: Keep API warm
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - run: curl --silent --show-error --max-time 120 --retry 2 -o /dev/null -w "%{http_code} %{time_total}s\n" https://api.groundline.antonmb.com/health

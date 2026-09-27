@@ -196,7 +196,11 @@ def question_facts(row: QueryMetric) -> dict:
     before_done = [metric for metric in nodes if metric.get("node") != "check_grounding"]
     jev_calls = [metric["jev"] for metric in nodes if "latency_ms" in (metric.get("jev") or {})]
     grounding = next((metric.get("jev") for metric in nodes if metric.get("node") == "check_grounding"), None) or {}
+    node_ms: dict[str, int] = {}
+    for metric in nodes:
+        node_ms[metric.get("node")] = node_ms.get(metric.get("node"), 0) + metric.get("duration_ms", 0)
     return {
+        "node_ms": node_ms,
         "answer_ms": sum(metric.get("duration_ms", 0) for metric in before_done),
         "llm_calls": sum(1 for metric in nodes if metric.get("node") in LLM_NODES),
         "llm_tokens": row.tokens_used,
@@ -217,6 +221,8 @@ def summarize_live(rows: list[QueryMetric], jev_cost_per_question: float | None)
     if not facts:
         return {"questions": 0, "average": None, "last": None}
     graded = [fact["grounding"] for fact in facts if fact["grounding"]]
+    misses = [fact for fact in facts if not fact["cache_hit"]]
+    names = sorted({name for fact in misses for name in fact["node_ms"]})
     average = {
         "answer_ms": _mean([fact["answer_ms"] for fact in facts if not fact["cache_hit"]]),
         "llm_calls": _mean([fact["llm_calls"] for fact in facts]),
@@ -225,6 +231,7 @@ def summarize_live(rows: list[QueryMetric], jev_cost_per_question: float | None)
         "jev_ms": _mean([fact["jev_ms"] for fact in facts if fact["jev_calls"]]),
         "supported": round(graded.count("supported") / len(graded), 2) if graded else None,
         "jev_cost_usd": jev_cost_per_question,
+        "node_ms": {name: _mean([fact["node_ms"].get(name, 0) for fact in misses]) for name in names},
     }
     return {"questions": len(facts), "average": average, "last": {**facts[0], "at": rows[0].created_at.isoformat()}}
 
