@@ -114,6 +114,8 @@ export default function PipelineDiagram() {
     if (node === 'jev_sufficiency' && jev?.sufficient !== undefined) {
       return t(jev.passed ? 'pipeline.jevSufficient' : 'pipeline.jevUnsure', {
         probability: jev.sufficient.toFixed(2),
+        kept: jev.kept ?? jev.relevance?.length ?? '?',
+        total: jev.relevance?.length ?? jev.kept ?? '?',
       })
     }
     if (node === 'check_grounding' && jev?.verdict) {
