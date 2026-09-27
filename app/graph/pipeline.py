@@ -131,12 +131,16 @@ def _llm_tokens(before: int, estimate: int) -> int:
     return measured if measured > 0 else estimate
 
 
-async def rewrite_query(state: QueryState) -> QueryState:
+async def _admit(state: QueryState) -> None:
     await limits.ensure(*limits.QUERY_KEYS)
-    if state["attempt"] == 0:
+    if state.get("query") is None:
         await limits.ensure_headroom("groq.tokens_per_day", settings.groq_reserve_tokens)
         await limits.ensure_headroom("groq.requests_per_day", settings.groq_reserve_requests)
         await llm.ensure_room_for_question()
+
+
+async def rewrite_query(state: QueryState) -> QueryState:
+    await _admit(state)
     messages = prompts.rewrite_messages(state["question"], state.get("query"), state.get("missing"))
     before = llm.spent()
     rewritten = guard.clamp(await llm.complete("rewrite_query", messages)) or state["question"]
@@ -149,7 +153,9 @@ async def rewrite_query(state: QueryState) -> QueryState:
 
 
 async def retrieve(state: QueryState) -> QueryState:
-    query = state["query"]
+    if state.get("query") is None:
+        await _admit(state)
+    query = state.get("query") or state["question"]
     if query == state["question"]:
         embedding = state["question_embedding"]
     else:
@@ -160,7 +166,7 @@ async def retrieve(state: QueryState) -> QueryState:
     found = await hybrid_search(state["user_id"], query, embedding)
     found_ids = {chunk.id for chunk in found}
     previous = [chunk for chunk in state.get("chunks", []) if chunk.id not in found_ids]
-    return {"candidates": found + previous, "documents_version": version}
+    return {"query": query, "candidates": found + previous, "documents_version": version}
 
 
 async def rerank_chunks(state: QueryState) -> QueryState:
@@ -176,24 +182,49 @@ async def _ask_jev(name: str, jev_state, questions: dict, timeout_ms: int) -> tu
     return answers, trace if answers is not None else {**trace, "failed": True}
 
 
+def _relevant_chunks(chunks: list[RetrievedChunk], relevance: list[float]) -> list[RetrievedChunk]:
+    kept = [chunk for chunk, score in zip(chunks, relevance) if score >= settings.jev_relevant_threshold]
+    return kept or chunks
+
+
 async def jev_sufficiency(state: QueryState) -> QueryState:
     if not state["chunks"]:
-        return {"sufficient": False}
+        return {"sufficient": False, "jev": {"passed": False}}
+    questions = {"sufficient": prompts.JEV_SUFFICIENT}
+    for number in range(1, len(state["chunks"]) + 1):
+        questions[f"relevant_{number}"] = prompts.jev_relevant(number)
     answers, trace = await _ask_jev(
         "jev_sufficiency",
         {"question": state["question"], "fragments": prompts.jev_fragments(state["chunks"])},
-        {"sufficient": prompts.JEV_SUFFICIENT},
+        questions,
         settings.jev_timeout_critical_ms,
     )
     if answers is None:
         return {"sufficient": False, **({"jev": trace} if trace else {})}
     probability = answers["sufficient"]["noul"]
     passed = probability >= settings.jev_sufficient_threshold
-    return {"sufficient": passed, "jev": {**trace, "sufficient": round(probability, 4), "passed": passed}}
+    relevance = [answers.get(f"relevant_{number}", {"noul": 1.0})["noul"] for number in range(1, len(state["chunks"]) + 1)]
+    chunks = _relevant_chunks(state["chunks"], relevance) if passed else state["chunks"]
+    return {
+        "sufficient": passed,
+        "chunks": chunks,
+        "jev": {
+            **trace,
+            "sufficient": round(probability, 4),
+            "passed": passed,
+            "relevance": [round(score, 4) for score in relevance],
+            "kept": len(chunks),
+        },
+    }
 
 
 def route_after_jev_sufficiency(state: QueryState) -> str:
-    return "generate_answer" if state["sufficient"] else "check_sufficiency"
+    trace = state.get("jev") or {}
+    if state["sufficient"]:
+        return "generate_answer"
+    if trace.get("failed"):
+        return "check_sufficiency"
+    return "rewrite_query" if state["attempt"] < settings.max_rewrites else "generate_answer"
 
 
 async def check_sufficiency(state: QueryState) -> QueryState:
@@ -223,6 +254,10 @@ def route_after_sufficiency(state: QueryState) -> str:
 
 def route_after_cache(state: QueryState) -> str:
     return "record" if state["cache_hit"] else "rewrite_query"
+
+
+def route_after_cache_jev(state: QueryState) -> str:
+    return "record" if state["cache_hit"] else "retrieve"
 
 
 async def generate_answer(state: QueryState, writer: StreamWriter) -> QueryState:
@@ -389,7 +424,10 @@ def build_graph(with_jev: bool | None = None):
             node = functools.partial(record, defer_cache=True)
         builder.add_node(name, _instrumented(name, node))
     builder.add_edge(START, "check_cache")
-    builder.add_conditional_edges("check_cache", route_after_cache, ["record", "rewrite_query"])
+    if with_jev:
+        builder.add_conditional_edges("check_cache", route_after_cache_jev, ["record", "retrieve"])
+    else:
+        builder.add_conditional_edges("check_cache", route_after_cache, ["record", "rewrite_query"])
     builder.add_edge("rewrite_query", "retrieve")
     builder.add_edge("retrieve", "rerank")
     builder.add_conditional_edges("check_sufficiency", route_after_sufficiency, ["generate_answer", "rewrite_query"])
@@ -397,7 +435,7 @@ def build_graph(with_jev: bool | None = None):
     if with_jev:
         builder.add_edge("rerank", "jev_sufficiency")
         builder.add_conditional_edges(
-            "jev_sufficiency", route_after_jev_sufficiency, ["generate_answer", "check_sufficiency"]
+            "jev_sufficiency", route_after_jev_sufficiency, ["generate_answer", "check_sufficiency", "rewrite_query"]
         )
         builder.add_conditional_edges("record", route_after_record, ["check_grounding", END])
         builder.add_edge("check_grounding", END)

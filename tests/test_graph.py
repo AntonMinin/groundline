@@ -288,10 +288,10 @@ def with_jev(fakes, monkeypatch):
     return calls, state
 
 
-async def test_jev_sufficient_skips_the_llm_check_and_grounding_follows_done(with_jev):
+async def test_jev_sufficient_answers_with_no_llm_call_but_the_answer(with_jev):
     calls, _ = with_jev
     events = await _collect()
-    assert calls["complete"] == ["rewrite_query"]
+    assert calls["complete"] == [] and calls["stream"] == 1 and calls["search"] == 1
     assert calls["jev"] == [
         ("jev_sufficiency", settings.jev_timeout_critical_ms),
         ("check_grounding", settings.jev_timeout_ms),
@@ -308,19 +308,35 @@ async def test_jev_sufficient_skips_the_llm_check_and_grounding_follows_done(wit
     assert grounding["node"] == "check_grounding" and grounding["jev"]["verdict"] == "supported"
 
 
-async def test_jev_unsure_falls_through_to_the_llm_check(with_jev):
+async def test_jev_unsure_rewrites_the_query_without_the_llm_check(with_jev):
     calls, state = with_jev
     state["jev"]["jev_sufficiency"] = {"sufficient": {"noul": 0.6}}
-    state["verdicts"] = [False, True]
     await _collect()
-    assert calls["complete"] == ["rewrite_query", "check_sufficiency", "rewrite_query", "check_sufficiency"]
+    assert calls["complete"] == ["rewrite_query"] * settings.max_rewrites
+    assert calls["search"] == settings.max_rewrites + 1 and calls["stream"] == 1
 
 
-async def test_jev_failing_everywhere_keeps_the_original_behaviour(with_jev):
+async def test_jev_recovers_after_one_rewrite(with_jev, monkeypatch):
+    calls, state = with_jev
+    verdicts = iter([0.2, 0.95])
+
+    async def ask(name, jev_state, questions, timeout_ms):
+        calls["jev"].append((name, timeout_ms))
+        if name == "jev_sufficiency":
+            return {"sufficient": {"noul": next(verdicts)}}
+        return state["jev"].get(name)
+
+    monkeypatch.setattr(pipeline.jev, "ask", ask)
+    await _collect()
+    assert calls["complete"] == ["rewrite_query"] and calls["search"] == 2
+    assert len(calls["cached"]) == 1
+
+
+async def test_jev_failing_everywhere_falls_back_to_the_llm_check(with_jev):
     calls, state = with_jev
     state["jev"] = {}
     events = await _collect()
-    assert calls["complete"] == ["rewrite_query", "check_sufficiency"]
+    assert calls["complete"] == ["check_sufficiency"]
     assert events[-1]["type"] == "done"
     assert len(calls["cached"]) == 1
     assert calls["appended"][0]["jev"]["failed"] is True
@@ -387,7 +403,7 @@ async def test_jev_nodes_reach_the_flowchart(with_jev):
         events.unsubscribe(user_id, queue)
 
     started = [event["node"] for event in published if event["type"] == "node_started"]
-    assert started == ["check_cache", "rewrite_query", "retrieve", "rerank", "jev_sufficiency", "generate_answer", "record", "check_grounding"]
+    assert started == ["check_cache", "retrieve", "rerank", "jev_sufficiency", "generate_answer", "record", "check_grounding"]
     grounding = next(e for e in published if e["type"] == "node_finished" and e["node"] == "check_grounding")
     assert grounding["jev"]["verdict"] == "supported"
 
@@ -446,3 +462,29 @@ async def test_a_skipped_cache_write_is_reported(with_jev, monkeypatch):
     await _collect()
     assert calls["cached"][0]["documents_version"] == 7
     assert skipped == [7]
+
+
+OTHER = RetrievedChunk(
+    id=uuid.uuid4(), document_id=uuid.uuid4(), filename="doc.pdf", chunk_index=9, page=5, content="Lyon has a river."
+)
+
+
+@pytest.mark.parametrize("relevance, kept", [((0.9, 0.1), [3]), ((0.1, 0.2), [3, 9]), ((0.9, None), [3, 9])])
+async def test_jev_sends_only_the_useful_fragments_to_the_answer(with_jev, monkeypatch, relevance, kept):
+    calls, state = with_jev
+
+    async def two_chunks(user_id, query, embedding):
+        calls["search"] += 1
+        return [CHUNK, OTHER]
+
+    monkeypatch.setattr(pipeline, "hybrid_search", two_chunks)
+    answers = {"sufficient": {"noul": 0.95}}
+    for number, score in enumerate(relevance, start=1):
+        if score is not None:
+            answers[f"relevant_{number}"] = {"noul": score}
+    state["jev"]["jev_sufficiency"] = answers
+    events = await _collect()
+    done = next(event for event in events if event["type"] == "done")
+    assert [source["chunk_index"] for source in done["sources"]] == kept
+    trace = next(metric for metric in calls["recorded"][0]["node_metrics"] if metric["node"] == "jev_sufficiency")["jev"]
+    assert trace["kept"] == len(kept)

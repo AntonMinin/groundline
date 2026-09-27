@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     jev_price_per_1m: float = 0.042
     jev_monthly_budget_usd: float = 1.5
     jev_sufficient_threshold: float = 0.85
+    jev_relevant_threshold: float = 0.5
     jev_cache_verify_from: float = 0.85
     jev_cache_verify_below: float = 0.97
     jev_same_question_threshold: float = 0.5

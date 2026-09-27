@@ -79,6 +79,17 @@ JEV_SUFFICIENT = {
     },
 }
 
+def jev_relevant(number: int) -> dict:
+    return {
+        "type": "noul",
+        "instructions": f"Does the fragment with n={number} in `fragments` contain information needed to answer `question`?",
+        "criteria": {
+            "true": "The fragment states facts that the answer to the question relies on.",
+            "false": "The fragment is about something else or only repeats what other fragments already say better.",
+        },
+    }
+
+
 JEV_SAME_QUESTION = {
     "type": "noul",
     "instructions": "Would a correct answer to `stored_question` also be a correct and complete answer to `new_question`?",
