@@ -466,17 +466,18 @@ async def run_query(
                 ) as root,
             ):
                 answer = ""
-                async for event in graph.astream(
-                    {"user_id": user_id, "question": question, "use_cache": use_cache}, stream_mode="custom"
-                ):
-                    if event["type"] == "token":
-                        answer += event["text"]
-                    elif event["type"] == "done":
-                        root.update(
-                            output={"answer": guard.redact(answer)},
-                            metadata={"cache_hit": event["cache_hit"], "tokens_saved": event["tokens_saved"]},
-                        )
-                    await queue.put(event)
+                async with limits.batched():
+                    async for event in graph.astream(
+                        {"user_id": user_id, "question": question, "use_cache": use_cache}, stream_mode="custom"
+                    ):
+                        if event["type"] == "token":
+                            answer += event["text"]
+                        elif event["type"] == "done":
+                            root.update(
+                                output={"answer": guard.redact(answer)},
+                                metadata={"cache_hit": event["cache_hit"], "tokens_saved": event["tokens_saved"]},
+                            )
+                        await queue.put(event)
             await queue.put(_END)
         except Exception as exc:
             await queue.put(exc)

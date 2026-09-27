@@ -176,11 +176,14 @@ async def _server_timings() -> dict:
     started = time.perf_counter()
     async with SessionLocal() as session:
         await session.execute(select(1))
+        repeated = time.perf_counter()
+        await session.execute(select(1))
+        roundtrip_ms = (time.perf_counter() - repeated) * 1000
     session_ms = (time.perf_counter() - started) * 1000
     started = time.perf_counter()
     sum(number * number for number in range(200_000))
     cpu_ms = (time.perf_counter() - started) * 1000
-    return {"db_session_ms": round(session_ms, 1), "cpu_benchmark_ms": round(cpu_ms, 1)}
+    return {"db_session_ms": round(session_ms, 1), "db_roundtrip_ms": round(roundtrip_ms, 1), "cpu_benchmark_ms": round(cpu_ms, 1)}
 
 
 @router.get("/eval/runs/{name}", dependencies=[Depends(_require_eval_token)])

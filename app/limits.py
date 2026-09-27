@@ -1,8 +1,12 @@
+import asyncio
 import calendar
+import contextlib
 import logging
 import time
+from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
+from typing import NamedTuple
 
 import httpx
 from sqlalchemy import select
@@ -294,29 +298,78 @@ def _key_with_subject(key: str, subject: str | None) -> str:
     return f"{key}|{subject}" if subject else key
 
 
-async def add(key: str, amount: float = 1.0, subject: str | None = None) -> None:
-    if amount <= 0:
-        return
-    quota = REGISTRY[key]
+class _Ledger(NamedTuple):
+    read: dict[str, float]
+    pending: dict[tuple[str, str | None], float]
+
+
+_ledger: ContextVar[_Ledger | None] = ContextVar("limits_ledger", default=None)
+
+
+@contextlib.asynccontextmanager
+async def batched():
+    ledger = _Ledger({}, {})
+    token = _ledger.set(ledger)
+    try:
+        yield
+    finally:
+        _ledger.reset(token)
+        await asyncio.shield(_flush(ledger.pending))
+
+
+def _upsert(key: str, amount: float, subject: str | None):
     row = insert(ServiceUsage).values(
-        quota_key=_key_with_subject(key, subject), period_start=period_start(quota.period), used=amount
+        quota_key=_key_with_subject(key, subject), period_start=period_start(REGISTRY[key].period), used=amount
     )
-    statement = row.on_conflict_do_update(
+    return row.on_conflict_do_update(
         index_elements=[ServiceUsage.quota_key, ServiceUsage.period_start],
         set_={"used": ServiceUsage.used + amount, "updated_at": datetime.now(UTC)},
     ).returning(ServiceUsage.used)
+
+
+async def _flush(pending: dict[tuple[str, str | None], float]) -> None:
+    if not pending:
+        return
+    totals: dict[str, float] = {}
     try:
         async with SessionLocal() as session:
-            total = await session.scalar(statement)
+            for (key, subject), amount in pending.items():
+                total = await session.scalar(_upsert(key, amount, subject))
+                if subject is None and total is not None:
+                    totals[key] = total
+            await session.commit()
+    except Exception:
+        log.warning("Could not record usage for %s", sorted(key for key, _ in pending), exc_info=True)
+        return
+    for key, total in totals.items():
+        await _alert(key, total)
+
+
+async def _alert(key: str, total: float) -> None:
+    quota = REGISTRY[key]
+    limit = limit_of(quota)
+    if limit:
+        await alerts.quota_consumed(
+            key, quota.service, quota.title, total, limit, quota.unit, resets_at(quota.period).strftime("%Y-%m-%d %H:%M UTC")
+        )
+
+
+async def add(key: str, amount: float = 1.0, subject: str | None = None) -> None:
+    if amount <= 0:
+        return
+    ledger = _ledger.get()
+    if ledger is not None:
+        ledger.pending[(key, subject)] = ledger.pending.get((key, subject), 0.0) + amount
+        return
+    try:
+        async with SessionLocal() as session:
+            total = await session.scalar(_upsert(key, amount, subject))
             await session.commit()
     except Exception:
         log.warning("Could not record usage for %s", key, exc_info=True)
         return
-    limit = limit_of(quota)
-    if subject is None and limit and total is not None:
-        await alerts.quota_consumed(
-            key, quota.service, quota.title, total, limit, quota.unit, resets_at(quota.period).strftime("%Y-%m-%d %H:%M UTC")
-        )
+    if subject is None and total is not None:
+        await _alert(key, total)
 
 
 async def claim_daily_run(name: str) -> bool:
@@ -339,13 +392,31 @@ async def claim_daily_run(name: str) -> bool:
 async def used(keys: tuple[str, ...], subject: str | None = None) -> dict[str, float]:
     if not keys:
         return {}
-    global _degraded
     stored = {_key_with_subject(key, subject): key for key in keys}
+    ledger = _ledger.get()
+    if ledger is None:
+        read = await _read(stored)
+    else:
+        missing = {name: key for name, key in stored.items() if name not in ledger.read}
+        if missing:
+            ledger.read.update(await _read(missing))
+        read = {name: ledger.read[name] for name in stored}
+    counters = {stored[name]: value for name, value in read.items() if value is not None}
+    if ledger is not None:
+        for key in keys:
+            counters[key] = counters.get(key, 0.0) + ledger.pending.get((key, subject), 0.0)
+    if subject is None:
+        counters.update({key: value for key, value in _reported.items() if key in stored})
+    return {key: counters.get(key, 0.0) for key in keys}
+
+
+async def _read(stored: dict[str, str]) -> dict[str, float | None]:
+    global _degraded
     try:
         async with SessionLocal() as session:
             rows = (await session.execute(select(ServiceUsage).where(ServiceUsage.quota_key.in_(stored)))).scalars()
-            counters = {
-                stored[row.quota_key]: row.used
+            found = {
+                row.quota_key: row.used
                 for row in rows
                 if row.period_start == period_start(REGISTRY[stored[row.quota_key]].period)
             }
@@ -357,10 +428,8 @@ async def used(keys: tuple[str, ...], subject: str | None = None) -> dict[str, f
             "limits check degraded: usage counters unreadable, quotas are not enforced and reported as unknown",
             exc_info=True,
         )
-        counters = {}
-    if subject is None:
-        counters.update({key: value for key, value in _reported.items() if key in stored})
-    return {key: counters.get(key, 0.0) for key in keys}
+        return {name: None for name in stored}
+    return {name: found.get(name, 0.0) for name in stored}
 
 
 async def ensure(*keys: str) -> None:
