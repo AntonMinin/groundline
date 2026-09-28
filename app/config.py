@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     jev_cache_verify_from: float = 0.85
     jev_cache_verify_below: float = 0.97
     jev_same_question_threshold: float = 0.5
-    jev_grounded_threshold: float = 0.9
+    jev_grounded_threshold: float = 0.7
 
     preload_models: bool = True
 

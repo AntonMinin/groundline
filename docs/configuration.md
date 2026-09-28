@@ -76,7 +76,7 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | `JEV_CACHE_VERIFY_FROM` | `0.85` | lower end of the range Jev checks. A nearest question between this value and `CACHE_SIMILARITY_THRESHOLD` becomes a hit when Jev says it asks the same thing; if Jev fails it stays a miss, as without Jev |
 | `JEV_CACHE_VERIFY_BELOW` | `0.97` | upper end of the range. A hit from `CACHE_SIMILARITY_THRESHOLD` up to this value is confirmed by Jev before the stored answer is returned; if Jev fails it stays a hit. At or above it the similarity alone decides |
 | `JEV_SAME_QUESTION_THRESHOLD` | `0.5` | Jev's probability that the new and the stored question ask for the same thing, below which a would-be hit becomes a miss |
-| `JEV_GROUNDED_THRESHOLD` | `0.9` | probability of the `supported` verdict at or above which an answer is written to the cache. A Jev failure falls back to the original rule |
+| `JEV_GROUNDED_THRESHOLD` | `0.7` | probability of the `supported` verdict at or above which an answer is written to the cache. A Jev failure falls back to the original rule. In the evaluation every answer Jev graded at 0.7 or more was supported and the judge found them as faithful as the rest, while below it Jev only gave `no_answer`; 0.9 kept answers graded 0.83-0.84 out of the cache on production, so their repeats went back to the LLM |
 | `EVAL_WRITE_TOKEN_SHA256` | hash of the evaluation token | SHA-256 of the token that may read and write evaluation progress at `/eval/runs/{name}`; empty turns those endpoints off. The token itself is only in the GitHub secret `EVAL_WRITE_TOKEN` |
 
 ## Quotas and ingestion
