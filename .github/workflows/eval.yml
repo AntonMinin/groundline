@@ -112,7 +112,7 @@ jobs:
             fi
             exit "$code"
           }
-          stage eval_gitlab_jev_first2 answered --serve jev --label jev_first             --set LLM_BASE_URL=https://openrouter.ai/api/v1 --set "GROQ_API_KEY=$OPENROUTER_API_KEY"             --set 'LLM_EXTRA_BODY={"provider":{"order":["Groq"],"allow_fallbacks":false}}'
+          stage eval_gitlab_jev_first2 answered --serve jev --label jev_first
           stage eval_gitlab_baseline answered --serve baseline
           stage eval_gitlab_jev answered --serve jev
           stage eval_gitlab_baseline finished --serve baseline --judge-repeats 3 --cache-pairs

@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     llm_model: str = "openai/gpt-oss-120b"
     llm_timeout: float = 30.0
     llm_max_output_tokens: int = 2048
-    llm_extra_body: dict = {}
 
     embedding_provider: Literal["local", "api"] = "local"
     embedding_model: str = "BAAI/bge-m3"

@@ -92,7 +92,6 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | `USER_REQUESTS_PER_DAY` | `100` | Groq requests per user per UTC day, checked before every call - 10% of the 1 000-request free tier |
 | `GROQ_RESERVE_TOKENS` | `20000` | a new question (cache miss) is refused while fewer than this many tokens of the shared daily budget are left, so questions already running can finish |
 | `GROQ_RESERVE_REQUESTS` | `20` | the same reserve for requests |
-| `LLM_EXTRA_BODY` | `{}` | JSON merged into every LLM request, for example `{"provider": {"order": ["Groq"], "allow_fallbacks": false}}` to pin the upstream when `LLM_BASE_URL` points at OpenRouter. The evaluation uses it |
 | `LLM_MAX_OUTPUT_TOKENS` | `2048` | `max_tokens` of every LLM call, reasoning included. Bounds what one call can cost, so neither a long answer nor a document asking for one can take a person's whole budget in one go |
 | `UPLOADS_PER_DAY` | `5` | uploads per user in 24 hours, deleted documents included. Bounds the paid embedding cost of delete-and-upload loops |
 | `QUERY_MIN_INTERVAL_SECONDS` | `15` | shortest gap between two questions from one user. `0` disables it |

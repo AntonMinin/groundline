@@ -88,7 +88,6 @@ async def complete(name: str, messages: list[dict], model: str | None = None, **
         messages=messages,
         temperature=0,
         max_tokens=settings.llm_max_output_tokens,
-        extra_body=settings.llm_extra_body or None,
         **kwargs,
     )
     text = response.choices[0].message.content or ""
@@ -107,7 +106,6 @@ async def stream(name: str, messages: list[dict]) -> AsyncIterator[str]:
         max_tokens=settings.llm_max_output_tokens,
         stream=True,
         stream_options={"include_usage": True},
-        extra_body=settings.llm_extra_body or None,
     )
     parts: list[str] = []
     usage = None
