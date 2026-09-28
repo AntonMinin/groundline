@@ -46,7 +46,7 @@ Eight pages of the [GitLab Handbook](https://gitlab.com/gitlab-com/content-sites
 
 ### Method
 
-Same questions in the same order, cache cleared, `use_cache=false`. The judge is ragas with `openai/gpt-oss-20b` through OpenRouter on one pinned upstream (Parasail), `max_tokens=4096`. The runs execute in GitHub Actions (`.github/workflows/eval.yml`, started by hand) against a throwaway database with the local models, so their latencies say nothing about production; the live metrics do. Progress is stored in `eval_runs` and resumes after a quota stop.
+Same questions in the same order, cache cleared, `use_cache=false`. The judge is ragas with `openai/gpt-oss-20b`, `max_tokens=4096`. Without Jev and Jev v1 were judged through OpenRouter on one pinned upstream (Parasail) and are kept as they were; from Jev-first on, the judge runs on the free Groq tier like the pipeline, and OpenRouter serves only Jev. The unfinished extras of the two earlier runs (the Jev v1 repeat judgements and the cache pairs) were not completed, so no run mixes two judges. The runs execute in GitHub Actions (`.github/workflows/eval.yml`, started by hand) against a throwaway database with the local models, so their latencies say nothing about production; the live metrics do. Progress is stored in `eval_runs` and resumes after a quota stop.
 
 ### Results
 

@@ -107,7 +107,7 @@ export const CONTENT = {
       method: [
         ['Corpus', '8 pages of the GitLab Handbook on time off, leave, benefits, expenses and travel, pinned to commit f243917f, CC BY-SA 4.0 - 70 chunks.'],
         ['Dataset', '29 questions: answered by one chunk, answered across documents, unanswerable, distractors, 5 in Russian. Plus 20 cache pairs: paraphrases and look-alikes.'],
-        ['Judge', 'ragas with gpt-oss-20b through OpenRouter on one pinned upstream, max_tokens 4096, three judgements per answer.'],
+        ['Judge', 'ragas with gpt-oss-20b, max_tokens 4096: through OpenRouter for the runs without Jev and Jev v1, on free Groq for Jev-first.'],
         ['Limits', 'One corpus and 29 questions on free-tier Groq. Differences smaller than the judge spread are noise. Jev is strongest in English.'],
       ],
       docsLink: 'Full method and per-question results',
@@ -276,7 +276,7 @@ export const CONTENT = {
       method: [
         ['Корпус', '8 страниц GitLab Handbook об отпусках, leave, льготах, расходах и командировках, зафиксированы на коммите f243917f, CC BY-SA 4.0 - 70 чанков.'],
         ['Датасет', '29 вопросов: ответ в одном чанке, ответ из нескольких документов, неотвечаемые, дистракторы, 5 на русском. Плюс 20 пар для кэша: перефразы и похожие по словам вопросы.'],
-        ['Судья', 'ragas с gpt-oss-20b через OpenRouter на одном закреплённом апстриме, max_tokens 4096, три оценки на ответ.'],
+        ['Судья', 'ragas с gpt-oss-20b, max_tokens 4096: через OpenRouter для прогонов без Jev и Jev v1, на бесплатном Groq для Jev-first.'],
         ['Ограничения', 'Один корпус и 29 вопросов на бесплатном тарифе Groq. Разница меньше разброса судьи - это шум. Сильнее всего Jev на английском.'],
       ],
       docsLink: 'Полная методика и результаты по вопросам',

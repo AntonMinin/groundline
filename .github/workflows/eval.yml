@@ -12,7 +12,7 @@ concurrency:
 
 env:
   EVAL_SYNC_URL: https://api.groundline.antonmb.com
-  RUNS: eval_gitlab_jev_first2 eval_gitlab_baseline eval_gitlab_jev
+  RUNS: eval_gitlab_jev_first2
 
 jobs:
   eval:
@@ -56,7 +56,7 @@ jobs:
               404) rm -f "$run.json"; echo "$run: not started" ;;
               *) echo "$run: the API answered $code"; exit 1 ;;
             esac
-            python3 app/eval/stage.py "$run.json" finished || pending=true
+            python3 app/eval/stage.py "$run.json" answered || pending=true
           done
           echo "pending=$pending" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -112,12 +112,7 @@ jobs:
             fi
             exit "$code"
           }
-          stage eval_gitlab_jev_first2 answered --serve jev --label jev_first
-          stage eval_gitlab_baseline answered --serve baseline
-          stage eval_gitlab_jev answered --serve jev
-          stage eval_gitlab_baseline finished --serve baseline --judge-repeats 3 --cache-pairs
-          stage eval_gitlab_jev finished --serve jev --judge-repeats 3 --cache-pairs \
-            --set CACHE_SIMILARITY_THRESHOLD=0.75 --set JEV_CACHE_VERIFY_FROM=0.75 --set JEV_CACHE_VERIFY_BELOW=1.0
+          stage eval_gitlab_jev_first2 answered --serve jev --label jev_first --rescore
       - name: Server log
         if: failure() && steps.progress.outputs.pending == 'true'
         run: tail -n 200 eval_server.log || true
