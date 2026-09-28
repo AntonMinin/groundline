@@ -70,8 +70,9 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | `JEV_TIMEOUT_MS` | `2000` | timeout for `check_grounding`, which runs after `done` and only delays the badge and the cache write. Measured p95 681 ms |
 | `JEV_PRICE_PER_1M` | `0.042` | USD per 1M input tokens, used to price TypeSafe calls. OpenRouter reports the exact `usage.cost` itself |
 | `JEV_MONTHLY_BUDGET_USD` | `1.5` | monthly cap on Jev spend. Unlike DeepInfra, reaching it skips Jev and keeps answering questions |
-| `JEV_SUFFICIENT_THRESHOLD` | `0.85` | Jev's probability that the fragments are enough, at or above which the answer is generated. Below it the query is rewritten by the LLM and searched again while attempts remain, then answered anyway. The LLM sufficiency check runs only when the Jev call fails |
-| `JEV_RELEVANT_THRESHOLD` | `0.5` | Jev's probability that a fragment is needed for the answer, below which it is left out of the answer prompt. If no fragment reaches it, or a grade is missing, all fragments are kept |
+| `JEV_SUFFICIENT_THRESHOLD` | `0.85` | Jev's probability that the fragments are enough, at or above which the answer is generated without the LLM sufficiency check. Below it, or when Jev fails, the LLM check decides as before and writes the `missing` hint for the rewrite |
+| `JEV_RELEVANT_THRESHOLD` | `0.3` | Jev's probability that a fragment is needed for the answer, below which it is left out of the answer prompt when Jev passed the fragments. A missing grade counts as needed |
+| `JEV_MIN_FRAGMENTS` | `2` | the answer prompt always keeps at least this many of the best-graded fragments |
 | `JEV_CACHE_VERIFY_FROM` | `0.85` | lower end of the range Jev checks. A nearest question between this value and `CACHE_SIMILARITY_THRESHOLD` becomes a hit when Jev says it asks the same thing; if Jev fails it stays a miss, as without Jev |
 | `JEV_CACHE_VERIFY_BELOW` | `0.97` | upper end of the range. A hit from `CACHE_SIMILARITY_THRESHOLD` up to this value is confirmed by Jev before the stored answer is returned; if Jev fails it stays a hit. At or above it the similarity alone decides |
 | `JEV_SAME_QUESTION_THRESHOLD` | `0.5` | Jev's probability that the new and the stored question ask for the same thing, below which a would-be hit becomes a miss |
@@ -91,6 +92,7 @@ Changing `CHUNK_SIZE` or `CHUNK_OVERLAP` only affects documents indexed afterwar
 | `USER_REQUESTS_PER_DAY` | `100` | Groq requests per user per UTC day, checked before every call - 10% of the 1 000-request free tier |
 | `GROQ_RESERVE_TOKENS` | `20000` | a new question (cache miss) is refused while fewer than this many tokens of the shared daily budget are left, so questions already running can finish |
 | `GROQ_RESERVE_REQUESTS` | `20` | the same reserve for requests |
+| `LLM_EXTRA_BODY` | `{}` | JSON merged into every LLM request, for example `{"provider": {"order": ["Groq"], "allow_fallbacks": false}}` to pin the upstream when `LLM_BASE_URL` points at OpenRouter. The evaluation uses it |
 | `LLM_MAX_OUTPUT_TOKENS` | `2048` | `max_tokens` of every LLM call, reasoning included. Bounds what one call can cost, so neither a long answer nor a document asking for one can take a person's whole budget in one go |
 | `UPLOADS_PER_DAY` | `5` | uploads per user in 24 hours, deleted documents included. Bounds the paid embedding cost of delete-and-upload loops |
 | `QUERY_MIN_INTERVAL_SECONDS` | `15` | shortest gap between two questions from one user. `0` disables it |

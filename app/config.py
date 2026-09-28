@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     llm_model: str = "openai/gpt-oss-120b"
     llm_timeout: float = 30.0
     llm_max_output_tokens: int = 2048
+    llm_extra_body: dict = {}
 
     embedding_provider: Literal["local", "api"] = "local"
     embedding_model: str = "BAAI/bge-m3"
@@ -44,7 +45,8 @@ class Settings(BaseSettings):
     jev_price_per_1m: float = 0.042
     jev_monthly_budget_usd: float = 1.5
     jev_sufficient_threshold: float = 0.85
-    jev_relevant_threshold: float = 0.5
+    jev_relevant_threshold: float = 0.3
+    jev_min_fragments: int = 2
     jev_cache_verify_from: float = 0.85
     jev_cache_verify_below: float = 0.97
     jev_same_question_threshold: float = 0.5

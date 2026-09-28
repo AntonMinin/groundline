@@ -308,12 +308,13 @@ async def test_jev_sufficient_answers_with_no_llm_call_but_the_answer(with_jev):
     assert grounding["node"] == "check_grounding" and grounding["jev"]["verdict"] == "supported"
 
 
-async def test_jev_unsure_rewrites_the_query_without_the_llm_check(with_jev):
+async def test_jev_unsure_leaves_the_decision_to_the_llm_check(with_jev):
     calls, state = with_jev
     state["jev"]["jev_sufficiency"] = {"sufficient": {"noul": 0.6}}
+    state["verdicts"] = [False, True]
     await _collect()
-    assert calls["complete"] == ["rewrite_query"] * settings.max_rewrites
-    assert calls["search"] == settings.max_rewrites + 1 and calls["stream"] == 1
+    assert calls["complete"] == ["check_sufficiency", "rewrite_query", "check_sufficiency"]
+    assert calls["search"] == 2 and calls["stream"] == 1
 
 
 async def test_jev_recovers_after_one_rewrite(with_jev, monkeypatch):
@@ -327,8 +328,9 @@ async def test_jev_recovers_after_one_rewrite(with_jev, monkeypatch):
         return state["jev"].get(name)
 
     monkeypatch.setattr(pipeline.jev, "ask", ask)
+    state["verdicts"] = [False]
     await _collect()
-    assert calls["complete"] == ["rewrite_query"] and calls["search"] == 2
+    assert calls["complete"] == ["check_sufficiency", "rewrite_query"] and calls["search"] == 2
     assert len(calls["cached"]) == 1
 
 
@@ -467,17 +469,23 @@ async def test_a_skipped_cache_write_is_reported(with_jev, monkeypatch):
 OTHER = RetrievedChunk(
     id=uuid.uuid4(), document_id=uuid.uuid4(), filename="doc.pdf", chunk_index=9, page=5, content="Lyon has a river."
 )
+THIRD = RetrievedChunk(
+    id=uuid.uuid4(), document_id=uuid.uuid4(), filename="doc.pdf", chunk_index=12, page=7, content="Nice has a beach."
+)
 
 
-@pytest.mark.parametrize("relevance, kept", [((0.9, 0.1), [3]), ((0.1, 0.2), [3, 9]), ((0.9, None), [3, 9])])
+@pytest.mark.parametrize(
+    "relevance, kept",
+    [((0.9, 0.1, 0.35), [3, 12]), ((0.9, 0.1, 0.05), [3, 9]), ((0.9, 0.8, 0.7), [3, 9, 12]), ((0.9, None, 0.1), [3, 9])],
+)
 async def test_jev_sends_only_the_useful_fragments_to_the_answer(with_jev, monkeypatch, relevance, kept):
     calls, state = with_jev
 
-    async def two_chunks(user_id, query, embedding):
+    async def three_chunks(user_id, query, embedding):
         calls["search"] += 1
-        return [CHUNK, OTHER]
+        return [CHUNK, OTHER, THIRD]
 
-    monkeypatch.setattr(pipeline, "hybrid_search", two_chunks)
+    monkeypatch.setattr(pipeline, "hybrid_search", three_chunks)
     answers = {"sufficient": {"noul": 0.95}}
     for number, score in enumerate(relevance, start=1):
         if score is not None:

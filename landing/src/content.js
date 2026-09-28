@@ -64,7 +64,7 @@ export const CONTENT = {
       before: 'Before',
       after: 'With Jev',
       checks: [
-        ['Is the context enough to answer?', 'The LLM on every attempt, reading the question and all five fragments', 'Jev alone, in the same call that grades every fragment; the LLM only when Jev is down. The question is searched as asked and rewritten only when Jev finds the fragments insufficient'],
+        ['Is the context enough to answer?', 'The LLM on every attempt, reading the question and all five fragments', 'Jev, in the same call that grades every fragment; the LLM only when Jev is unsure or down. The first search uses the question as asked, the LLM rewrites it only for a second search'],
         ['Is this the question already in the cache?', 'Embedding similarity alone: 0.90 or more is a hit', 'Jev confirms matches between 0.85 and 0.97: a paraphrase can hit below 0.90, a look-alike that asks something else misses'],
         ['Do the sources back the answer?', 'Not checked: any answer with sufficient context went to the cache', 'Jev grades the answer after it is shown; only supported answers are cached, and the chat shows the verdict'],
       ],
@@ -85,7 +85,7 @@ export const CONTENT = {
       no: 'no',
       verdicts: { supported: 'supported', partially_supported: 'partly supported', unsupported: 'not supported', contradicted: 'contradicted', no_answer: 'no answer' },
       evalTitle: 'Measured with ragas on the GitLab Handbook',
-      evalLede: 'The same 29 questions in the same order with the cache cleared, judged by an independent model. Jev v1 checked with Jev and still asked the LLM whenever Jev was unsure; Jev-first is the current pipeline, where Jev replaces those LLM calls.',
+      evalLede: 'The same 29 questions in the same order with the cache cleared, judged by an independent model. Jev v1 rewrote every question with the LLM before searching; Jev-first is the current pipeline: it searches the question as asked and sends only the fragments the answer needs.',
       evalColumns: { baseline: 'Without Jev', jev: 'Jev v1', jev_first: 'Jev-first (current)' },
       evalRows: {
         faithfulness: 'Faithfulness',
@@ -233,7 +233,7 @@ export const CONTENT = {
       before: 'До',
       after: 'С Jev',
       checks: [
-        ['Хватает ли контекста для ответа?', 'LLM на каждой попытке: вопрос и все пять фрагментов', 'Только Jev, тем же вызовом, что оценивает каждый фрагмент; LLM - лишь если Jev недоступен. Поиск идёт по вопросу как есть, запрос переписывается только когда Jev считает фрагменты недостаточными'],
+        ['Хватает ли контекста для ответа?', 'LLM на каждой попытке: вопрос и все пять фрагментов', 'Jev, тем же вызовом, что оценивает каждый фрагмент; LLM - только если Jev не уверен или недоступен. Первый поиск идёт по вопросу как есть, LLM переписывает запрос только для повторного поиска'],
         ['Это тот же вопрос, что уже есть в кэше?', 'Только сходство эмбеддингов: от 0.90 - попадание', 'Jev подтверждает совпадения от 0.85 до 0.97: перефраз может попасть ниже 0.90, похожий по словам вопрос с другим смыслом - нет'],
         ['Подтверждают ли источники ответ?', 'Не проверялось: в кэш шёл любой ответ при достаточном контексте', 'Jev оценивает ответ после показа; в кэш идут только подтверждённые, а в чате виден вердикт'],
       ],
@@ -254,7 +254,7 @@ export const CONTENT = {
       no: 'нет',
       verdicts: { supported: 'подтверждён', partially_supported: 'частично', unsupported: 'не подтверждён', contradicted: 'противоречит', no_answer: 'нет ответа' },
       evalTitle: 'Замер ragas на GitLab Handbook',
-      evalLede: 'Одни и те же 29 вопросов в одном порядке с очищенным кэшем, оценка независимой моделью. Jev v1 проверял через Jev, но при неуверенности всё равно спрашивал LLM; Jev-first - текущий пайплайн, где Jev заменяет эти вызовы LLM.',
+      evalLede: 'Одни и те же 29 вопросов в одном порядке с очищенным кэшем, оценка независимой моделью. Jev v1 перед поиском переписывал каждый вопрос через LLM; Jev-first - текущий пайплайн: ищет по вопросу как есть и отправляет в ответ только нужные фрагменты.',
       evalColumns: { baseline: 'Без Jev', jev: 'Jev v1', jev_first: 'Jev-first (текущий)' },
       evalRows: {
         faithfulness: 'Faithfulness',

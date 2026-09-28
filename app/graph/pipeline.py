@@ -204,8 +204,9 @@ async def _ask_jev(name: str, jev_state, questions: dict, timeout_ms: int) -> tu
 
 
 def _relevant_chunks(chunks: list[RetrievedChunk], relevance: list[float]) -> list[RetrievedChunk]:
-    kept = [chunk for chunk, score in zip(chunks, relevance) if score >= settings.jev_relevant_threshold]
-    return kept or chunks
+    floor = sorted(relevance, reverse=True)[: settings.jev_min_fragments][-1] if relevance else 0.0
+    threshold = min(settings.jev_relevant_threshold, floor)
+    return [chunk for chunk, score in zip(chunks, relevance) if score >= threshold]
 
 
 async def jev_sufficiency(state: QueryState) -> QueryState:
@@ -240,12 +241,7 @@ async def jev_sufficiency(state: QueryState) -> QueryState:
 
 
 def route_after_jev_sufficiency(state: QueryState) -> str:
-    trace = state.get("jev") or {}
-    if state["sufficient"]:
-        return "generate_answer"
-    if trace.get("failed"):
-        return "check_sufficiency"
-    return "rewrite_query" if state["attempt"] < settings.max_rewrites else "generate_answer"
+    return "generate_answer" if state["sufficient"] else "check_sufficiency"
 
 
 async def check_sufficiency(state: QueryState) -> QueryState:
@@ -457,7 +453,7 @@ def build_graph(with_jev: bool | None = None):
     if with_jev:
         builder.add_edge("rerank", "jev_sufficiency")
         builder.add_conditional_edges(
-            "jev_sufficiency", route_after_jev_sufficiency, ["generate_answer", "check_sufficiency", "rewrite_query"]
+            "jev_sufficiency", route_after_jev_sufficiency, ["generate_answer", "check_sufficiency"]
         )
         builder.add_conditional_edges("record", route_after_record, ["check_grounding", END])
         builder.add_edge("check_grounding", END)

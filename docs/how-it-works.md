@@ -157,20 +157,20 @@ flowchart TD
     C -->|HIT| HIT["stored answer, 0 LLM calls"]
     C -->|MISS| RK["rerank, top 5"]
     RK --> J{"jev_sufficiency (Jev)<br/>enough to answer?<br/>which fragments are needed?"}
-    J -->|"no, attempts left"| W["rewrite_query (LLM)"] --> S[retrieve] --> RK
-    J -->|"Jev failed"| SUF{"check_sufficiency (LLM)"}
-    SUF --> G
-    J -->|"yes, or attempts exhausted"| G["generate_answer (LLM)<br/>only the needed fragments"]
+    J -->|"not sure, or Jev failed"| SUF{"check_sufficiency (LLM)"}
+    SUF -->|"no, attempts left"| W["rewrite_query (LLM)"] --> S[retrieve] --> RK
+    SUF -->|"yes, or attempts exhausted"| G
+    J -->|"yes"| G["generate_answer (LLM)<br/>only the needed fragments"]
     G --> R["record: done is sent"]
     HIT --> R
     R --> GR["check_grounding (Jev)<br/>do the sources back the answer?<br/>badge in the chat; cache only if supported"]
 ```
 
 1. **Is this the question already in the cache?** Embedding similarity alone cannot tell a paraphrase from a look-alike that asks something else. Between 0.85 and 0.97 Jev decides: a paraphrase can hit below 0.90, a look-alike misses.
-2. **Are the fragments enough, and which ones matter?** One Jev call returns the probability that the five fragments answer the question and, for each fragment, the probability that the answer needs it. At or above `JEV_SUFFICIENT_THRESHOLD` the answer is generated from the needed fragments only; below it the LLM rewrites the query and the search runs again. Because this check no longer needs an LLM, the first search uses the question as asked and starts while the cache is still being checked.
+2. **Are the fragments enough, and which ones matter?** One Jev call returns the probability that the five fragments answer the question and, for each fragment, the probability that the answer needs it. At or above `JEV_SUFFICIENT_THRESHOLD` the answer is generated at once, from the fragments Jev graded as needed (at least the best two). Below it the LLM check decides as it does without Jev, so a question Jev is unsure about is answered no worse than before. The first search uses the question as asked and starts while the cache is still being checked; the LLM rewrites the query only for a second search.
 3. **Do the sources back the answer?** After `done`, Jev grades the answer as supported, partly supported, unsupported, contradicted or no answer. The chat shows the verdict, and only supported answers are cached.
 
-An answerable question therefore costs one LLM call instead of three. Every Jev call is fail-open: an error, a timeout or a spent budget sends the pipeline down the path it takes without Jev.
+A question Jev is sure about therefore costs one LLM call instead of three. Every Jev call is fail-open: an error, a timeout or a spent budget sends the pipeline down the path it takes without Jev.
 
 ## Flow 3: you ask something it has seen before
 

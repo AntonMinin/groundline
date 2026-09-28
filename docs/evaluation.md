@@ -63,7 +63,11 @@ Same questions in the same order, cache cleared, `use_cache=false`. The judge is
 
 The baseline was judged three times; the spread of the run means is at most 0.033 (context recall) and about 0.01 for the other metrics, so the quality differences between the two finished runs are within the judge's noise. Jev v1 skipped the LLM sufficiency check on 19 of 29 questions.
 
-Jev v1 asked Jev first and still called the LLM whenever Jev was below the threshold, so it saved about a fifth of the tokens. That was not enough to be worth it, which led to Jev-first: the question is searched as asked, Jev's verdict alone decides whether to answer or rewrite, the same call grades each fragment and only the useful ones reach the answer, and the LLM check runs only when Jev fails. Its run is `eval_gitlab_jev_first` and fills the last column when it finishes.
+Jev v1 rewrote every question with the LLM, asked Jev whether the fragments were enough and still called the LLM whenever Jev was below the threshold, so it saved about a fifth of the tokens. That was not enough to be worth it.
+
+The first Jev-first variant (run `eval_gitlab_jev_first`, label `jev_first_a`, stopped at 17 of 29) went further: the question was searched as asked, Jev's verdict alone decided between answering and rewriting, and fragments below 0.5 were left out of the answer. On those 17 questions it used 2,397 tokens per question against 7,642 without Jev, but answer correctness fell from 0.749 to 0.660. Two causes were visible per question: Jev called the fragments insufficient (0.04) on a question the baseline answered well, and with no LLM check the answer came out empty; and needed secondary fragments graded 0.44-0.58 were dropped.
+
+The current Jev-first keeps what did not cost quality: the first search uses the question as asked, a confident Jev answers without the LLM check, and the answer gets only the fragments Jev graded as needed, now above 0.3 and never fewer than the best two. When Jev is unsure the LLM check decides, as in Jev v1, whose quality matched the baseline. Its run is `eval_gitlab_jev_first2` (label `jev_first`). It calls the same model on the same upstream through OpenRouter (`LLM_EXTRA_BODY` pins Groq) with the capped evaluation key, so the free Groq daily limit no longer stretches a run over a day.
 
 ### Running it
 
