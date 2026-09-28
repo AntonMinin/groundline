@@ -13,4 +13,4 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - run: curl --silent --show-error --max-time 120 --retry 2 -o /dev/null -w "%{http_code} %{time_total}s\n" https://api.groundline.antonmb.com/metrics/live
+      - run: curl --fail --silent --show-error --max-time 120 --retry 3 --retry-all-errors -o /dev/null -w "%{http_code} %{time_total}s\n" https://api.groundline.antonmb.com/metrics/live
