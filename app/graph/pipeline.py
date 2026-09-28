@@ -407,6 +407,7 @@ def _instrumented(name: str, node):
             "tokens": max(result.get("tokens_used", before) - before, 0),
             "tokens_saved": result.get("tokens_saved", 0) if name == "check_cache" else 0,
             "similarity": result.get("cache_similarity") if name == "check_cache" else None,
+            "threshold": settings.cache_similarity_threshold if name == "check_cache" else None,
             "duration_ms": round((time.perf_counter() - started) * 1000),
         }
         if "jev" in result:

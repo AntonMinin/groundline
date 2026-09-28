@@ -15,6 +15,7 @@ function fromMetrics(metrics) {
       tokens: metric.tokens,
       tokensSaved: metric.tokens_saved,
       similarity: metric.similarity,
+      threshold: metric.threshold,
       cacheHit: Boolean(metric.cache_hit),
       jev: metric.jev,
     }
@@ -80,6 +81,7 @@ export default function PipelineDiagram() {
                 tokens: event.tokens,
                 tokensSaved: event.tokens_saved,
                 similarity: event.similarity,
+                threshold: event.threshold,
                 cacheHit: Boolean(event.cache_hit),
                 jev: event.jev,
               },
@@ -125,7 +127,9 @@ export default function PipelineDiagram() {
     if (node !== 'check_cache') return null
     const similarity = run.nodes.check_cache?.similarity
     if (similarity === null || similarity === undefined) return null
-    const values = { similarity: similarity.toFixed(4), threshold: run.threshold ? run.threshold.toFixed(2) : '0.95' }
+    const threshold = run.nodes.check_cache?.threshold ?? run.threshold
+    if (!threshold) return null
+    const values = { similarity: similarity.toFixed(4), threshold: threshold.toFixed(2) }
     if (jev?.same_question !== undefined && !run.cacheHit) return t('pipeline.cacheRejectedNote', { ...values, probability: jev.same_question.toFixed(2) })
     return t(run.cacheHit ? 'pipeline.cacheHitNote' : 'pipeline.cacheNote', values)
   }
