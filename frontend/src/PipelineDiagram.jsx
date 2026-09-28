@@ -119,7 +119,8 @@ export default function PipelineDiagram() {
       })
     }
     if (node === 'check_grounding' && jev?.verdict) {
-      return t('pipeline.groundingNote', { verdict: t(`grounding.${jev.verdict}`), probability: jev.supported.toFixed(2) })
+      const note = t('pipeline.groundingNote', { verdict: t(`grounding.${jev.verdict}`), probability: jev.supported.toFixed(2) })
+      return jev.cache ? `${note}, ${t(`pipeline.cacheWrite.${jev.cache}`, { threshold: jev.threshold })}` : note
     }
     if (node !== 'check_cache') return null
     const similarity = run.nodes.check_cache?.similarity

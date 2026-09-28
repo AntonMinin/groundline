@@ -297,7 +297,7 @@ async def test_jev_sufficient_answers_with_no_llm_call_but_the_answer(with_jev):
         ("check_grounding", settings.jev_timeout_ms),
     ]
     assert [event["type"] for event in events[-2:]] == ["done", "grounding"]
-    assert events[-1] == {"type": "grounding", "verdict": "supported", "supported": 0.9, "confidence": 0.8}
+    assert events[-1] == {"type": "grounding", "verdict": "supported", "supported": 0.9, "confidence": 0.8, "cache": "cached"}
     assert calls["recorded"][0]["cache_embedding"] is None
     assert len(calls["cached"]) == 1 and calls["cached"][0]["answer"] == "Paris [1]"
     metrics = {metric["node"]: metric for metric in calls["recorded"][0]["node_metrics"]}
@@ -350,7 +350,7 @@ async def test_unsupported_answer_is_not_cached(with_jev):
         "grounding": {"choice": "unsupported", "probabilities": {"supported": 0.1, "unsupported": 0.9}, "confidence": 0.7}
     }
     events = await _collect()
-    assert events[-1]["verdict"] == "unsupported"
+    assert events[-1]["verdict"] == "unsupported" and events[-1]["cache"] == "not_supported"
     assert calls["cached"] == []
 
 
@@ -359,7 +359,7 @@ async def test_insufficient_answer_is_graded_but_not_cached(with_jev):
     state["jev"]["jev_sufficiency"] = {"sufficient": {"noul": 0.1}}
     state["verdicts"] = [False, False, False]
     events = await _collect()
-    assert events[-1]["type"] == "grounding"
+    assert events[-1]["type"] == "grounding" and events[-1]["cache"] == "insufficient"
     assert calls["cached"] == []
 
 

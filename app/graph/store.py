@@ -189,6 +189,10 @@ async def query_stats(user_id: UUID) -> dict:
 
 LLM_NODES = ("rewrite_query", "check_sufficiency", "generate_answer")
 LIVE_WINDOW = 1000
+RECENT_QUESTIONS = 10
+RECENT_FIELDS = (
+    "cache_hit", "cache_similarity", "jev_sufficient", "llm_calls", "llm_tokens", "answer_ms", "grounding", "supported", "cache_write"
+)
 JEV_FIRST_SINCE = datetime(2026, 9, 27, 16, 30, tzinfo=UTC)
 
 
@@ -197,6 +201,8 @@ def question_facts(row: QueryMetric) -> dict:
     before_done = [metric for metric in nodes if metric.get("node") != "check_grounding"]
     jev_calls = [metric["jev"] for metric in nodes if "latency_ms" in (metric.get("jev") or {})]
     grounding = next((metric.get("jev") for metric in nodes if metric.get("node") == "check_grounding"), None) or {}
+    lookup = next((metric for metric in nodes if metric.get("node") == "check_cache"), {})
+    sufficiency = next((metric.get("jev") for metric in nodes if metric.get("node") == "jev_sufficiency"), None) or {}
     node_ms: dict[str, int] = {}
     for metric in nodes:
         node_ms[metric.get("node")] = node_ms.get(metric.get("node"), 0) + metric.get("duration_ms", 0)
@@ -209,6 +215,10 @@ def question_facts(row: QueryMetric) -> dict:
         "jev_calls": len(jev_calls),
         "jev_ms": sum(call["latency_ms"] for call in jev_calls),
         "grounding": grounding.get("verdict"),
+        "supported": grounding.get("supported"),
+        "cache_write": grounding.get("cache"),
+        "cache_similarity": lookup.get("similarity"),
+        "jev_sufficient": sufficiency.get("sufficient"),
     }
 
 
@@ -220,7 +230,7 @@ def _mean(values: list) -> float | None:
 def summarize_live(rows: list[QueryMetric], jev_cost_per_question: float | None) -> dict:
     facts = [question_facts(row) for row in rows]
     if not facts:
-        return {"questions": 0, "average": None, "last": None}
+        return {"questions": 0, "average": None, "last": None, "recent": []}
     graded = [fact["grounding"] for fact in facts if fact["grounding"]]
     misses = [fact for fact in facts if not fact["cache_hit"]]
     names = sorted({name for fact in misses for name in fact["node_ms"]})
@@ -234,7 +244,16 @@ def summarize_live(rows: list[QueryMetric], jev_cost_per_question: float | None)
         "jev_cost_usd": jev_cost_per_question,
         "node_ms": {name: _mean([fact["node_ms"].get(name, 0) for fact in misses]) for name in names},
     }
-    return {"questions": len(facts), "average": average, "last": {**facts[0], "at": rows[0].created_at.isoformat()}}
+    recent = [
+        {key: fact[key] for key in RECENT_FIELDS} | {"at": row.created_at.isoformat()}
+        for fact, row in zip(facts[:RECENT_QUESTIONS], rows)
+    ]
+    return {
+        "questions": len(facts),
+        "average": average,
+        "last": {**facts[0], "at": rows[0].created_at.isoformat()},
+        "recent": recent,
+    }
 
 
 async def live_metrics() -> dict:

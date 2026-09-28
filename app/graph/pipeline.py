@@ -361,7 +361,11 @@ async def check_grounding(state: QueryState, writer: StreamWriter) -> QueryState
         )
     verdict = answers["grounding"] if answers else None
     supported = verdict["probabilities"].get("supported", 0.0) if verdict else None
-    if _cacheable(state) and (supported is None or supported >= settings.jev_grounded_threshold):
+    if not _cacheable(state):
+        cache = "insufficient"
+    elif supported is not None and supported < settings.jev_grounded_threshold:
+        cache = "not_supported"
+    else:
         cached = await asyncio.shield(
             store.cache_answer(
                 user_id=state["user_id"],
@@ -373,18 +377,19 @@ async def check_grounding(state: QueryState, writer: StreamWriter) -> QueryState
                 documents_version=state.get("documents_version", 0),
             )
         )
+        cache = "cached" if cached else "documents_changed"
         if not cached:
             _cache_write_skipped(state)
     if verdict is None:
-        return {"jev": trace} if trace else {}
+        return {"jev": {**trace, "cache": cache}}
     grounding = {
         "verdict": verdict["choice"],
         "supported": round(supported, 4),
         "confidence": round(verdict["confidence"], 4),
     }
     get_client().score_current_trace(name="jev_supported", value=supported, data_type="NUMERIC")
-    writer({"type": "grounding", **grounding})
-    return {"jev": {**trace, **grounding}}
+    writer({"type": "grounding", **grounding, "cache": cache})
+    return {"jev": {**trace, **grounding, "cache": cache, "threshold": settings.jev_grounded_threshold}}
 
 
 def _instrumented(name: str, node):

@@ -26,7 +26,7 @@ WITH_JEV = [
     {"node": "check_cache", "duration_ms": 100},
     {"node": "jev_sufficiency", "duration_ms": 300, "jev": {"latency_ms": 280, "passed": True}},
     {"node": "generate_answer", "duration_ms": 800},
-    {"node": "check_grounding", "duration_ms": 250, "jev": {"latency_ms": 240, "verdict": "supported"}},
+    {"node": "check_grounding", "duration_ms": 250, "jev": {"latency_ms": 240, "verdict": "supported", "cache": "cached"}},
 ]
 
 
@@ -42,7 +42,8 @@ def test_averages_skip_cache_hits_for_time_and_the_last_question_comes_first():
     assert summary["average"]["jev_ms"] == 520 and summary["average"]["supported"] == 1.0
     assert summary["average"]["node_ms"]["generate_answer"] == 800 and summary["average"]["node_ms"]["check_cache"] == 100
     assert summary["last"]["llm_calls"] == 1 and summary["last"]["grounding"] == "supported"
-    assert store.summarize_live([], None) == {"questions": 0, "average": None, "last": None}
+    assert summary["recent"][0]["cache_write"] == "cached" and summary["recent"][1]["cache_hit"] is True
+    assert store.summarize_live([], None) == {"questions": 0, "average": None, "last": None, "recent": []}
 
 
 def test_baseline_counts_every_llm_call():
