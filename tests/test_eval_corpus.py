@@ -64,3 +64,26 @@ def test_stages_follow_the_run_through_answers_repeats_and_pairs(tmp_path):
         run.update(rows=[{"score_runs": [{}] * repeats}] * rows_done, cache_pairs=pairs, complete=complete)
         path.write_text(json.dumps(run), encoding="utf-8")
         assert (stage.reached(path, "answered"), stage.reached(path, "finished")) == expected
+
+
+def test_the_results_table_fills_the_jev_first_column_once_its_run_exists(tmp_path):
+    from app.eval import report
+
+    def run(tokens: int, jev: bool) -> dict:
+        latency = {"calls": 2, "p50_ms": 280, "p95_ms": 360} if jev else {"calls": 0, "p50_ms": None, "p95_ms": None}
+        every = {"questions": 2, "faithfulness": 0.9, "answer_correctness": 0.75, "context_precision": 0.8,
+                 "context_recall": 0.85, "groq_calls": 2, "groq_tokens": tokens}
+        return {"rows": [{}, {}], "total_questions": 2, "jev_cost_usd": 0.0004 if jev else None,
+                "summary": {"all": every, "jev_latency": {"critical": latency}}}
+
+    document = tmp_path / "evaluation.md"
+    document.write_text(f"intro\n{report.START}\nold\n{report.END}\nafter\n", encoding="utf-8")
+    (tmp_path / "eval_gitlab_baseline.json").write_text(json.dumps(run(8000, False)), encoding="utf-8")
+    assert report.publish(document, tmp_path)
+    assert "| LLM tokens per question | 4,000 | pending | pending |" in document.read_text(encoding="utf-8")
+    (tmp_path / "eval_gitlab_jev_first2.json").write_text(json.dumps(run(3000, True)), encoding="utf-8")
+    assert report.publish(document, tmp_path)
+    text = document.read_text(encoding="utf-8")
+    assert "| Jev decisions on the answer path, p50 / p95 | - | pending | 280 / 360 ms |" in text
+    assert text.startswith("intro\n") and text.endswith("after\n")
+    assert not report.publish(document, tmp_path)

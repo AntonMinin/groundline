@@ -21,6 +21,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 340
+    permissions:
+      contents: write
     services:
       postgres:
         image: pgvector/pgvector:pg17
@@ -115,6 +117,19 @@ jobs:
             exit "$code"
           }
           stage eval_gitlab_jev_first2 answered --serve jev --label jev_first --rescore
+      - name: Publish the results in docs/evaluation.md
+        run: |
+          python3 app/eval/stage.py eval_gitlab_jev_first2.json answered || { echo "Jev-first is not finished yet"; exit 0; }
+          for run in eval_gitlab_baseline eval_gitlab_jev; do
+            curl --fail --silent --show-error -o "$run.json" -H "Authorization: Bearer $EVAL_WRITE_TOKEN" "$EVAL_SYNC_URL/eval/runs/$run"
+          done
+          python3 app/eval/report.py docs/evaluation.md .
+          git diff --quiet -- docs/evaluation.md && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fill in the jev-first evaluation results" -- docs/evaluation.md
+          git pull --rebase origin main
+          git push origin HEAD:main
       - name: Server log
         if: failure() && steps.progress.outputs.pending == 'true'
         run: tail -n 200 eval_server.log || true

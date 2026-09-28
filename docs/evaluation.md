@@ -50,6 +50,9 @@ Same questions in the same order, cache cleared, `use_cache=false`. The judge is
 
 ### Results
 
+The table is filled in by the evaluation workflow from the stored runs; the Jev-first column updates itself when that run has answered all questions.
+
+<!-- results:start -->
 | | Without Jev | Jev v1 | Jev-first |
 | --- | --- | --- | --- |
 | Faithfulness | 0.876 | 0.861 | pending |
@@ -60,6 +63,8 @@ Same questions in the same order, cache cleared, `use_cache=false`. The judge is
 | LLM tokens per question | 8,495 | 6,748 | pending |
 | Jev decisions on the answer path, p50 / p95 | - | 282 / 361 ms | pending |
 | Jev cost for 29 questions | - | $0.011 | pending |
+| Questions answered | 29 of 29 | 29 of 29 | pending |
+<!-- results:end -->
 
 The baseline was judged three times; the spread of the run means is at most 0.033 (context recall) and about 0.01 for the other metrics, so the quality differences between the two finished runs are within the judge's noise. Jev v1 skipped the LLM sufficiency check on 19 of 29 questions.
 
