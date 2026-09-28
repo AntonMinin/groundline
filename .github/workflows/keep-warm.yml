@@ -1,4 +1,4 @@
-name: Keep API warm
+name: Keep API and database warm
 
 on:
   schedule:
@@ -13,4 +13,4 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - run: curl --silent --show-error --max-time 120 --retry 2 -o /dev/null -w "%{http_code} %{time_total}s\n" https://api.groundline.antonmb.com/health
+      - run: curl --silent --show-error --max-time 120 --retry 2 -o /dev/null -w "%{http_code} %{time_total}s\n" https://api.groundline.antonmb.com/metrics/live
