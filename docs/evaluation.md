@@ -55,15 +55,15 @@ The table is filled in by the evaluation workflow from the stored runs; the Jev-
 <!-- results:start -->
 | | Without Jev | Jev v1 | Jev-first |
 | --- | --- | --- | --- |
-| Faithfulness | 0.876 | 0.861 | pending |
-| Answer correctness | 0.739 | 0.748 | pending |
-| Context precision | 0.864 | 0.861 | pending |
-| Context recall | 0.874 | 0.862 | pending |
-| LLM calls per question | 3.83 | 3.03 | pending |
-| LLM tokens per question | 8,495 | 6,748 | pending |
-| Jev decisions on the answer path, p50 / p95 | - | 282 / 361 ms | pending |
-| Jev cost for 29 questions | - | $0.011 | pending |
-| Questions answered | 29 of 29 | 29 of 29 | pending |
+| Faithfulness | 0.876 | 0.861 | 0.881 |
+| Answer correctness | 0.739 | 0.748 | 0.746 |
+| Context precision | 0.864 | 0.861 | 0.874 |
+| Context recall | 0.874 | 0.862 | 0.856 |
+| LLM calls per question | 3.83 | 3.03 | 2.45 |
+| LLM tokens per question | 8,495 | 6,748 | 6,268 |
+| Jev decisions on the answer path, p50 / p95 | - | 282 / 361 ms | 260 / 383 ms |
+| Jev cost for 29 questions | - | $0.011 | $0.015 |
+| Questions answered | 29 of 29 | 29 of 29 | 29 of 29 |
 <!-- results:end -->
 
 The baseline was judged three times; the spread of the run means is at most 0.033 (context recall) and about 0.01 for the other metrics, so the quality differences between the two finished runs are within the judge's noise. Jev v1 skipped the LLM sufficiency check on 19 of 29 questions.
