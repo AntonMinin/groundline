@@ -177,3 +177,13 @@ async def test_ingest_is_blocked_when_the_deepinfra_budget_is_spent(client, make
     )
     assert response.status_code == 429
     assert "DeepInfra" in response.json()["detail"]
+
+
+async def test_paid_apis_switch_blocks_paid_quotas_only(clean_counters, monkeypatch):
+    monkeypatch.setattr(settings, "paid_apis_enabled", False)
+    monkeypatch.setattr(settings, "jev_enabled", True)
+    with pytest.raises(limits.LimitExceeded):
+        await limits.ensure("jev.spend_per_month")
+    await limits.ensure("groq.requests_per_day")
+    monkeypatch.setattr(settings, "paid_apis_enabled", True)
+    await limits.ensure("jev.spend_per_month")

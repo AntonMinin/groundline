@@ -236,6 +236,8 @@ def applies(quota: Quota) -> bool:
 
 
 def limit_of(quota: Quota) -> float | None:
+    if quota.paid and not settings.paid_apis_enabled:
+        return 0.0
     if quota.key == "deepinfra.spend_per_month":
         return settings.deepinfra_monthly_budget_usd
     if quota.key == "jev.spend_per_month":

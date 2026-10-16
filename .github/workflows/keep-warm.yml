@@ -3,21 +3,21 @@ name: Keep API and database warm
 on:
   schedule:
     - cron: "*/10 * * * *"
-    - cron: "17 3 * * 1"
+    - cron: "17 3 * * *"
   workflow_dispatch:
 
 permissions: {}
 
 jobs:
   ping:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (vars.KEEP_WARM == 'true' || github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * *')
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
       - run: curl --fail --silent --show-error --max-time 120 --retry 3 --retry-all-errors -o /dev/null -w "%{http_code} %{time_total}s\n" https://api.groundline.antonmb.com/metrics/live
 
   keep-schedules-enabled:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * 1')
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * *')
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:

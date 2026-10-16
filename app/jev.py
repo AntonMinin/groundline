@@ -37,7 +37,7 @@ def _api_key(name: str) -> str:
 
 
 def enabled() -> bool:
-    if not settings.jev_enabled:
+    if not settings.jev_enabled or not settings.paid_apis_enabled:
         return False
     if not _api_key(provider()):
         _warn_once("no-key", "JEV_ENABLED=true but no API key for Jev is set, Jev stays off")

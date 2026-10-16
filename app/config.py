@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     dev_mode: bool = False
+    paid_apis_enabled: bool = False
 
     database_url: str = "postgresql+asyncpg://groundline_app:groundline_app@localhost:5433/groundline"
     migration_database_url: str = ""

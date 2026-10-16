@@ -68,7 +68,7 @@ async def test_matching_limit_leaves_no_finding(telegram, pricing_page):
     assert telegram == []
 
 
-async def test_changed_limit_is_flagged_and_alerted_but_not_applied(telegram, pricing_page):
+async def test_changed_limit_is_flagged_but_neither_alerted_nor_applied(telegram, pricing_page):
     quota = limits.REGISTRY["resend.emails_per_day"]
     pricing_page(50, quote="50 emails a day on the free plan")
     assert await limits_check.check_quota(quota) == 50
@@ -76,17 +76,7 @@ async def test_changed_limit_is_flagged_and_alerted_but_not_applied(telegram, pr
     assert limits.limit_of(quota) == 100
     finding = limits.findings()["resend.emails_per_day"]
     assert finding["found"] == 50 and "50 emails" in finding["quote"]
-    assert len(telegram) == 1
-    assert "Resend" in telegram[0] and "100" in telegram[0] and "50" in telegram[0]
-    assert quota.pricing_url in telegram[0]
-
-
-async def test_outdated_alert_is_not_repeated_within_a_day(telegram, pricing_page):
-    quota = limits.REGISTRY["resend.emails_per_day"]
-    pricing_page(50)
-    await limits_check.check_quota(quota)
-    await limits_check.check_quota(quota)
-    assert len(telegram) == 1
+    assert telegram == []
 
 
 async def test_unreadable_page_changes_nothing(telegram, monkeypatch):

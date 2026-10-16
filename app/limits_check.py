@@ -80,7 +80,7 @@ async def check_quota(quota: limits.Quota) -> float | None:
         limits.mark_outdated(quota.key, None)
         return found
     limits.mark_outdated(quota.key, found, quote)
-    await alerts.limit_outdated(quota.key, quota.service, quota.title, configured, found, quota.pricing_url)
+    alerts.limit_outdated(quota.key, configured, found, quota.pricing_url)
     return found
 
 

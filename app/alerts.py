@@ -49,19 +49,8 @@ def _amount(value: float, unit: str) -> str:
     return f"${value:,.2f}" if unit == "usd" else f"{value:,.0f} {unit}"
 
 
-async def limit_outdated(key: str, service: str, title: str, configured: float, found: float, url: str) -> None:
-    message = (
-        f"Groundline: limit for {service} ({title}) may be outdated\n"
-        f"in config: {configured:,.0f}\n"
-        f"on the pricing page: {found:,.0f}\n"
-        f"{url}\n"
-        f"The application keeps using the configured value, change it by hand if the page is right."
-    )
-    log.warning(
-        "Limit for %s looks outdated: config=%s page=%s (%s)", key, configured, found, url
-    )
-    if not _throttled(key, "outdated"):
-        await send(message)
+def limit_outdated(key: str, configured: float, found: float, url: str) -> None:
+    log.warning("Limit for %s looks outdated: config=%s page=%s (%s)", key, configured, found, url)
 
 
 async def quota_consumed(key: str, service: str, title: str, used: float, limit: float, unit: str, resets: str) -> None:

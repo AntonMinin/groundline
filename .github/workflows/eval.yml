@@ -18,7 +18,7 @@ env:
 
 jobs:
   eval:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && vars.PAID_APIS_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 340
     permissions:
@@ -44,6 +44,7 @@ jobs:
       COOKIE_SECURE: "false"
       LANGFUSE_TRACING_ENABLED: "false"
       PYTHONUTF8: "1"
+      PAID_APIS_ENABLED: "true"
       GROQ_API_KEY: ${{ secrets.EVAL_GROQ_API_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.EVAL_OPENROUTER_API_KEY }}
       EVAL_WRITE_TOKEN: ${{ secrets.EVAL_WRITE_TOKEN }}

@@ -7,6 +7,7 @@ Everything is read from the environment (or a `.env` file) by `app/config.py`. S
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `JWT_SECRET` | - (required, ≥ 32 chars) | signs session tokens and HMACs OTP codes. Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Changing it invalidates every session and every pending login code |
+| `PAID_APIS_ENABLED` | `false` | kill switch for everything billed: Jev is skipped and API embeddings (DeepInfra) answer with a limit error, so with `EMBEDDING_PROVIDER=api` uploads and questions stop. Turn on in the Render environment. Evals in Actions follow the `PAID_APIS_ENABLED` repository variable instead |
 | `DEV_MODE` | `false` | when `true` and `RESEND_API_KEY` is empty, login codes are written to the log instead of emailed. Never enable in production |
 | `DATABASE_URL` | local app role | runtime connection. Must be a role **without** `BYPASSRLS`, otherwise tenant isolation falls back to application filters alone |
 | `MIGRATION_DATABASE_URL` | - | owner connection used by Alembic. Set only where migrations run - the CI `migrate` job, the compose `migrate` service, a developer shell - never on the web service. The service checks the schema version at start-up and refuses to start when the database is behind the code |
