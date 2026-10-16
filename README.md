@@ -41,6 +41,16 @@ UI on http://localhost:5173, API docs on http://localhost:8000/docs. The first s
 
 Running the backend and frontend on the host, tests and evaluation: see [Development](docs/development.md).
 
+## Production switches
+
+All off by default. Set to `true` to turn on, unset or anything else keeps them off.
+
+| Switch | Where | What it does |
+| --- | --- | --- |
+| `KEEP_WARM` | GitHub → Settings → Secrets and variables → Actions → Variables | pings the API every 10 minutes so Render does not put it to sleep. Without it the API is pinged once a day, enough to keep Supabase from pausing |
+| `PAID_APIS_ENABLED` | Render → Environment | allows billed APIs: Jev and DeepInfra embeddings. Off, Jev is skipped and uploads and questions answer with a limit error, since production embeds through DeepInfra |
+| `PAID_APIS_ENABLED` | GitHub → Actions → Variables | lets the scheduled evaluation run (OpenRouter judge and Jev) |
+
 ## Documentation
 
 | Document | What is inside |
